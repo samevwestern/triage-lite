@@ -1,0 +1,52 @@
+{
+  "apps": {
+    "triage-lite": {
+      "id": "triage-lite",
+      "name": "Triage Lite",
+      "bundleId": "com.mdex.triagelite",
+      "accentColor": "#DF5504",
+      "apiEndpoint": "https://api.triage.mdex.com",
+      "features": {
+        "guestMode": true,
+        "pomodoro": true,
+        "haptics": true
+      }
+    },
+    "bobs-bags": {
+      "id": "bobs-bags",
+      "name": "Bob's Bags Mobile",
+      "bundleId": "com.mdex.bobsbags.mobile",
+      "accentColor": "#10B981",
+      "apiEndpoint": "https://api.bobsbags.mdex.com",
+      "features": {
+        "guestMode": true,
+        "pomodoro": false,
+        "haptics": true
+      }
+    },
+    "docai-mobile": {
+      "id": "docai-mobile",
+      "name": "DocAI Workspace",
+      "bundleId": "com.mdex.docai.mobile",
+      "accentColor": "#3B82F6",
+      "apiEndpoint": "https://api.docai.mdex.com",
+      "features": {
+        "guestMode": false,
+        "pomodoro": false,
+        "haptics": true
+      }
+    },
+    "nexus-workspace": {
+      "id": "nexus-workspace",
+      "name": "Nexus Workspace",
+      "bundleId": "com.mdex.nexus.workspace",
+      "accentColor": "#8B5CF6",
+      "apiEndpoint": "https://api.nexus.mdex.com",
+      "features": {
+        "guestMode": true,
+        "pomodoro": true,
+        "haptics": true
+      }
+    }
+  }
+}

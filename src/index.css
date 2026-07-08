@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Brutalist Styling matching MDEx Theme system */
+@layer base {
+  :root {
+    --accent-color: #DF5504; /* Default accent color, dynamically overridden by App Factory configuration */
+  }
+
+  body {
+    background-color: #0B0C10;
+    color: #C5C6C7;
+    /* iOS Momentum scrolling */
+    -webkit-overflow-scrolling: touch;
+    /* Disable long press context menus on iOS */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* iOS Safe Area Utilities */
+  .ios-safe-top {
+    padding-top: env(safe-area-inset-top, 20px);
+  }
+
+  .ios-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Brutalist Container styling */
+  .brutal-card {
+    background-color: #1F2833;
+    border: 3px solid #000000;
+    box-shadow: 4px 4px 0px #000000;
+    transition: all 0.15s ease-out;
+  }
+
+  .brutal-card:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px #000000;
+  }
+
+  .brutal-btn {
+    background-color: var(--accent-color, #DF5504);
+    color: #FFFFFF;
+    border: 3px solid #000000;
+    box-shadow: 4px 4px 0px #000000;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.1s ease;
+  }
+
+  .brutal-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px #000000;
+  }
+
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0B0C10;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1F2833;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color, #DF5504);
+  }
+}
