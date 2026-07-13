@@ -126,6 +126,74 @@ export default function App() {
     }
   };
 
+  const startDictation = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToast("⚠️ Speech recognition not supported on this browser!");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript && transcript.trim() !== '') {
+          const newLog = {
+            id: 'log-' + Date.now(),
+            timestamp: Date.now(),
+            text: transcript.trim()
+          };
+          setVoiceLogs(prev => [newLog, ...prev]);
+          showToast("🎙️ Captured Voice Reflection!");
+        }
+      };
+
+      recognition.onerror = (e: any) => {
+        console.error("[WebSpeech] Recognition error", e);
+        showToast("⚠️ Speech recognition failed!");
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
+    } catch (e) {
+      console.error("[WebSpeech] Initiation failed", e);
+      showToast("⚠️ Failed to start speech engine");
+      setIsRecording(false);
+    }
+  };
+
+  const dispatchLogToCard = (logId: string, cardId: string) => {
+    const log = voiceLogs.find(l => l.id === logId);
+    if (!log) return;
+
+    setCards(prevCards => prevCards.map(card => {
+      if (card.id === cardId) {
+        const timeStr = new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const annotation = `🎙️ [Voice Log - ${timeStr}] ${log.text}`;
+        return {
+          ...card,
+          description: card.description ? `${card.description}\n\n${annotation}` : annotation
+        };
+      }
+      return card;
+    }));
+
+    // Mark as assigned/dispatched
+    setVoiceLogs(prev => prev.map(l => l.id === logId ? { ...l, assignedCardId: cardId } : l));
+    showToast("📤 Dispatched Voice Log to Card!");
+  };
+
   const scheduleLocalAlarm = async (card: Card) => {
     if (!card.dueDate) return;
     try {
@@ -249,6 +317,16 @@ export default function App() {
   const [calendarRangeDays, setCalendarRangeDays] = useState<number>(30);
   const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage'>('all');
   const [isCalendarLoading, setIsCalendarLoading] = useState<boolean>(false);
+
+  // Verbal Diary States
+  const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+  const [voiceLogs, setVoiceLogs] = useState<{
+    id: string;
+    timestamp: number;
+    text: string;
+    assignedCardId?: string;
+  }[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -676,17 +754,30 @@ export default function App() {
               ＋
             </button>
 
-            <button
-              onClick={async () => {
-                await triggerHaptic();
-                setIsCalendarAgendaOpen(true);
-                await fetchUpcomingCalendarEvents(calendarRangeDays);
-              }}
-              className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
-              title="Calendar Agenda"
-            >
-              📅
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsCalendarAgendaOpen(true);
+                  await fetchUpcomingCalendarEvents(calendarRangeDays);
+                }}
+                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
+                title="Calendar Agenda"
+              >
+                📅
+              </button>
+
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsDiaryOpen(true);
+                }}
+                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
+                title="Verbal Diary"
+              >
+                📔
+              </button>
+            </div>
           </div>
 
           {/* HORIZONTAL SWIPE BOARD CONTAINER */}
@@ -2637,6 +2728,157 @@ export default function App() {
                 onClick={async () => {
                   await triggerHaptic();
                   setIsCalendarAgendaOpen(false);
+                }}
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📔 VERBAL DIARY & CARD DISPATCH POPUP MODAL */}
+      {isDiaryOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+                📔 Verbal Diary Journal
+              </span>
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsDiaryOpen(false);
+                }}
+                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Microphone Dictation Action Panel */}
+            <div className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-4 rounded flex flex-col items-center gap-3 flex-shrink-0">
+              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Voice Dictation Journal</span>
+              
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  if (!isRecording) {
+                    startDictation();
+                  }
+                }}
+                disabled={isRecording}
+                className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-[0px_0px_0px_0px_#000] transition-all ${
+                  isRecording 
+                    ? 'bg-red-600 text-white animate-pulse border-2 border-white' 
+                    : 'bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 text-white border border-black'
+                }`}
+              >
+                🎙️
+              </button>
+
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${isRecording ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}>
+                {isRecording ? '🔴 Listening... Speak Now' : '🎙️ Tap to Dictate Daily Note'}
+              </span>
+            </div>
+
+            {/* Scrollable Diary Feed List */}
+            <div className="flex-grow overflow-y-auto pr-1">
+              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black block mb-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1">Today's Verbal Timeline</span>
+
+              {voiceLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                  <span className="text-2xl">✍️</span>
+                  <span className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">Your diary is completely empty.</span>
+                  <span className="text-[9px] text-gray-500 uppercase">Tap the mic to record your thoughts!</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {voiceLogs.map((evt) => {
+                    const start = new Date(evt.timestamp);
+                    const isAssigned = !!evt.assignedCardId;
+                    const assignedCard = cards.find(c => c.id === evt.assignedCardId);
+
+                    return (
+                      <div
+                        key={evt.id}
+                        className={`p-3 bg-black/20 rounded border transition-all ${
+                          isAssigned
+                            ? 'border-[var(--color-dark-tertiary,#3D3D3D)]/40 opacity-75'
+                            : 'border-[var(--color-accent,#DF5504)]/40 border-l-4 border-l-[var(--color-accent,#DF5504)]'
+                        }`}
+                      >
+                        {/* Header Details */}
+                        <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/20">
+                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                            🕒 {start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          
+                          {/* Dispatcher Dropdown Select box */}
+                          <div className="flex items-center gap-1.5">
+                            {isAssigned && assignedCard ? (
+                              <span className="text-[8px] bg-green-950/60 border border-green-800 text-green-400 font-bold uppercase px-1.5 py-0.5 rounded tracking-wider">
+                                📥 Dispatched
+                              </span>
+                            ) : (
+                              <select
+                                onChange={async (e) => {
+                                  const cardId = e.target.value;
+                                  if (cardId) {
+                                    await triggerHaptic();
+                                    dispatchLogToCard(evt.id, cardId);
+                                    e.target.value = ''; // Reset select box index
+                                  }
+                                }}
+                                className="bg-black/80 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 text-white font-mono text-[8px] uppercase font-bold px-1.5 py-0.5 rounded cursor-pointer max-w-[100px] outline-none"
+                              >
+                                <option value="">📤 Dispatch</option>
+                                {lists.map(list => {
+                                  const listCards = cards.filter(c => c.listId === list.id);
+                                  if (listCards.length === 0) return null;
+                                  return (
+                                    <optgroup key={list.id} label={list.name.toUpperCase()} className="bg-black text-gray-500 font-bold text-[8px]">
+                                      {listCards.map(card => (
+                                        <option key={card.id} value={card.id} className="text-white bg-black">
+                                          {card.title.substring(0, 16)}{card.title.length > 16 ? '...' : ''}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  );
+                                })}
+                              </select>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Transcribed Text */}
+                        <p className="text-white text-[10px] leading-relaxed font-bold">
+                          "{evt.text}"
+                        </p>
+
+                        {/* Target task indicator */}
+                        {isAssigned && assignedCard && (
+                          <div className="text-[8px] text-green-400/80 mt-1 flex items-center gap-1 font-bold">
+                            <span>↪️</span>
+                            <span className="truncate">Sent to: "{assignedCard.title}"</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsDiaryOpen(false);
                 }}
                 className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
               >
