@@ -52,6 +52,10 @@ export interface Card {
   completedAt?: number | null;
   attachments?: FileAttachment[];
   resources?: ResourceCitation[];
+  notifyInApp?: boolean;
+  notifyLocalPanel?: boolean;
+  notifyCalendarAlarm?: boolean;
+  notifyEmailReminder?: boolean;
 }
 
 interface List {
@@ -199,6 +203,20 @@ export default function App() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskText, setEditingTaskText] = useState('');
   const [inlineNewTaskText, setInlineNewTaskText] = useState('');
+  
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const formatTimestampToDatetimeLocal = (timestamp: number | null | undefined) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
+  };
   
   // Phase 2: Standalone Paid App Architecture (Remove Guest Walls)
   const [isConnected, setIsConnected] = useState(false);
@@ -1578,31 +1596,141 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Date Row */}
+              {/* Date Row (Datetime-Local upgrade) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Due Date</label>
+                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Due Date & Time</label>
                   <input 
-                    type="date"
-                    value={selectedCardForEdit.dueDate ? new Date(selectedCardForEdit.dueDate).toISOString().split('T')[0] : ''}
+                    type="datetime-local"
+                    value={formatTimestampToDatetimeLocal(selectedCardForEdit.dueDate)}
                     onChange={(e) => {
                       const parsed = e.target.value ? Date.parse(e.target.value) : null;
                       setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: parsed });
                     }}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded"
+                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded focus:border-[var(--color-accent,#DF5504)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Completion Date</label>
+                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Completion Date & Time</label>
                   <input 
-                    type="date"
-                    value={selectedCardForEdit.completedAt ? new Date(selectedCardForEdit.completedAt).toISOString().split('T')[0] : ''}
+                    type="datetime-local"
+                    value={formatTimestampToDatetimeLocal(selectedCardForEdit.completedAt)}
                     onChange={(e) => {
                       const parsed = e.target.value ? Date.parse(e.target.value) : null;
                       setSelectedCardForEdit({ ...selectedCardForEdit, completedAt: parsed });
                     }}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded"
+                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded focus:border-[var(--color-accent,#DF5504)]"
                   />
+                </div>
+              </div>
+
+              {/* 🔔 NOTIFICATION & ALERT STUDIO */}
+              <div className="border border-[var(--color-accent,#DF5504)]/40 bg-[var(--color-dark-bg,#282828)] p-3 rounded font-mono text-xs mt-2 shadow-[2px_2px_0px_0px_rgba(223,85,4,0.15)]">
+                <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2 mb-2">
+                  <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-1">
+                    🔔 Notification & Alert Studio
+                  </span>
+                  <span className="text-[9px] text-gray-500 uppercase">Alert Channels</span>
+                </div>
+
+                {/* Preference Toggles */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded bg-black/20 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 hover:bg-black/40">
+                    <input 
+                      type="checkbox"
+                      checked={selectedCardForEdit.notifyInApp !== false}
+                      onChange={() => setSelectedCardForEdit({ ...selectedCardForEdit, notifyInApp: selectedCardForEdit.notifyInApp === false })}
+                      className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white font-bold">📱 IN-APP TOAST</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded bg-black/20 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 hover:bg-black/40">
+                    <input 
+                      type="checkbox"
+                      checked={selectedCardForEdit.notifyLocalPanel !== false}
+                      onChange={() => setSelectedCardForEdit({ ...selectedCardForEdit, notifyLocalPanel: selectedCardForEdit.notifyLocalPanel === false })}
+                      className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white font-bold">🔔 LOCAL PANEL</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded bg-black/20 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 hover:bg-black/40">
+                    <input 
+                      type="checkbox"
+                      checked={selectedCardForEdit.notifyCalendarAlarm !== false}
+                      onChange={() => setSelectedCardForEdit({ ...selectedCardForEdit, notifyCalendarAlarm: selectedCardForEdit.notifyCalendarAlarm === false })}
+                      className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white font-bold">📅 CALENDAR ALARM</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer p-1.5 rounded bg-black/20 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 hover:bg-black/40">
+                    <input 
+                      type="checkbox"
+                      checked={selectedCardForEdit.notifyEmailReminder !== false}
+                      onChange={() => setSelectedCardForEdit({ ...selectedCardForEdit, notifyEmailReminder: selectedCardForEdit.notifyEmailReminder === false })}
+                      className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white font-bold">📧 EMAIL REMINDER</span>
+                  </label>
+                </div>
+
+                {/* Instant Action Reminders */}
+                <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+                  <span className="text-[9px] uppercase text-gray-500 font-bold mb-1">Instant Actions</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        if (!selectedCardForEdit.dueDate) {
+                          showToast("⚠️ Set a due date first!");
+                          return;
+                        }
+                        if (selectedCardForEdit.notifyCalendarAlarm !== false) {
+                          await syncToAppleCalendar(selectedCardForEdit);
+                          showToast("📅 Synced to iOS Calendar!");
+                        } else {
+                          showToast("⚠️ Calendar Alert is disabled!");
+                        }
+                      }}
+                      className="text-[9px] bento-btn border border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] hover:text-white px-2 py-1.5 font-bold uppercase"
+                    >
+                      📅 Sync Calendar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        if (!selectedCardForEdit.dueDate) {
+                          showToast("⚠️ Set a due date first!");
+                          return;
+                        }
+                        if (selectedCardForEdit.notifyLocalPanel !== false) {
+                          await scheduleLocalAlarm(selectedCardForEdit);
+                          showToast("🔔 Scheduled System Alarm!");
+                        } else {
+                          showToast("⚠️ Notification Panel is disabled!");
+                        }
+                      }}
+                      className="text-[9px] bento-btn border border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] hover:text-white px-2 py-1.5 font-bold uppercase"
+                    >
+                      🔔 Schedule Alarm
+                    </button>
+                  </div>
+
+                  <a
+                    href={`mailto:?subject=Triage%20Task%3A%20${encodeURIComponent(selectedCardForEdit.title)}&body=Task%20Details%3A%0A%0A-%20Title%3A%20${encodeURIComponent(selectedCardForEdit.title)}%0A-%20Description%3A%20${encodeURIComponent(selectedCardForEdit.description || 'No description provided')}%0A-%20Due%20Date%3A%20${selectedCardForEdit.dueDate ? encodeURIComponent(new Date(selectedCardForEdit.dueDate).toLocaleString()) : 'Not set'}%0A%0AStay%20Focused!`}
+                    onClick={async () => {
+                      await triggerHaptic();
+                      showToast("📧 Opening native mail app...");
+                    }}
+                    className="text-[9px] text-center bento-btn bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 px-2 py-1.5 font-bold uppercase block"
+                  >
+                    📧 Send Email Reminder
+                  </a>
                 </div>
               </div>
 
@@ -2229,6 +2357,23 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Elegant Brutalist Bottom-Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-black border-2 border-[var(--color-accent,#DF5504)] px-4 py-3 text-white font-mono text-xs shadow-[4px_4px_0px_0px_#BCBCBC] z-[9999] flex items-center gap-3 animate-slideUp select-none">
+          <span className="text-[14px]">🔔</span>
+          <span className="font-bold tracking-wide">{toastMessage}</span>
+          <button 
+            onClick={async () => {
+              await triggerHaptic();
+              setToastMessage(null);
+            }} 
+            className="font-black hover:text-[var(--color-accent,#DF5504)] text-gray-400 pl-2 transition-colors cursor-pointer text-sm"
+          >
+            ×
+          </button>
         </div>
       )}
 
