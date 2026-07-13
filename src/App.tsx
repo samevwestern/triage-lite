@@ -1794,7 +1794,7 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Completion Date & Time</label>
+                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Deadline & Time</label>
                   <input 
                     type="datetime-local"
                     value={formatTimestampToDatetimeLocal(selectedCardForEdit.completedAt)}
