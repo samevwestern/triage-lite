@@ -965,7 +965,7 @@ export default function App() {
                   await triggerHaptic();
                   handleExportCSV();
                 }}
-                className="w-full py-2.5 bento-btn bg-white text-black hover:bg-gray-100 font-bold uppercase text-[10px] rounded transition-colors"
+                className="w-full py-2.5 bento-btn bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 font-bold uppercase text-[10px] rounded transition-all"
               >
                 Export CSV for Excel
               </button>
