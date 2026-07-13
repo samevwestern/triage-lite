@@ -163,9 +163,6 @@ export default function App() {
   ]);
 
   // UI state
-  const [activeTimerCardId, setActiveTimerCardId] = useState<string | null>(null);
-  const [timerSeconds, setTimerSeconds] = useState(1500); // 25 Min default Pomodoro
-  const [isTimerActive, setIsTimerActive] = useState(false);
   
   // Card Editing Modal State
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<Card | null>(null);
@@ -270,43 +267,34 @@ export default function App() {
     await syncData(`factory_app_${config.id}_habits`, newHabits);
   };
 
-  // Timer thread effect
+  // Automatic Screen-Open Card Focus Timer Thread
   useEffect(() => {
     let interval: any = null;
-    
-    const checkTimer = () => {
-      if (isTimerActive && activeTimerCardId) {
-        const startTimeStr = localStorage.getItem(`timer_start_${activeTimerCardId}`);
-        if (startTimeStr) {
-          const startTime = parseInt(startTimeStr, 10);
-          const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-          const remaining = Math.max(0, 1500 - elapsedSeconds); // 25 minutes = 1500s
-          
-          setTimerSeconds(remaining);
-          
-          if (remaining === 0) {
-            setIsTimerActive(false);
-            localStorage.removeItem(`timer_start_${activeTimerCardId}`);
-            triggerHaptic(); // native haptic alarm on pomodoro finish!
-            
-            // Add the full 25 mins (1500s) to the card's total time
-            saveCards(cards.map(c => c.id === activeTimerCardId ? { ...c, timeSpent: (c.timeSpent || 0) + 1500 } : c));
-            alert('Focus session completed! Take a break.');
-          }
-        }
-      }
-    };
+    if (selectedCardForEdit) {
+      interval = setInterval(() => {
+        // Increment timeSpent on the selected card in real-time
+        setSelectedCardForEdit(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            timeSpent: (prev.timeSpent || 0) + 1
+          };
+        });
 
-    if (isTimerActive) {
-      // Check immediately, then every second
-      checkTimer();
-      interval = setInterval(checkTimer, 1000);
+        // Also update the card in the main cards state list dynamically
+        setCards(prevCards => 
+          prevCards.map(c => 
+            c.id === selectedCardForEdit.id 
+              ? { ...c, timeSpent: (c.timeSpent || 0) + 1 } 
+              : c
+          )
+        );
+      }, 1000);
     }
-    
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isTimerActive, activeTimerCardId]); // Removed timerSeconds dependency so it doesn't re-trigger constantly
+  }, [selectedCardForEdit?.id]);
 
   // Handlers
 
@@ -314,28 +302,6 @@ export default function App() {
     await triggerHaptic();
     const updated = habits.map((h, i) => i === index ? { ...h, completed: !h.completed } : h);
     await saveHabits(updated);
-  };
-
-  const handleStartTimer = async (cardId: string) => {
-    await triggerHaptic();
-    const now = Date.now();
-    
-    if (activeTimerCardId === cardId && isTimerActive) {
-      // Stop: Calculate partial elapsed time and add to card's total
-      setIsTimerActive(false);
-      const startTimeStr = localStorage.getItem(`timer_start_${cardId}`);
-      if (startTimeStr) {
-         const elapsed = Math.floor((now - parseInt(startTimeStr, 10)) / 1000);
-         saveCards(cards.map(c => c.id === cardId ? { ...c, timeSpent: (c.timeSpent || 0) + elapsed } : c));
-         localStorage.removeItem(`timer_start_${cardId}`);
-      }
-    } else {
-      // Start: Record immutable start epoch
-      const startTimeKey = `timer_start_${cardId}`;
-      localStorage.setItem(startTimeKey, now.toString());
-      setActiveTimerCardId(cardId);
-      setIsTimerActive(true);
-    }
   };
 
   const handleMoveCard = async (cardId: string, nextListId: string) => {
@@ -383,12 +349,6 @@ export default function App() {
     a.download = `${config.id}_tasks_export.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const formatTimer = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const remainingSecs = secs % 60;
-    return `${mins.toString().padStart(2, '0')}:${remainingSecs.toString().padStart(2, '0')}`;
   };
 
   // MONETIZATION GUARDS: Block app rendering if not purchased
@@ -735,36 +695,25 @@ export default function App() {
                       {/* Timer details inside the card */}
                       <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-3 pt-2 flex justify-between items-center font-mono">
                         <span className="text-[10px] text-[var(--color-accent,#DF5504)]">⏱ {Math.floor((card.timeSpent || 0) / 60)}m spent</span>
-                        <div className="flex gap-2 items-center">
-                          {config.features.pomodoro && (
-                            <button 
-                              onClick={() => handleStartTimer(card.id)}
-                              className={`text-[10px] bento-btn px-2 py-1 text-white font-bold uppercase transition-all ${activeTimerCardId === card.id && isTimerActive ? 'bg-[#ff3b30]' : 'bg-[var(--color-accent,#DF5504)]'}`}
-                            >
-                              {activeTimerCardId === card.id && isTimerActive ? 'Pause Timer' : 'Start Timer'}
-                            </button>
-                          )}
-                          
-                          {/* Card Move Dropdown Box */}
-                          <div className="relative">
-                            <select
-                              value={list.id}
-                              onChange={async (e) => {
-                                await triggerHaptic();
-                                handleMoveCard(card.id, e.target.value);
-                              }}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            >
-                              {lists.map(l => (
-                                <option key={l.id} value={l.id}>
-                                  {l.name}
-                                </option>
-                              ))}
-                            </select>
-                            <button className="text-[10px] bento-btn bg-[var(--color-accent,#DF5504)] text-white px-2 py-1 font-bold uppercase flex items-center gap-1">
-                              Move ▼
-                            </button>
-                          </div>
+                        {/* Card Move Dropdown Box */}
+                        <div className="relative">
+                          <select
+                            value={list.id}
+                            onChange={async (e) => {
+                              await triggerHaptic();
+                              handleMoveCard(card.id, e.target.value);
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          >
+                            {lists.map(l => (
+                              <option key={l.id} value={l.id}>
+                                {l.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="text-[10px] bento-btn bg-[var(--color-accent,#DF5504)] text-white px-2 py-1 font-bold uppercase flex items-center gap-1">
+                            Move ▼
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -776,37 +725,8 @@ export default function App() {
 
         </div>
 
-        {/* COL 3: HABITS & GLOBAL POMODORO TIMER PANEL */}
+        {/* COL 3: DAILY HABIT STREAKS */}
         <div className="flex flex-col gap-4">
-          
-          {/* Distraction-Free Pomodoro Widget */}
-          {config.features.pomodoro && (
-            <div className="p-4 bento-box text-center">
-              <h3 className="font-black text-xs text-[var(--color-accent,#DF5504)] uppercase tracking-wider mb-2 font-mono">Pomodoro Active Timer</h3>
-              <div className="text-4xl font-black text-white font-mono tracking-widest my-2">
-                {formatTimer(timerSeconds)}
-              </div>
-              {activeTimerCardId && (
-                <p className="text-[10px] text-[#8892b0] font-mono mb-3 truncate">
-                  Focused Card: {cards.find(c => c.id === activeTimerCardId)?.title}
-                </p>
-              )}
-              <div className="flex gap-2 justify-center mt-2">
-                <button 
-                  onClick={() => { triggerHaptic(); setIsTimerActive(!isTimerActive); }}
-                  className="px-4 py-1 bento-btn text-white font-bold text-xs uppercase"
-                >
-                  {isTimerActive ? 'Pause' : 'Start'}
-                </button>
-                <button 
-                  onClick={() => { triggerHaptic(); setIsTimerActive(false); setTimerSeconds(1500); }}
-                  className="px-4 py-1 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Daily Habit Tracker streaks */}
           <div className="p-4 bento-box">
@@ -1200,6 +1120,16 @@ export default function App() {
 
             {/* Inputs */}
             <div className="flex flex-col gap-4">
+              {/* Active Focus Session Widget */}
+              <div className="p-3 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-accent,#DF5504)] rounded flex justify-between items-center font-mono text-xs shadow-[2px_2px_0px_0px_var(--color-accent,#DF5504)] animate-pulse">
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-[#8892b0] font-bold uppercase tracking-wider">🎯 FOCUS SESSION ACTIVE</span>
+                  <span className="text-[10px] text-white">Keep this screen open to study</span>
+                </div>
+                <div className="text-[12px] font-black text-[var(--color-accent,#DF5504)]">
+                  {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
                 <input 
