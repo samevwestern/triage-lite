@@ -327,6 +327,7 @@ export default function App() {
     assignedCardId?: string;
   }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [showDiaryHelp, setShowDiaryHelp] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -2747,16 +2748,45 @@ export default function App() {
               <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
                 📔 Verbal Diary Journal
               </span>
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsDiaryOpen(false);
-                }}
-                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowDiaryHelp(!showDiaryHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showDiaryHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 hover:bg-black/80 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-300'
+                  }`}
+                  title="Help Guide"
+                >
+                  ❓
+                </button>
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsDiaryOpen(false);
+                    setShowDiaryHelp(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
             </div>
+
+            {/* ℹ️ Sliding Help Guide Box */}
+            {showDiaryHelp && (
+              <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-4 rounded-lg flex flex-col gap-2 max-h-[40vh] overflow-y-auto animate-fadeIn flex-shrink-0">
+                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Quick Help Guide</span>
+                <ul className="list-disc pl-4 text-[10px] text-gray-300 flex flex-col gap-1.5 leading-relaxed font-bold">
+                  <li><span className="text-white">🎙️ Dictate Note</span>: Tap the red microphone button to start recording your thoughts. Speak clearly to transcribe your speech.</li>
+                  <li><span className="text-white">🕒 Auto Timestamps</span>: Your recorded reflections are automatically date-and-time stamped to construct a chronological work timeline.</li>
+                  <li><span className="text-white">📤 Card Dispatching</span>: Use the orange dispatch dropdown menu to instantly attach/prepend any note to your active task cards grouped by columns.</li>
+                </ul>
+              </div>
+            )}
 
             {/* Microphone Dictation Action Panel */}
             <div className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-4 rounded flex flex-col items-center gap-3 flex-shrink-0">
