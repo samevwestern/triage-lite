@@ -359,6 +359,7 @@ export default function App() {
   }[]>([]);
   const [isCapturingReceipt, setIsCapturingReceipt] = useState(false);
   const [showReceiptsHelp, setShowReceiptsHelp] = useState(false);
+  const [showCalendarHelp, setShowCalendarHelp] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -2613,16 +2614,68 @@ export default function App() {
               <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
                 📅 Native Calendar Agenda
               </span>
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsCalendarAgendaOpen(false);
-                }}
-                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowCalendarHelp(!showCalendarHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showCalendarHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 hover:bg-black/80 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-300'
+                  }`}
+                  title="Show Help Guide"
+                >
+                  ❓
+                </button>
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsCalendarAgendaOpen(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
             </div>
+
+            {/* Toggleable Monospace Calendar Quick Help Panel */}
+            {showCalendarHelp && (
+              <div className="bg-black/50 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded flex flex-col gap-2.5 animate-slideDown flex-shrink-0">
+                <div className="flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/30 pb-1.5">
+                  <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider">📅 Calendar Help Guide</span>
+                </div>
+                <ul className="list-none flex flex-col gap-1.5 text-[9px] text-gray-300 font-bold uppercase tracking-wide">
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📅 Range Select</strong>: Toggle between single-day <strong>TODAY</strong> queries or 7, 30, and 90-day upcoming schedules.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📅 Start Date Picker</strong>: Choose a custom date from the HTML5 calendar to query any starting day.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📌 Triage Filters</strong>: Select 'Triage Only' to isolate and display only high-priority mobile board tasks.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📔 Diary Logs</strong>: Select 'Diary' to project your verbal recordings directly onto your timeline schedule.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>🧾 Receipts Feed</strong>: Select 'Receipts' to view date-locked business claims with photo previews.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📧 Email Claim</strong>: In receipts view, tap 'Email Employer' in the footer to compile and submit claims!</span>
+                  </li>
+                </ul>
+              </div>
+            )}
 
             {/* Range and Filters Row */}
             <div className="flex flex-col gap-2.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
