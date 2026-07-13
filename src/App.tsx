@@ -632,10 +632,6 @@ export default function App() {
             >
               ＋
             </button>
-            
-            <div className="flex items-center gap-1 px-3 py-1.5 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white font-mono rounded-full text-xs font-black select-none">
-              <span className="text-[11px] text-[var(--color-accent,#DF5504)] font-bold">{cards.filter(c => c.listId === lists[activeColumnIndex]?.id).length}</span>
-            </div>
           </div>
 
           {/* HORIZONTAL SWIPE BOARD CONTAINER */}
