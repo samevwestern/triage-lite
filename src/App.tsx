@@ -3,6 +3,7 @@ import { useCapacitor } from './hooks/useCapacitor';
 import { config } from './factory-config';
 import { CapacitorCalendar } from '@ebarooni/capacitor-calendar';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { Camera, CameraResultType } from '@capacitor/camera';
 
 export interface ChecklistItem {
   id: string;
@@ -325,7 +326,7 @@ export default function App() {
   const [isCalendarAgendaOpen, setIsCalendarAgendaOpen] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [calendarRangeDays, setCalendarRangeDays] = useState<number>(30);
-  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage' | 'diary'>('all');
+  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage' | 'diary' | 'receipts'>('all');
   const [calendarStartDate, setCalendarStartDate] = useState<string>(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -345,6 +346,18 @@ export default function App() {
   }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showDiaryHelp, setShowDiaryHelp] = useState(false);
+
+  // Receipts / Expenditures States
+  const [isReceiptsOpen, setIsReceiptsOpen] = useState(false);
+  const [receipts, setReceipts] = useState<{
+    id: string;
+    timestamp: number;
+    imageUrl: string;
+    merchant: string;
+    amount: number;
+    notes?: string;
+  }[]>([]);
+  const [isCapturingReceipt, setIsCapturingReceipt] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -794,6 +807,17 @@ export default function App() {
                 title="Verbal Diary"
               >
                 📔
+              </button>
+
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsReceiptsOpen(true);
+                }}
+                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
+                title="Business Receipts"
+              >
+                🧾
               </button>
             </div>
           </div>
@@ -2654,7 +2678,7 @@ export default function App() {
 
               <div className="flex justify-between items-center">
                 <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Filters</span>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-wrap justify-end">
                   <button
                     onClick={async () => {
                       await triggerHaptic();
@@ -2673,7 +2697,7 @@ export default function App() {
                       await triggerHaptic();
                       setCalendarFilterType('triage');
                     }}
-                    className={`px-2.5 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                    className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
                       calendarFilterType === 'triage'
                         ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
                         : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
@@ -2686,13 +2710,26 @@ export default function App() {
                       await triggerHaptic();
                       setCalendarFilterType('diary');
                     }}
-                    className={`px-2.5 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                    className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
                       calendarFilterType === 'diary'
                         ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
                         : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
                     }`}
                   >
-                    Diary Logs
+                    Diary
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setCalendarFilterType('receipts');
+                    }}
+                    className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                      calendarFilterType === 'receipts'
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    Receipts
                   </button>
                 </div>
               </div>
@@ -2732,6 +2769,24 @@ export default function App() {
                         location: l.assignedCardId ? `Sent to: "${cards.find(c => c.id === l.assignedCardId)?.title || ''}"` : undefined,
                         isDiaryLog: true
                       }));
+                  } else if (calendarFilterType === 'receipts') {
+                    const baseDate = calendarStartDate ? new Date(calendarStartDate + 'T00:00:00') : new Date();
+                    const startTime = baseDate.getTime();
+                    const endTime = calendarRangeDays === 0
+                      ? startTime + 24 * 60 * 60 * 1000 - 1000
+                      : startTime + calendarRangeDays * 24 * 60 * 60 * 1000;
+
+                    filtered = receipts
+                      .filter(r => r.timestamp >= startTime && r.timestamp <= endTime)
+                      .map(r => ({
+                        title: `Claim filed for: ${r.merchant}`,
+                        startDate: r.timestamp,
+                        endDate: r.timestamp,
+                        location: r.notes ? `Purpose: "${r.notes}"` : undefined,
+                        amount: r.amount,
+                        imageUrl: r.imageUrl,
+                        isReceiptLog: true
+                      }));
                   } else {
                     filtered = calendarEvents.filter((evt) => {
                       if (calendarFilterType === 'triage') {
@@ -2745,7 +2800,7 @@ export default function App() {
                     return (
                       <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
                         <span className="text-2xl">📅</span>
-                        <span className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">No upcoming events inside this range.</span>
+                        <span className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">No events matching your filters.</span>
                         <span className="text-[9px] text-gray-500 uppercase">Stay Focused!</span>
                       </div>
                     );
@@ -2756,6 +2811,7 @@ export default function App() {
                       {filtered.map((evt, idx) => {
                         const isTriageEvent = evt.title && evt.title.includes('📌 [Triage Lite]');
                         const isDiaryLog = !!evt.isDiaryLog;
+                        const isReceiptLog = !!evt.isReceiptLog;
                         const start = evt.startDate ? new Date(evt.startDate) : null;
                         const end = evt.endDate ? new Date(evt.endDate) : null;
 
@@ -2767,33 +2823,49 @@ export default function App() {
                                 ? 'border-[var(--color-accent,#DF5504)]/40 border-l-4 border-l-[var(--color-accent,#DF5504)] shadow-[2px_2px_0px_0px_rgba(223,85,4,0.1)]'
                                 : isDiaryLog
                                 ? 'border-amber-500/40 border-l-4 border-l-amber-500 shadow-[2px_2px_0px_0px_rgba(245,158,11,0.1)]'
+                                : isReceiptLog
+                                ? 'border-[var(--color-accent,#DF5504)]/40 border-l-4 border-l-[var(--color-accent,#DF5504)] shadow-[2px_2px_0px_0px_rgba(223,85,4,0.15)]'
                                 : 'border-[var(--color-dark-tertiary,#3D3D3D)]/50 hover:border-gray-500'
                             }`}
                           >
                             {/* Event Timeline Date/Time */}
                             <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/20">
-                              <span className={`text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${isDiaryLog ? 'text-amber-500' : 'text-[var(--color-accent,#DF5504)]'}`}>
-                                <span>{isDiaryLog ? '📔' : '📅'}</span>
+                              <span className={`text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                                isDiaryLog ? 'text-amber-500' : 'text-[var(--color-accent,#DF5504)]'
+                              }`}>
+                                <span>{isDiaryLog ? '📔' : isReceiptLog ? '🧾' : '📅'}</span>
                                 {start ? start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date Unknown'}
                               </span>
                               <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">
                                 {start ? start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
-                                {end && !isDiaryLog ? ` - ${end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                {end && !isDiaryLog && !isReceiptLog ? ` - ${end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''}
                               </span>
                             </div>
 
-                            {/* Event Title */}
-                            <h4 className="font-bold text-white text-[11px] mb-1 leading-snug">
-                              {evt.title || 'Untitled Event'}
-                            </h4>
+                            {/* Event Details and Image Preview Grid */}
+                            <div className="flex gap-3 items-center">
+                              {isReceiptLog && evt.imageUrl && (
+                                <div className="w-10 h-10 rounded border border-[var(--color-dark-tertiary,#3D3D3D)]/30 overflow-hidden bg-black flex-shrink-0">
+                                  <img src={evt.imageUrl} alt="" className="w-full h-full object-cover" />
+                                </div>
+                              )}
 
-                            {/* Location & Details */}
-                            {evt.location && (
-                              <div className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
-                                <span>{isDiaryLog ? '📤' : '📍'}</span>
-                                <span className="truncate">{evt.location}</span>
+                              <div className="flex-grow min-w-0">
+                                <h4 className="font-bold text-white text-[11px] leading-snug flex justify-between gap-1 items-center">
+                                  <span className="truncate">{evt.title || 'Untitled Event'}</span>
+                                  {isReceiptLog && evt.amount !== undefined && (
+                                    <span className="text-[var(--color-accent,#DF5504)] font-black flex-shrink-0">${evt.amount.toFixed(2)}</span>
+                                  )}
+                                </h4>
+
+                                {evt.location && (
+                                  <div className="text-[9px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                    <span>{isDiaryLog ? '📤' : isReceiptLog ? '💡' : '📍'}</span>
+                                    <span className="truncate">{evt.location}</span>
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </div>
                         );
                       })}
@@ -2804,16 +2876,347 @@ export default function App() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+            <div className="flex justify-between items-center mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0 gap-2">
+              {calendarFilterType === 'receipts' && (
+                (() => {
+                  const baseDate = calendarStartDate ? new Date(calendarStartDate + 'T00:00:00') : new Date();
+                  const startTime = baseDate.getTime();
+                  const endTime = calendarRangeDays === 0
+                    ? startTime + 24 * 60 * 60 * 1000 - 1000
+                    : startTime + calendarRangeDays * 24 * 60 * 60 * 1000;
+
+                  const filteredClaims = receipts.filter(r => r.timestamp >= startTime && r.timestamp <= endTime);
+
+                  if (filteredClaims.length > 0) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          const formattedDate = baseDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                          const rangeLabel = calendarRangeDays === 0 ? `for ${formattedDate}` : `for period starting ${formattedDate}`;
+
+                          // Assemble ASCII business claim table
+                          let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                          report += `CLAIM RANGE: ${rangeLabel.toUpperCase()}\n`;
+                          report += `TOTAL RECLAIMABLE AMOUNT: $${filteredClaims.reduce((acc, r) => acc + r.amount, 0).toFixed(2)}\n\n`;
+                          report += `ITEMIZED BUSINESS CLAIMS LIST:\n`;
+                          report += `----------------------------------------\n`;
+
+                          filteredClaims.forEach((claim, idx) => {
+                            const cTime = new Date(claim.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                            const cDate = new Date(claim.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                            report += `${idx + 1}. [${cDate} at ${cTime}] Claim Merchant: ${claim.merchant}\n`;
+                            report += `   Amount: $${claim.amount.toFixed(2)}\n`;
+                            if (claim.notes) report += `   Purpose: "${claim.notes}"\n`;
+                            report += `----------------------------------------\n`;
+                          });
+
+                          report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipts are on file.`;
+
+                          const subject = encodeURIComponent(`Triage Expense Claims: ${formattedDate}`);
+                          const body = encodeURIComponent(report);
+                          window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+                          showToast("📧 Compiling and opening Mail client...");
+                        }}
+                        className="px-3 py-2 bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 border border-black shadow-[2px_2px_0px_0px_#000] text-white font-mono text-[9px] uppercase font-bold rounded flex items-center gap-1.5 cursor-pointer active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_#000] transition-all"
+                      >
+                        📧 Email Employer
+                      </button>
+                    );
+                  }
+                  return null;
+                })()
+              )}
               <button
                 type="button"
                 onClick={async () => {
                   await triggerHaptic();
                   setIsCalendarAgendaOpen(false);
                 }}
-                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded ml-auto"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🧾 RECEIPTS & BUSINESS EXPENSE MANAGER MODAL */}
+      {isReceiptsOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+                🧾 Business Receipt Claims
+              </span>
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsReceiptsOpen(false);
+                }}
+                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Hidden fallback file input picker for browser/non-native testing */}
+            <input
+              type="file"
+              id="receipt-file-picker"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    const base64Url = reader.result as string;
+                    const previewImg = document.getElementById('receipt-img-preview') as HTMLImageElement;
+                    if (previewImg) {
+                      previewImg.src = base64Url;
+                      previewImg.style.display = 'block';
+                    }
+                    const indicator = document.getElementById('temp-receipt-photo-src') as HTMLInputElement;
+                    if (indicator) indicator.value = base64Url;
+                    showToast("📸 Receipt photo loaded successfully");
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+            />
+
+            {/* Receipt Capture Form */}
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await triggerHaptic();
+                
+                const merchantInput = document.getElementById('receipt-merchant-input') as HTMLInputElement;
+                const amountInput = document.getElementById('receipt-amount-input') as HTMLInputElement;
+                const notesInput = document.getElementById('receipt-notes-input') as HTMLInputElement;
+                const photoSrcInput = document.getElementById('temp-receipt-photo-src') as HTMLInputElement;
+
+                const merchant = merchantInput?.value.trim() || '';
+                const amount = parseFloat(amountInput?.value || '0');
+                const notes = notesInput?.value.trim() || '';
+                const imageUrl = photoSrcInput?.value || '';
+
+                if (!merchant) {
+                  showToast("⚠️ Please enter a Merchant name!");
+                  return;
+                }
+                if (amount <= 0 || isNaN(amount)) {
+                  showToast("⚠️ Please enter a valid claim Amount!");
+                  return;
+                }
+                if (!imageUrl) {
+                  showToast("⚠️ Please capture or upload a receipt photograph!");
+                  return;
+                }
+
+                const newReceipt = {
+                  id: `receipt-${Date.now()}`,
+                  timestamp: Date.now(),
+                  imageUrl,
+                  merchant,
+                  amount,
+                  notes: notes || undefined
+                };
+
+                setReceipts((prev) => [newReceipt, ...prev]);
+                showToast(`🧾 Logged $${amount.toFixed(2)} claim for ${merchant}!`);
+
+                // Reset inputs
+                if (merchantInput) merchantInput.value = '';
+                if (amountInput) amountInput.value = '';
+                if (notesInput) notesInput.value = '';
+                if (photoSrcInput) photoSrcInput.value = '';
+                const previewImg = document.getElementById('receipt-img-preview') as HTMLImageElement;
+                if (previewImg) {
+                  previewImg.src = '';
+                  previewImg.style.display = 'none';
+                }
+              }}
+              className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-4 rounded flex flex-col gap-3 flex-shrink-0"
+            >
+              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black block border-b border-[var(--color-dark-tertiary,#3D3D3D)]/20 pb-1.5">Record Business Expenditure</span>
+
+              {/* Photo Snap and Display Grid */}
+              <div className="flex gap-4 items-center">
+                {/* Captured Image Box */}
+                <div className="w-16 h-16 rounded border-2 border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/50 overflow-hidden flex items-center justify-center flex-shrink-0 relative">
+                  <img
+                    id="receipt-img-preview"
+                    src=""
+                    alt=""
+                    className="w-full h-full object-cover hidden"
+                  />
+                  <span className="absolute text-xl pointer-events-none text-gray-600">📷</span>
+                </div>
+
+                <div className="flex flex-col gap-1.5 flex-grow">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      try {
+                        setIsCapturingReceipt(true);
+                        const image = await Camera.getPhoto({
+                          quality: 80,
+                          allowEditing: false,
+                          resultType: CameraResultType.Uri
+                        });
+                        
+                        if (image && image.webPath) {
+                          const base64Url = image.webPath;
+                          const previewImg = document.getElementById('receipt-img-preview') as HTMLImageElement;
+                          if (previewImg) {
+                            previewImg.src = base64Url;
+                            previewImg.style.display = 'block';
+                          }
+                          const indicator = document.getElementById('temp-receipt-photo-src') as HTMLInputElement;
+                          if (indicator) indicator.value = base64Url;
+                          showToast("📸 Receipt photo captured!");
+                        }
+                      } catch (err) {
+                        console.log("Capacitor camera failed or cancelled, trying hybrid file trigger", err);
+                        // Trigger native device file capture fallback
+                        document.getElementById('receipt-file-picker')?.click();
+                      } finally {
+                        setIsCapturingReceipt(false);
+                      }
+                    }}
+                    disabled={isCapturingReceipt}
+                    className="py-2 px-3 bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 text-white font-bold rounded flex items-center justify-center gap-1.5 border border-black shadow-[2px_2px_0px_0px_#000] cursor-pointer"
+                  >
+                    <span>{isCapturingReceipt ? '📸 Camera Active...' : '📸 Snap Receipt Photo'}</span>
+                  </button>
+                  <span className="text-[8px] text-gray-500 uppercase tracking-widest font-black">Requires camera access permissions</span>
+                  {/* Secret state container */}
+                  <input type="hidden" id="temp-receipt-photo-src" />
+                </div>
+              </div>
+
+              {/* Merchant and Amount Grid */}
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="receipt-merchant-input" className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Merchant Name</label>
+                  <input
+                    type="text"
+                    id="receipt-merchant-input"
+                    placeholder="e.g. Starbucks"
+                    className="bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-2 text-[10px] font-bold"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="receipt-amount-input" className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Claim Amount ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    id="receipt-amount-input"
+                    placeholder="0.00"
+                    className="bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-2 text-[10px] font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Claims notes details */}
+              <div className="flex flex-col gap-1">
+                <label htmlFor="receipt-notes-input" className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Purpose / Notes</label>
+                <input
+                  type="text"
+                  id="receipt-notes-input"
+                  placeholder="e.g. Client coffee meeting"
+                  className="bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-2 text-[10px] font-bold"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="py-2.5 bg-black border-2 border-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] text-white hover:text-white font-black uppercase rounded text-[10px] transition-all cursor-pointer shadow-[4px_4px_0px_0px_#000] active:translate-y-0.5 active:shadow-[2px_2px_0px_0px_#000] mt-1"
+              >
+                💾 Record Expenditure Claim
+              </button>
+            </form>
+
+            {/* Scrollable Claims Feed */}
+            <div className="flex-grow overflow-y-auto pr-1">
+              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black block mb-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1">Logged Receipts Feed</span>
+
+              {receipts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                  <span className="text-2xl">🧾</span>
+                  <span className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">No receipt claims logged today.</span>
+                  <span className="text-[9px] text-gray-500 uppercase">Snap your first photo receipt to file a claim!</span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {receipts.map((log) => {
+                    const timeStr = new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                    const dateStr = new Date(log.timestamp).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+                    return (
+                      <div
+                        key={log.id}
+                        className="p-3 bg-black/20 rounded border border-[var(--color-dark-tertiary,#3D3D3D)]/50 flex gap-3 items-center relative"
+                      >
+                        {/* Receipt Thumbnail */}
+                        <div className="w-12 h-12 rounded border border-[var(--color-dark-tertiary,#3D3D3D)]/40 bg-black overflow-hidden flex-shrink-0">
+                          <img src={log.imageUrl} alt="" className="w-full h-full object-cover" />
+                        </div>
+
+                        {/* Text summary details */}
+                        <div className="flex-grow flex flex-col gap-0.5 min-w-0">
+                          <div className="flex justify-between items-center gap-1">
+                            <span className="font-black text-white text-[11px] truncate">{log.merchant}</span>
+                            <span className="font-black text-[var(--color-accent,#DF5504)] text-[11px] flex-shrink-0">${log.amount.toFixed(2)}</span>
+                          </div>
+                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">
+                            📅 {dateStr} at {timeStr}
+                          </span>
+                          {log.notes && (
+                            <p className="text-[9px] text-gray-300 italic truncate font-bold">
+                              "{log.notes}"
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Quick Delete claim */}
+                        <button
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setReceipts((prev) => prev.filter(r => r.id !== log.id));
+                            showToast(`🧾 Claim for ${log.merchant} removed`);
+                          }}
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-950 border border-red-800 text-red-400 flex items-center justify-center font-bold text-[8px] hover:bg-red-900 hover:text-white transition-colors cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsReceiptsOpen(false);
+                }}
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
+              >
+                Done
               </button>
             </div>
           </div>
