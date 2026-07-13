@@ -358,6 +358,7 @@ export default function App() {
     notes?: string;
   }[]>([]);
   const [isCapturingReceipt, setIsCapturingReceipt] = useState(false);
+  const [showReceiptsHelp, setShowReceiptsHelp] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -2952,16 +2953,64 @@ export default function App() {
               <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
                 🧾 Business Receipt Claims
               </span>
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsReceiptsOpen(false);
-                }}
-                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowReceiptsHelp(!showReceiptsHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showReceiptsHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 hover:bg-black/80 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-300'
+                  }`}
+                  title="Show Help Guide"
+                >
+                  ❓
+                </button>
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsReceiptsOpen(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
             </div>
+
+            {/* Toggleable Monospace Quick Help Panel */}
+            {showReceiptsHelp && (
+              <div className="bg-black/50 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded flex flex-col gap-2.5 animate-slideDown flex-shrink-0">
+                <div className="flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/30 pb-1.5">
+                  <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider">🧾 Receipts Help Guide</span>
+                </div>
+                <ul className="list-none flex flex-col gap-1.5 text-[9px] text-gray-300 font-bold uppercase tracking-wide">
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📸 Photo Snap</strong>: Tap 'Snap Receipt Photo' to toggle the device camera or capture an image instantly.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>🔒 Tamper-Proof</strong>: Recording automatically logs the exact, verified date & time of the expenditure claim.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>💰 Claim Costs</strong>: Type in the Merchant name and Dollar Amount to record your financial claim.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📅 Timeline Mapping</strong>: Open the Calendar modal and select the 'Receipts' filter to project all your claims.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>📧 Email Claim</strong>: In the Calendar receipts view, tap 'Email Employer' to compile and submit claim logs!</span>
+                  </li>
+                </ul>
+              </div>
+            )}
 
             {/* Hidden fallback file input picker for browser/non-native testing */}
             <input
