@@ -289,11 +289,7 @@ export default function App() {
     }
   ]);
 
-  const [habits, setHabits] = useState<{ name: string; completed: boolean }[]>([
-    { name: 'Drink 3L Water', completed: false },
-    { name: 'Read 15 Pages', completed: true },
-    { name: 'Study Core Topics (1 hr)', completed: false }
-  ]);
+
 
   const [labels, setLabels] = useState<Label[]>([
     { id: 'label-red', text: 'URGENT', color: '#ff3b30' },
@@ -452,11 +448,8 @@ export default function App() {
   useEffect(() => {
     const loadSavedData = async () => {
       const storageKeyCards = `factory_app_${config.id}_cards`;
-      const storageKeyHabits = `factory_app_${config.id}_habits`;
       const savedCards = await getStorage(storageKeyCards);
-      const savedHabits = await getStorage(storageKeyHabits);
       if (savedCards) setCards(JSON.parse(savedCards));
-      if (savedHabits) setHabits(JSON.parse(savedHabits));
     };
     loadSavedData();
   }, []);
@@ -467,10 +460,7 @@ export default function App() {
     await syncData(`factory_app_${config.id}_cards`, newCards);
   };
 
-  const saveHabits = async (newHabits: typeof habits) => {
-    setHabits(newHabits);
-    await syncData(`factory_app_${config.id}_habits`, newHabits);
-  };
+
 
   // Automatic Screen-Open Card Focus Timer Thread
   useEffect(() => {
@@ -502,12 +492,6 @@ export default function App() {
   }, [selectedCardForEdit?.id]);
 
   // Handlers
-
-  const handleToggleHabit = async (index: number) => {
-    await triggerHaptic();
-    const updated = habits.map((h, i) => i === index ? { ...h, completed: !h.completed } : h);
-    await saveHabits(updated);
-  };
 
   const handleMoveCard = async (cardId: string, nextListId: string) => {
     await triggerHaptic();
@@ -733,10 +717,10 @@ export default function App() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow items-start">
+        <div className="grid grid-cols-1 gap-6 flex-grow items-start">
         
         {/* COL 1 & 2: THE BRUTAL KANBAN BOARD */}
-        <div className="md:col-span-2 grid grid-cols-1 gap-4">
+        <div className="w-full grid grid-cols-1 gap-4">
           
           {/* Create Task Button */}
           <div className="hidden sm:flex justify-start">
@@ -989,36 +973,6 @@ export default function App() {
               </div>
             ))}
           </div>
-
-        </div>
-
-        {/* COL 3: DAILY HABIT STREAKS */}
-        <div className="flex flex-col gap-4">
-
-          {/* Daily Habit Tracker streaks */}
-          <div className="p-4 bento-box">
-            <h3 className="font-black text-sm uppercase text-white tracking-wider border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2 mb-3">
-              Daily Habits (Local)
-            </h3>
-            <div className="flex flex-col gap-2">
-              {habits.map((habit, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => handleToggleHabit(idx)}
-                  className="p-2 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded bg-[var(--color-dark-bg,#282828)] flex justify-between items-center cursor-pointer transition-all active:translate-x-0.5"
-                >
-                  <span className={`text-xs font-mono ${habit.completed ? 'line-through text-gray-500' : 'text-white'}`}>
-                    {habit.name}
-                  </span>
-                  <div className={`w-5 h-5 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex items-center justify-center ${habit.completed ? 'bg-[var(--color-accent,#DF5504)]' : 'bg-[var(--color-dark-bg,#282828)]'}`}>
-                    {habit.completed && <span className="text-white text-xs font-black">✓</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-
 
         </div>
 
