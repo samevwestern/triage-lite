@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "concurrently -k \"PORT=3004 bun run --cwd ../triage server:dev\" \"vite\"",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -14,7 +15,9 @@
   "dependencies": {
     "@capacitor/core": "^6.0.0",
     "@capacitor/haptics": "^6.0.0",
+    "@capacitor/local-notifications": "^8.2.0",
     "@capacitor/preferences": "^6.0.0",
+    "@ebarooni/capacitor-calendar": "^8.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -28,6 +31,7 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
-    "vite": "^5.1.4"
+    "vite": "^5.1.4",
+    "concurrently": "^10.0.3"
   }
 }

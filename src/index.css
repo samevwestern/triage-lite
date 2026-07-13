@@ -5,12 +5,23 @@
 /* Custom Brutalist Styling matching MDEx Theme system */
 @layer base {
   :root {
-    --accent-color: #DF5504; /* Default accent color, dynamically overridden by App Factory configuration */
+    /* MDEx Official Color Palette */
+    --color-dark-bg: #282828;         /* Canvas Background */
+    --color-dark-secondary: #333333;  /* Bento Box / Sidebar Background */
+    --color-dark-tertiary: #3D3D3D;   /* Interactive/Component Hover state */
+    --color-accent: #DF5504;          /* Signal Action Orange */
+    --color-shadow: #BCBCBC;          /* Hard offset shadow */
+    
+    /* MDEx Standard Hard Shadow */
+    --shadow-solid: 2px 2px 0px 0px var(--color-shadow);
+    --accent-color: #DF5504;          /* Backwards compatibility */
   }
 
   body {
-    background-color: #0B0C10;
-    color: #C5C6C7;
+    background-color: var(--color-dark-bg);
+    color: #FFFFFF;
+    font-family: 'Noto Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
     /* iOS Momentum scrolling */
     -webkit-overflow-scrolling: touch;
     /* Disable long press context menus on iOS */
@@ -29,33 +40,56 @@
     margin-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Brutalist Container styling */
-  .brutal-card {
-    background-color: #1F2833;
-    border: 3px solid #000000;
-    box-shadow: 4px 4px 0px #000000;
-    transition: all 0.15s ease-out;
+  /* 📦 Bento Box Module Container */
+  .bento-box {
+    background-color: var(--color-dark-secondary);
+    border: 1px solid var(--color-dark-tertiary);
+    border-top: 1px solid rgba(255, 255, 255, 0.08); /* 💡 Premium Bevel Edge Highlight */
+    border-radius: 0.5rem; /* 8px */
+    box-shadow: var(--shadow-solid);
+    transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms ease;
   }
 
-  .brutal-card:active {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0px #000000;
+  /* Hover effect on interactive Bento Cards */
+  .bento-box-interactive {
+    cursor: pointer;
+    transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 120ms ease, background-color 120ms ease;
   }
 
-  .brutal-btn {
-    background-color: var(--accent-color, #DF5504);
+  .bento-box-interactive:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0px 0px var(--color-shadow);
+    background-color: var(--color-dark-tertiary);
+  }
+
+  /* Active touch state */
+  .bento-box-interactive:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px 0px var(--color-shadow);
+  }
+
+  /* 🔘 Brutalist Button Container */
+  .bento-btn {
+    background-color: var(--color-accent);
     color: #FFFFFF;
-    border: 3px solid #000000;
-    box-shadow: 4px 4px 0px #000000;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-solid);
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    transition: all 0.1s ease;
+    letter-spacing: 0.05em;
+    transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 100ms ease;
   }
 
-  .brutal-btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0px #000000;
+  .bento-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px 0px var(--color-shadow);
+    background-color: #f16104; /* Slightly brighter orange for interactive feel */
+  }
+
+  .bento-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px 0px var(--color-shadow);
   }
 
   /* Custom scrollbars */
@@ -65,15 +99,28 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #0B0C10;
+    background: var(--color-dark-bg);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #1F2833;
+    background: var(--color-dark-tertiary);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-color, #DF5504);
+    background: var(--color-accent);
+  }
+}
+
+/* Enable smooth snapping behavior */
+#board-columns-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Hide default horizontal scrollbar on mobile layout for cleaner look, while keeping swipability */
+@media (max-width: 640px) {
+  #board-columns-container::-webkit-scrollbar {
+    display: none;
   }
 }
