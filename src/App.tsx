@@ -2368,7 +2368,7 @@ export default function App() {
                       showToast("⚠️ Calendar Alert is disabled!");
                     }
                   }}
-                  className="bento-btn border border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] hover:text-white px-3 py-2.5 font-bold uppercase flex items-center justify-center gap-1.5"
+                  className="bento-btn text-white px-3 py-2.5 font-bold uppercase flex items-center justify-center gap-1.5"
                 >
                   <span>📅</span> Sync Calendar
                 </button>
@@ -2388,7 +2388,7 @@ export default function App() {
                       showToast("⚠️ Notification Panel is disabled!");
                     }
                   }}
-                  className="bento-btn border border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] hover:text-white px-3 py-2.5 font-bold uppercase flex items-center justify-center gap-1.5"
+                  className="bento-btn text-white px-3 py-2.5 font-bold uppercase flex items-center justify-center gap-1.5"
                 >
                   <span>🔔</span> Schedule Alarm
                 </button>
