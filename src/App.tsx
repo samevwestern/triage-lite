@@ -88,6 +88,44 @@ export default function App() {
     }
   };
 
+  const fetchUpcomingCalendarEvents = async (rangeDays: number) => {
+    setIsCalendarLoading(true);
+    try {
+      const permission = await CapacitorCalendar.requestReadOnlyCalendarAccess();
+      if (permission.result !== 'granted') {
+        showToast("⚠️ Calendar permission denied!");
+        setCalendarEvents([]);
+        return;
+      }
+
+      const now = Date.now();
+      const futureOffset = now + rangeDays * 24 * 60 * 60 * 1000;
+
+      const response = await CapacitorCalendar.listEventsInRange({
+        from: now,
+        to: futureOffset
+      });
+
+      if (response && response.result) {
+        // Sort events chronologically
+        const sorted = [...response.result].sort((a, b) => {
+          const aTime = a.startDate || 0;
+          const bTime = b.startDate || 0;
+          return aTime - bTime;
+        });
+        setCalendarEvents(sorted);
+      } else {
+        setCalendarEvents([]);
+      }
+    } catch (error) {
+      console.error("[CapacitorCalendar] Error listing events", error);
+      showToast("⚠️ Failed to load calendar events");
+      setCalendarEvents([]);
+    } finally {
+      setIsCalendarLoading(false);
+    }
+  };
+
   const scheduleLocalAlarm = async (card: Card) => {
     if (!card.dueDate) return;
     try {
@@ -206,6 +244,11 @@ export default function App() {
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationStudioOpen, setIsNotificationStudioOpen] = useState(false);
+  const [isCalendarAgendaOpen, setIsCalendarAgendaOpen] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [calendarRangeDays, setCalendarRangeDays] = useState<number>(30);
+  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage'>('all');
+  const [isCalendarLoading, setIsCalendarLoading] = useState<boolean>(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -631,6 +674,18 @@ export default function App() {
               title="Create Card"
             >
               ＋
+            </button>
+
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsCalendarAgendaOpen(true);
+                await fetchUpcomingCalendarEvents(calendarRangeDays);
+              }}
+              className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
+              title="Calendar Agenda"
+            >
+              📅
             </button>
           </div>
 
@@ -2409,6 +2464,183 @@ export default function App() {
                 className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📅 NATIVE CALENDAR AGENDA POPUP MODAL */}
+      {isCalendarAgendaOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+                📅 Native Calendar Agenda
+              </span>
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsCalendarAgendaOpen(false);
+                }}
+                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Range and Filters Row */}
+            <div className="flex flex-col gap-2.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Select Range</span>
+                <div className="flex gap-1">
+                  {[7, 30, 90].map((days) => (
+                    <button
+                      key={days}
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setCalendarRangeDays(days);
+                        await fetchUpcomingCalendarEvents(days);
+                      }}
+                      className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                        calendarRangeDays === days
+                          ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                          : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
+                      }`}
+                    >
+                      {days} Days
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Filters</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setCalendarFilterType('all');
+                    }}
+                    className={`px-2.5 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                      calendarFilterType === 'all'
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    All Events
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setCalendarFilterType('triage');
+                    }}
+                    className={`px-2.5 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                      calendarFilterType === 'triage'
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    Triage Only
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Event List View */}
+            <div className="flex-grow overflow-y-auto pr-1">
+              {isCalendarLoading ? (
+                /* Loading Skeleton */
+                <div className="flex flex-col gap-3 py-4 animate-pulse">
+                  {[1, 2, 3].map((n) => (
+                    <div key={n} className="p-3 bg-black/20 rounded border border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex flex-col gap-2">
+                      <div className="h-2.5 bg-gray-600 rounded w-1/4"></div>
+                      <div className="h-3.5 bg-gray-500 rounded w-3/4"></div>
+                      <div className="h-2.5 bg-gray-600 rounded w-1/2"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                (() => {
+                  // Filter events
+                  const filtered = calendarEvents.filter((evt) => {
+                    if (calendarFilterType === 'triage') {
+                      return evt.title && evt.title.includes('📌 [Triage Lite]');
+                    }
+                    return true;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                        <span className="text-2xl">📅</span>
+                        <span className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">No upcoming events inside this range.</span>
+                        <span className="text-[9px] text-gray-500 uppercase">Stay Focused!</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex flex-col gap-3.5 py-2">
+                      {filtered.map((evt, idx) => {
+                        const isTriageEvent = evt.title && evt.title.includes('📌 [Triage Lite]');
+                        const start = evt.startDate ? new Date(evt.startDate) : null;
+                        const end = evt.endDate ? new Date(evt.endDate) : null;
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-3 bg-black/20 rounded border transition-all ${
+                              isTriageEvent
+                                ? 'border-[var(--color-accent,#DF5504)]/40 border-l-4 border-l-[var(--color-accent,#DF5504)] shadow-[2px_2px_0px_0px_rgba(223,85,4,0.1)]'
+                                : 'border-[var(--color-dark-tertiary,#3D3D3D)]/50 hover:border-gray-500'
+                            }`}
+                          >
+                            {/* Event Timeline Date/Time */}
+                            <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/20">
+                              <span className="text-[9px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider flex items-center gap-1">
+                                <span>📅</span>
+                                {start ? start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date Unknown'}
+                              </span>
+                              <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">
+                                {start ? start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
+                                {end ? ` - ${end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''}
+                              </span>
+                            </div>
+
+                            {/* Event Title */}
+                            <h4 className="font-bold text-white text-[11px] mb-1 leading-snug">
+                              {evt.title || 'Untitled Event'}
+                            </h4>
+
+                            {/* Location & Details */}
+                            {evt.location && (
+                              <div className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
+                                <span>📍</span>
+                                <span className="truncate">{evt.location}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsCalendarAgendaOpen(false);
+                }}
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
+              >
+                Close
               </button>
             </div>
           </div>
