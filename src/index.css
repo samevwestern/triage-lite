@@ -124,3 +124,9 @@
     display: none;
   }
 }
+
+/* 📅 Color native calendar picker indicator icons to match MDEx Signal Action Orange (--color-accent: #DF5504) */
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(41%) sepia(85%) saturate(2250%) hue-rotate(5deg) brightness(90%) contrast(101%);
+  cursor: pointer;
+}
