@@ -196,7 +196,9 @@ export default function App() {
   const [newCloudLinkUrl, setNewCloudLinkUrl] = useState('');
   const [academicSearchQuery, setAcademicSearchQuery] = useState('');
   const [academicEngine, setAcademicEngine] = useState('scholar');
-  const [newSubtaskText, setNewSubtaskText] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState('');
+  const [inlineNewTaskText, setInlineNewTaskText] = useState('');
   
   // Phase 2: Standalone Paid App Architecture (Remove Guest Walls)
   const [isConnected, setIsConnected] = useState(false);
@@ -1372,44 +1374,108 @@ export default function App() {
                 </label>
                 
                 {/* Drag-resizable and scrollable checklist viewport container */}
-                <div className="w-full resize-y overflow-auto min-h-[110px] h-32 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 rounded flex flex-col gap-2 focus-within:border-[var(--color-accent,#DF5504)] transition-all">
+                <div className="w-full resize-y overflow-auto min-h-[120px] h-36 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 rounded flex flex-col focus-within:border-[var(--color-accent,#DF5504)] transition-all">
                   <div className="flex-grow flex flex-col gap-1.5 overflow-y-auto pr-1">
-                    {(!selectedCardForEdit.checklists || selectedCardForEdit.checklists.length === 0 || selectedCardForEdit.checklists[0].items.length === 0) ? (
-                      <div className="text-gray-500 text-[10px] font-mono italic text-center my-auto py-2 select-none">
-                        No subtasks added yet
-                      </div>
-                    ) : (
-                      selectedCardForEdit.checklists[0].items.map(item => (
-                        <div key={item.id} className="flex justify-between items-center bg-black/20 hover:bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px]">
-                          <label className="flex items-center gap-2 cursor-pointer flex-grow select-none">
-                            <input 
-                              type="checkbox"
-                              checked={item.isChecked}
-                              onChange={async () => {
+                    {/* Render active tasks */}
+                    {selectedCardForEdit.checklists?.[0]?.items.map(item => {
+                      const isEditing = editingTaskId === item.id;
+                      return (
+                        <div key={item.id} className="flex justify-between items-center bg-black/20 hover:bg-black/35 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] gap-2">
+                          {isEditing ? (
+                            /* Inline Edit Input Field */
+                            <div className="flex items-center gap-1.5 flex-grow">
+                              <span className="text-gray-500">✏️</span>
+                              <input 
+                                type="text"
+                                value={editingTaskText}
+                                onChange={(e) => setEditingTaskText(e.target.value)}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (editingTaskText.trim()) {
+                                      await triggerHaptic();
+                                      const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                        if (idx === 0) {
+                                          return {
+                                            ...cl,
+                                            items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
+                                          };
+                                        }
+                                        return cl;
+                                      }) || [];
+                                      setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                      setEditingTaskId(null);
+                                    }
+                                  } else if (e.key === 'Escape') {
+                                    setEditingTaskId(null);
+                                  }
+                                }}
+                                onBlur={async () => {
+                                  if (editingTaskText.trim()) {
+                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                      if (idx === 0) {
+                                        return {
+                                          ...cl,
+                                          items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
+                                        };
+                                      }
+                                      return cl;
+                                    }) || [];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                  }
+                                  setEditingTaskId(null);
+                                }}
+                                className="bg-black/40 border border-[var(--color-accent,#DF5504)] px-1.5 py-0.5 text-[11px] text-white rounded font-mono flex-grow focus:outline-none"
+                                autoFocus
+                              />
+                            </div>
+                          ) : (
+                            /* Read-only Checklist Row */
+                            <label className="flex items-center gap-2 cursor-pointer flex-grow select-none overflow-hidden">
+                              <input 
+                                type="checkbox"
+                                checked={item.isChecked}
+                                onChange={async () => {
+                                  await triggerHaptic();
+                                  const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                    if (idx === 0) {
+                                      return {
+                                        ...cl,
+                                        items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
+                                      };
+                                    }
+                                    return cl;
+                                  }) || [];
+                                  setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                }}
+                                className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
+                              />
+                              <span className={`text-white transition-all truncate ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
+                                {item.text}
+                              </span>
+                            </label>
+                          )}
+                          
+                          {/* Row Actions Drawer */}
+                          <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
+                            {!isEditing && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  setEditingTaskId(item.id);
+                                  setEditingTaskText(item.text);
+                                }}
+                                className="text-gray-400 hover:text-white font-mono text-[10px] transition-colors"
+                              >
+                                ✏️
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
                                 await triggerHaptic();
                                 const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                  if (idx === 0) {
-                                    return {
-                                      ...cl,
-                                      items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
-                                    };
-                                  }
-                                  return cl;
-                                }) || [];
-                                setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                              }}
-                              className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
-                            />
-                            <span className={`text-white transition-all ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
-                              {item.text}
-                            </span>
-                          </label>
-                          
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              await triggerHaptic();
-                              const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
                                   if (idx === 0) {
                                     return {
                                       ...cl,
@@ -1418,96 +1484,62 @@ export default function App() {
                                   }
                                   return cl;
                                 }) || [];
-                              setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                            }}
-                            className="text-red-500 hover:text-red-400 font-bold px-1 transition-colors"
-                          >
-                            🗑
-                          </button>
+                                setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                              }}
+                              className="text-red-500 hover:text-red-400 font-bold transition-colors"
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                      );
+                    })}
 
-                {/* Add new subtask in-place form */}
-                <div className="flex gap-1 mt-1.5">
-                  <input 
-                    type="text"
-                    placeholder="＋ Add new subtask... (Press Enter)"
-                    value={newSubtaskText}
-                    onChange={(e) => setNewSubtaskText(e.target.value)}
-                    onKeyDown={async (e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        if (newSubtaskText.trim()) {
-                          await triggerHaptic();
-                          const newItem = {
-                            id: 'item-' + Date.now(),
-                            text: newSubtaskText.trim(),
-                            isChecked: false
-                          };
-                          const currentChecklists = selectedCardForEdit.checklists || [];
-                          let updatedChecklists = [];
-                          if (currentChecklists.length === 0) {
-                            updatedChecklists = [{
-                              id: 'cl-' + Date.now(),
-                              items: [newItem]
-                            }];
-                          } else {
-                            updatedChecklists = currentChecklists.map((cl, idx) => {
-                              if (idx === 0) {
-                                return {
-                                  ...cl,
-                                  items: [...cl.items, newItem]
-                                };
-                              }
-                              return cl;
-                            });
-                          }
-                          setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                          setNewSubtaskText('');
-                        }
-                      }
-                    }}
-                    className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1.5 text-xs text-white flex-grow rounded font-mono focus:border-[var(--color-accent,#DF5504)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (newSubtaskText.trim()) {
-                        await triggerHaptic();
-                        const newItem = {
-                          id: 'item-' + Date.now(),
-                          text: newSubtaskText.trim(),
-                          isChecked: false
-                        };
-                        const currentChecklists = selectedCardForEdit.checklists || [];
-                        let updatedChecklists = [];
-                        if (currentChecklists.length === 0) {
-                          updatedChecklists = [{
-                            id: 'cl-' + Date.now(),
-                            items: [newItem]
-                          }];
-                        } else {
-                          updatedChecklists = currentChecklists.map((cl, idx) => {
-                            if (idx === 0) {
-                              return {
-                                ...cl,
-                                items: [...cl.items, newItem]
+                    {/* Inline Task Creator Row (Dynamic '+' Row) */}
+                    <div className="flex items-center gap-2 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/20 transition-all mt-1">
+                      <span className="text-[12px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
+                      <input 
+                        type="text"
+                        placeholder="New task... (Press Enter)"
+                        value={inlineNewTaskText}
+                        onChange={(e) => setInlineNewTaskText(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (inlineNewTaskText.trim()) {
+                              await triggerHaptic();
+                              const newItem = {
+                                id: 'item-' + Date.now(),
+                                text: inlineNewTaskText.trim(),
+                                isChecked: false
                               };
+                              const currentChecklists = selectedCardForEdit.checklists || [];
+                              let updatedChecklists = [];
+                              if (currentChecklists.length === 0) {
+                                updatedChecklists = [{
+                                  id: 'cl-' + Date.now(),
+                                  items: [newItem]
+                                }];
+                              } else {
+                                updatedChecklists = currentChecklists.map((cl, idx) => {
+                                  if (idx === 0) {
+                                    return {
+                                      ...cl,
+                                      items: [...cl.items, newItem]
+                                    };
+                                  }
+                                  return cl;
+                                });
+                              }
+                              setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                              setInlineNewTaskText('');
                             }
-                            return cl;
-                          });
-                        }
-                        setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                        setNewSubtaskText('');
-                      }
-                    }}
-                    className="bg-[var(--color-accent,#DF5504)] text-white font-bold text-xs px-3 rounded hover:opacity-90 font-mono uppercase"
-                  >
-                    Add
-                  </button>
+                          }
+                        }}
+                        className="bg-transparent text-white border-none focus:outline-none placeholder-gray-500 text-[11px] font-mono flex-grow"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
