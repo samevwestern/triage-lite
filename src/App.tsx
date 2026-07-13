@@ -1628,14 +1628,19 @@ export default function App() {
               {/* 🔔 NOTIFICATION & ALERT STUDIO POPUP TRIGGER */}
               <button 
                 type="button"
+                disabled={!selectedCardForEdit.dueDate}
                 onClick={async () => {
                   await triggerHaptic();
                   setIsNotificationStudioOpen(true);
                 }}
-                className="w-full mt-2.5 bento-btn px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5"
+                className={`w-full mt-2.5 px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all ${
+                  selectedCardForEdit.dueDate 
+                    ? 'bento-btn text-white' 
+                    : 'bg-[var(--color-dark-tertiary,#3D3D3D)] text-gray-500 border border-[var(--color-dark-tertiary,#3D3D3D)] cursor-not-allowed opacity-60'
+                }`}
               >
                 <span>🔔</span>
-                <span>Configure Alerts & Notifications</span>
+                <span>{selectedCardForEdit.dueDate ? 'Configure Alerts & Notifications' : 'Set Due Date to Enable Alerts'}</span>
               </button>
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
