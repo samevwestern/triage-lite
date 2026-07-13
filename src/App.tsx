@@ -21,6 +21,24 @@ export interface Label {
   color: string;
 }
 
+export interface FileAttachment {
+  id: string;
+  name: string;
+  type: 'supporting' | 'submission' | 'cloud_link';
+  size?: number; // Size in bytes
+  mimeType?: string;
+  dataUrl?: string; // Standard base64 representation or absolute cloud/drive URL string!
+  addedAt: number;
+}
+
+export interface ResourceCitation {
+  id: string;
+  title: string;
+  url: string;
+  notes?: string;
+  addedAt: number;
+}
+
 export interface Card {
   id: string;
   listId: string;
@@ -32,6 +50,8 @@ export interface Card {
   checklists?: CardChecklist[];
   dueDate?: number | null;
   completedAt?: number | null;
+  attachments?: FileAttachment[];
+  resources?: ResourceCitation[];
 }
 
 interface List {
@@ -167,6 +187,13 @@ export default function App() {
   // Card Editing Modal State
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<Card | null>(null);
   const [isLabelManagerOpen, setIsLabelManagerOpen] = useState(false);
+  const [lightboxFile, setLightboxFile] = useState<FileAttachment | null>(null);
+  
+  // Local temporary modal form inputs
+  const [newCitationTitle, setNewCitationTitle] = useState('');
+  const [newCitationUrl, setNewCitationUrl] = useState('');
+  const [newCloudLinkName, setNewCloudLinkName] = useState('');
+  const [newCloudLinkUrl, setNewCloudLinkUrl] = useState('');
   
   // Phase 2: Standalone Paid App Architecture (Remove Guest Walls)
   const [isConnected, setIsConnected] = useState(false);
@@ -764,6 +791,92 @@ export default function App() {
         {config.name} &bull; MDEx Workspace App Factory Engine &bull; Standard Multi-tenant Hybrid Sandbox
       </footer>
 
+      {/* 🖼️ IN-APP DOCUMENT LIGHTBOX PREVIEW OVERLAY */}
+      {lightboxFile && (
+        <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center p-4 z-[60] animate-fadeIn">
+          <div className="w-full max-w-2xl bg-[var(--color-dark-bg,#282828)] border-2 border-[var(--color-accent,#DF5504)] p-4 text-white rounded flex flex-col gap-4 max-h-[90vh]">
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2">
+              <span className="font-bold font-mono text-xs uppercase text-[var(--color-accent,#DF5504)] truncate max-w-[400px]">
+                🔍 Previewing: {lightboxFile.name}
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setLightboxFile(null);
+                }}
+                className="text-gray-400 hover:text-white font-black text-lg p-1"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Document Render Body */}
+            <div className="flex-grow flex items-center justify-center overflow-auto bg-black/40 rounded p-2 min-h-[300px]">
+              {lightboxFile.dataUrl?.startsWith('data:image/') ? (
+                <img 
+                  src={lightboxFile.dataUrl} 
+                  alt={lightboxFile.name} 
+                  className="max-w-full max-h-[60vh] object-contain border border-[var(--color-dark-tertiary,#3D3D3D)] rounded"
+                />
+              ) : lightboxFile.dataUrl?.startsWith('data:application/pdf') || lightboxFile.mimeType === 'application/pdf' ? (
+                <iframe 
+                  src={lightboxFile.dataUrl} 
+                  title={lightboxFile.name} 
+                  className="w-full h-[60vh] rounded border border-[var(--color-dark-tertiary,#3D3D3D)] bg-white"
+                />
+              ) : lightboxFile.dataUrl?.startsWith('data:text/') ? (
+                (() => {
+                  try {
+                    const rawBase64 = lightboxFile.dataUrl.split(',')[1];
+                    const decodedText = atob(rawBase64);
+                    return (
+                      <pre className="w-full h-[60vh] p-4 bg-black/70 text-green-400 font-mono text-[10px] overflow-auto rounded text-left whitespace-pre-wrap">
+                        {decodedText}
+                      </pre>
+                    );
+                  } catch (err) {
+                    return <span className="text-xs text-red-400">Failed to render text content preview.</span>;
+                  }
+                })()
+              ) : (
+                <div className="text-center flex flex-col gap-3 max-w-sm p-4">
+                  <span className="text-2xl">📦</span>
+                  <span className="font-mono text-xs text-gray-400">
+                    No inline preview renderer is available for this format. You can export or view it natively on your device:
+                  </span>
+                  <div className="flex gap-2 justify-center mt-2">
+                    <a
+                      href={lightboxFile.dataUrl}
+                      download={lightboxFile.name}
+                      onClick={async () => {
+                        await triggerHaptic();
+                      }}
+                      className="px-4 py-1.5 bg-[var(--color-accent,#DF5504)] text-white font-black font-mono text-[10px] uppercase rounded hover:opacity-90"
+                    >
+                      📥 Download File
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setLightboxFile(null);
+                }}
+                className="px-4 py-1 bg-[var(--color-dark-tertiary,#3D3D3D)] text-white text-[10px] font-bold font-mono uppercase rounded hover:bg-opacity-80"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MENU ITEM SUB-MODALS */}
       {activeMenuModal === 'backup' && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
@@ -1101,7 +1214,7 @@ export default function App() {
       {/* CUSTOM BRUTALIST DETAIL MODAL */}
       {selectedCardForEdit && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="w-full max-w-md bento-box p-6 text-white">
+          <div className="w-full max-w-md bento-box p-6 text-white max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mb-4">
               <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
@@ -1270,6 +1383,403 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* 📁 DOCUMENT & RESOURCE STUDIO */}
+              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
+                <h4 className="font-mono font-black text-xs uppercase text-[var(--color-accent,#DF5504)] tracking-wider mb-3 flex items-center gap-1.5">
+                  📁 Document & Resource Studio
+                </h4>
+                
+                <div className="flex flex-col gap-3">
+                  
+                  {/* 1. CENTRAL SUBMISSION PORTAL */}
+                  <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
+                    <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
+                      <span className="flex items-center gap-1.5">🏆 Central Submission Portal</span>
+                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                    </summary>
+                    <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
+                      {selectedCardForEdit.attachments?.find(a => a.type === 'submission') ? (
+                        (() => {
+                          const subFile = selectedCardForEdit.attachments.find(a => a.type === 'submission')!;
+                          return (
+                            <div className="flex flex-col gap-2 p-2.5 bg-yellow-500/10 border border-yellow-500/30 rounded font-mono">
+                              <div className="flex justify-between items-center">
+                                <span className="text-yellow-400 font-bold text-[10px] truncate max-w-[200px]" title={subFile.name}>
+                                  📄 {subFile.name}
+                                </span>
+                                <span className="text-[9px] text-gray-500">
+                                  {Math.round((subFile.size || 0) / 1024)} KB
+                                </span>
+                              </div>
+                              <div className="flex gap-1.5 mt-1.5">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    setLightboxFile(subFile);
+                                  }}
+                                  className="px-2 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded text-[9px] font-bold uppercase hover:bg-yellow-500/35"
+                                >
+                                  Open File
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    const nextAttachments = selectedCardForEdit.attachments?.filter(a => a.id !== subFile.id) || [];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
+                                  }}
+                                  className="px-2 py-1 bg-red-900/20 text-red-400 border border-red-500/30 rounded text-[9px] font-bold uppercase hover:bg-red-900/40"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <div className="flex flex-col gap-2 p-2 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] border-dashed rounded text-center text-gray-500 text-[10px]">
+                          <span>No submission document attached yet (e.g. final DOCX or Slides)</span>
+                          <label className="mx-auto cursor-pointer bento-btn bg-white text-black text-[9px] px-2.5 py-1 font-bold uppercase rounded">
+                            Attach Submission
+                            <input 
+                              type="file" 
+                              accept=".docx,.pptx,.pdf,.doc,.txt"
+                              className="hidden" 
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  await triggerHaptic();
+                                  if (file.size > 1.5 * 1024 * 1024) {
+                                    alert('File size exceeds 1.5MB limit. Please attach a smaller compressed file.');
+                                    return;
+                                  }
+                                  const reader = new FileReader();
+                                  reader.onload = (event) => {
+                                    const nextAttachments = [
+                                      ...(selectedCardForEdit.attachments || []),
+                                      {
+                                        id: 'attach-' + Date.now(),
+                                        name: file.name,
+                                        type: 'submission',
+                                        size: file.size,
+                                        mimeType: file.type,
+                                        dataUrl: event.target?.result as string,
+                                        addedAt: Date.now()
+                                      } as FileAttachment
+                                    ];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </details>
+
+                  {/* 2. SUPPORTING FILE VAULT */}
+                  <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
+                    <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
+                      <span className="flex items-center gap-1.5">🖇️ Supporting File Vault</span>
+                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                    </summary>
+                    <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
+                      <div className="max-h-32 overflow-y-auto flex flex-col gap-1.5 pr-1">
+                        {(selectedCardForEdit.attachments?.filter(a => a.type === 'supporting') || []).length === 0 ? (
+                          <span className="text-[10px] text-gray-500 font-mono italic text-center py-2">No supporting documents attached yet</span>
+                        ) : (
+                          (selectedCardForEdit.attachments?.filter(a => a.type === 'supporting') || []).map(file => (
+                            <div key={file.id} className="flex justify-between items-center p-1.5 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded font-mono text-[10px]">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  setLightboxFile(file);
+                                }}
+                                className="text-blue-400 font-bold hover:underline truncate max-w-[200px]"
+                                title="Open File Preview"
+                              >
+                                📎 {file.name}
+                              </button>
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-500 text-[9px]">{Math.round((file.size || 0) / 1024)} KB</span>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    const nextAttachments = selectedCardForEdit.attachments?.filter(a => a.id !== file.id) || [];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
+                                  }}
+                                  className="text-red-500 hover:text-red-400 font-bold"
+                                >
+                                  🗑
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      
+                      <label className="w-full text-center cursor-pointer py-1.5 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded text-gray-400 text-[9px] font-mono font-bold uppercase hover:bg-black/30 transition-all flex justify-center items-center gap-1 mt-1">
+                        <span>＋ Attach Supporting Document</span>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              await triggerHaptic();
+                              if (file.size > 1.5 * 1024 * 1024) {
+                                alert('File size exceeds 1.5MB limit. Please attach a smaller compressed file.');
+                                return;
+                              }
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const nextAttachments = [
+                                  ...(selectedCardForEdit.attachments || []),
+                                  {
+                                    id: 'attach-' + Date.now(),
+                                    name: file.name,
+                                    type: 'supporting',
+                                    size: file.size,
+                                    mimeType: file.type,
+                                    dataUrl: event.target?.result as string,
+                                    addedAt: Date.now()
+                                  } as FileAttachment
+                                ];
+                                setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </details>
+
+                  {/* 3. BIBLIOGRAPHY & CITATION COMPILER */}
+                  <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
+                    <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
+                      <span className="flex items-center gap-1.5">📚 Bibliography & Citations</span>
+                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                    </summary>
+                    <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
+                      {/* Citation inputs */}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input 
+                          type="text"
+                          placeholder="Source Book/Author..."
+                          value={newCitationTitle}
+                          onChange={(e) => setNewCitationTitle(e.target.value)}
+                          className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] rounded font-mono"
+                        />
+                        <div className="flex gap-1">
+                          <input 
+                            type="text"
+                            placeholder="URL or Page Reference..."
+                            value={newCitationUrl}
+                            onChange={(e) => setNewCitationUrl(e.target.value)}
+                            className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] flex-grow rounded font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (newCitationTitle.trim() && newCitationUrl.trim()) {
+                                await triggerHaptic();
+                                const nextCitations = [
+                                  ...(selectedCardForEdit.resources || []),
+                                  {
+                                    id: 'cit-' + Date.now(),
+                                    title: newCitationTitle.trim(),
+                                    url: newCitationUrl.trim(),
+                                    addedAt: Date.now()
+                                  } as ResourceCitation
+                                ];
+                                setSelectedCardForEdit({ ...selectedCardForEdit, resources: nextCitations });
+                                setNewCitationTitle('');
+                                setNewCitationUrl('');
+                              }
+                            }}
+                            className="bg-[var(--color-accent,#DF5504)] text-white font-bold text-[10px] px-2 rounded hover:opacity-90"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Citations List */}
+                      <div className="max-h-32 overflow-y-auto flex flex-col gap-1.5 mt-2">
+                        {(selectedCardForEdit.resources || []).length === 0 ? (
+                          <span className="text-[10px] text-gray-500 font-mono italic text-center py-2">No citations compiled yet</span>
+                        ) : (
+                          (selectedCardForEdit.resources || []).map(cit => (
+                            <div key={cit.id} className="flex justify-between items-center p-1.5 bg-black/20 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded font-mono text-[9px]">
+                              <div className="flex flex-col gap-0.5 truncate max-w-[210px]">
+                                <span className="font-bold text-white text-[10px]">{cit.title}</span>
+                                <span className="text-gray-500 text-[8px] truncate">{cit.url}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  const nextCitations = selectedCardForEdit.resources?.filter(r => r.id !== cit.id) || [];
+                                  setSelectedCardForEdit({ ...selectedCardForEdit, resources: nextCitations });
+                                }}
+                                className="text-red-500 hover:text-red-400 font-bold ml-1.5"
+                              >
+                                🗑
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Export Citation Tools */}
+                      {(selectedCardForEdit.resources || []).length > 0 && (
+                        <div className="grid grid-cols-2 gap-1.5 mt-2 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              // Build CSV
+                              const headers = `"Title","Reference/URL"\n`;
+                              const rows = (selectedCardForEdit.resources || [])
+                                .map(r => `"${r.title.replace(/"/g, '""')}","${r.url.replace(/"/g, '""')}"`)
+                                .join('\n');
+                              await navigator.clipboard.writeText(headers + rows);
+                              alert('Citations copied to clipboard as standard CSV!');
+                            }}
+                            className="py-1 bg-white text-black font-bold uppercase text-[8px] tracking-wider rounded text-center"
+                          >
+                            📋 Copy as CSV
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              // Create CSV Download file
+                              const headers = `"Title","Reference/URL"\n`;
+                              const rows = (selectedCardForEdit.resources || [])
+                                .map(r => `"${r.title.replace(/"/g, '""')}","${r.url.replace(/"/g, '""')}"`)
+                                .join('\n');
+                              const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `citations_${selectedCardForEdit.id}.csv`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="py-1 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] text-white font-bold uppercase text-[8px] tracking-wider rounded text-center hover:bg-black/30"
+                          >
+                            📥 Download CSV
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </details>
+
+                  {/* 4. CLOUD & DRIVES LINKS */}
+                  <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
+                    <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
+                      <span className="flex items-center gap-1.5">🌐 Cloud & Drives Links</span>
+                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                    </summary>
+                    <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input 
+                          type="text"
+                          placeholder="Link Label (e.g. iCloud Folder)..."
+                          value={newCloudLinkName}
+                          onChange={(e) => setNewCloudLinkName(e.target.value)}
+                          className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] rounded font-mono"
+                        />
+                        <div className="flex gap-1">
+                          <input 
+                            type="text"
+                            placeholder="https://drive.google.com/..."
+                            value={newCloudLinkUrl}
+                            onChange={(e) => setNewCloudLinkUrl(e.target.value)}
+                            className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] flex-grow rounded font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (newCloudLinkName.trim() && newCloudLinkUrl.trim()) {
+                                await triggerHaptic();
+                                // Normalize link
+                                let finalUrl = newCloudLinkUrl.trim();
+                                if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+                                  finalUrl = 'https://' + finalUrl;
+                                }
+                                const nextAttachments = [
+                                  ...(selectedCardForEdit.attachments || []),
+                                  {
+                                    id: 'attach-' + Date.now(),
+                                    name: newCloudLinkName.trim(),
+                                    type: 'cloud_link',
+                                    dataUrl: finalUrl,
+                                    addedAt: Date.now()
+                                  } as FileAttachment
+                                ];
+                                setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
+                                setNewCloudLinkName('');
+                                setNewCloudLinkUrl('');
+                              }
+                            }}
+                            className="bg-[var(--color-accent,#DF5504)] text-white font-bold text-[10px] px-2 rounded hover:opacity-90"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Display Cloud links */}
+                      <div className="max-h-32 overflow-y-auto flex flex-col gap-1.5 mt-2">
+                        {(selectedCardForEdit.attachments?.filter(a => a.type === 'cloud_link') || []).length === 0 ? (
+                          <span className="text-[10px] text-gray-500 font-mono italic text-center py-2">No cloud or drives links saved</span>
+                        ) : (
+                          (selectedCardForEdit.attachments?.filter(a => a.type === 'cloud_link') || []).map(link => {
+                            const isGoogle = link.dataUrl?.includes('drive.google.com') || link.dataUrl?.includes('google.com');
+                            const isApple = link.dataUrl?.includes('icloud.com');
+                            
+                            return (
+                              <div key={link.id} className="flex justify-between items-center p-1.5 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded font-mono text-[9px]">
+                                <a
+                                  href={link.dataUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-white hover:underline truncate max-w-[210px] flex items-center gap-1 font-bold"
+                                >
+                                  {isApple ? '🍏' : isGoogle ? '🤖' : '🌐'} {link.name} 
+                                  <span className="text-[7px] text-gray-500 font-normal">({link.dataUrl})</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    const nextAttachments = selectedCardForEdit.attachments?.filter(a => a.id !== link.id) || [];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
+                                  }}
+                                  className="text-red-500 hover:text-red-400 font-bold ml-1.5"
+                                >
+                                  🗑
+                                </button>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </details>
+
+                </div>
+              </div>
             </div>
 
             {/* Actions */}
