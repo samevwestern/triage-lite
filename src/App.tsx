@@ -136,7 +136,7 @@ export default function App() {
       title: 'Compile Report', 
       description: 'Generate final submission markdown', 
       timeSpent: 300,
-      labelIds: ['label-yellow', 'label-orange'],
+      labelIds: ['label-purple', 'label-orange'],
       checklists: [
         {
           id: 'cl-2',
@@ -156,10 +156,10 @@ export default function App() {
 
   const [labels, setLabels] = useState<Label[]>([
     { id: 'label-red', text: 'URGENT', color: '#ff3b30' },
-    { id: 'label-orange', text: 'FIELD WORK', color: '#DF5504' },
-    { id: 'label-green', text: 'COMPLIANCE', color: '#34c759' },
-    { id: 'label-blue', text: 'IOS DESIGN', color: '#007aff' },
-    { id: 'label-yellow', text: 'AUDIT', color: '#ffcc00' }
+    { id: 'label-orange', text: 'IMPORTANT', color: '#DF5504' },
+    { id: 'label-green', text: 'THIS WEEK', color: '#34c759' },
+    { id: 'label-blue', text: 'NEXT WEEK', color: '#007aff' },
+    { id: 'label-purple', text: 'NEXT SEMESTER', color: '#af52de' }
   ]);
 
   // UI state
