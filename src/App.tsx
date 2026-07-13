@@ -194,6 +194,8 @@ export default function App() {
   const [newCitationUrl, setNewCitationUrl] = useState('');
   const [newCloudLinkName, setNewCloudLinkName] = useState('');
   const [newCloudLinkUrl, setNewCloudLinkUrl] = useState('');
+  const [academicSearchQuery, setAcademicSearchQuery] = useState('');
+  const [academicEngine, setAcademicEngine] = useState('scholar');
   
   // Phase 2: Standalone Paid App Architecture (Remove Guest Walls)
   const [isConnected, setIsConnected] = useState(false);
@@ -1568,6 +1570,62 @@ export default function App() {
                       <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
+                      {/* 🔍 RESEARCH & SEARCH ENGINE PORTAL */}
+                      <div className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 rounded mb-1 flex flex-col gap-1.5 font-mono">
+                        <div className="flex justify-between items-center pb-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+                          <span className="text-[9px] uppercase font-bold text-gray-400">🔍 Web Research Engines</span>
+                          <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold">SAFARI PORTAL</span>
+                        </div>
+                        
+                        <div className="flex gap-1">
+                          <input 
+                            type="text"
+                            placeholder="Search topics or authors..."
+                            value={academicSearchQuery}
+                            onChange={(e) => setAcademicSearchQuery(e.target.value)}
+                            className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] flex-grow rounded font-mono focus:border-[var(--color-accent,#DF5504)]"
+                          />
+                          <select
+                            value={academicEngine}
+                            onChange={(e) => setAcademicEngine(e.target.value)}
+                            className="bg-black/50 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white text-[9px] px-1 rounded font-mono"
+                          >
+                            <option value="scholar">🎓 Scholar</option>
+                            <option value="pubmed">🧬 PubMed</option>
+                            <option value="wikipedia">📚 Wiki</option>
+                            <option value="google">🌐 Google</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (academicSearchQuery.trim()) {
+                                await triggerHaptic();
+                                const encodedQuery = encodeURIComponent(academicSearchQuery.trim());
+                                let searchUrl = '';
+                                switch (academicEngine) {
+                                  case 'scholar':
+                                    searchUrl = `https://scholar.google.com/scholar?q=${encodedQuery}`;
+                                    break;
+                                  case 'pubmed':
+                                    searchUrl = `https://pubmed.ncbi.nlm.nih.gov/?term=${encodedQuery}`;
+                                    break;
+                                  case 'wikipedia':
+                                    searchUrl = `https://en.wikipedia.org/wiki/Special:Search?search=${encodedQuery}`;
+                                    break;
+                                  case 'google':
+                                    searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
+                                    break;
+                                }
+                                window.open(searchUrl, '_blank');
+                              }
+                            }}
+                            className="bg-[var(--color-accent,#DF5504)] text-white font-bold text-[10px] px-2.5 rounded hover:opacity-90 flex items-center justify-center font-mono uppercase"
+                          >
+                            Search ↗
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Citation inputs */}
                       <div className="grid grid-cols-2 gap-1.5">
                         <input 
