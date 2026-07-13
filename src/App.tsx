@@ -700,28 +700,63 @@ export default function App() {
                         <h4 className="font-bold text-sm text-white">{card.title}</h4>
                         <p className="text-xs text-[#8892b0] mt-1 font-mono">{card.description}</p>
                         
-                        {/* Checklists Render */}
-                        {card.checklists && card.checklists.length > 0 && (
-                          <div className="mt-3 flex flex-col gap-2">
-                            {card.checklists.map(checklist => (
-                              <div key={checklist.id} className="bg-[var(--color-dark-bg,#282828)] p-2 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded">
-                                {checklist.items.map(item => (
-                                  <label key={item.id} className="flex items-center gap-2 cursor-pointer mb-1 last:mb-0 group">
+                        {/* Task Completion Bar & Next Task Display */}
+                        {card.checklists && card.checklists.length > 0 && card.checklists[0].items.length > 0 && (() => {
+                          const checklist = card.checklists[0];
+                          const totalTasks = checklist.items.length;
+                          const checkedTasks = checklist.items.filter(it => it.isChecked).length;
+                          const percentComplete = Math.round((checkedTasks / totalTasks) * 100);
+                          const nextTask = checklist.items.find(it => !it.isChecked);
+
+                          return (
+                            <div className="mt-3 flex flex-col gap-2 font-mono" onClick={(e) => e.stopPropagation()}>
+                              {/* Percentage Label */}
+                              <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold">
+                                <span className="uppercase text-[9px] tracking-wider text-[var(--color-accent,#DF5504)]">
+                                  Task progress
+                                </span>
+                                <span>
+                                  {percentComplete}% ({checkedTasks}/{totalTasks})
+                                </span>
+                              </div>
+
+                              {/* Progress Track */}
+                              <div className="w-full h-2 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-[var(--color-accent,#DF5504)] transition-all duration-300 rounded-full"
+                                  style={{ width: `${percentComplete}%` }}
+                                />
+                              </div>
+
+                              {/* Next Incomplete Task Display */}
+                              <div className="bg-[var(--color-dark-bg,#282828)] p-2 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded mt-1">
+                                {nextTask ? (
+                                  <label className="flex items-center gap-2 cursor-pointer group">
                                     <input 
                                       type="checkbox"
-                                      checked={item.isChecked}
-                                      onChange={() => handleToggleChecklistItem(card.id, checklist.id, item.id)}
-                                      className="appearance-none w-3.5 h-3.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-white checked:bg-[var(--color-accent,#DF5504)] rounded transition-colors relative checked:after:content-['✓'] checked:after:text-white checked:after:text-[10px] checked:after:font-black checked:after:absolute checked:after:top-[-2px] checked:after:left-[1px]"
+                                      checked={nextTask.isChecked}
+                                      onChange={async () => {
+                                        await triggerHaptic();
+                                        handleToggleChecklistItem(card.id, checklist.id, nextTask.id);
+                                      }}
+                                      className="appearance-none w-3.5 h-3.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-white checked:bg-[var(--color-accent,#DF5504)] rounded transition-colors relative checked:after:content-['✓'] checked:after:text-white checked:after:text-[10px] checked:after:font-black checked:after:absolute checked:after:top-[-2px] checked:after:left-[1px] cursor-pointer"
                                     />
-                                    <span className={`text-[11px] font-mono select-none transition-colors ${item.isChecked ? 'line-through text-gray-500' : 'text-gray-300 group-hover:text-white'}`}>
-                                      {item.text}
+                                    <span className="text-[10px] uppercase font-black text-gray-500 select-none">
+                                      Next:
+                                    </span>
+                                    <span className="text-[11px] text-gray-200 select-none group-hover:text-white transition-colors truncate flex-grow">
+                                      {nextTask.text}
                                     </span>
                                   </label>
-                                ))}
+                                ) : (
+                                  <div className="flex items-center gap-1.5 text-[10px] text-green-400 font-bold justify-center select-none py-0.5">
+                                    <span>🎉 All tasks completed!</span>
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
-                        )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Timer details inside the card */}
