@@ -627,19 +627,20 @@ export default function App() {
                 });
                 setIsCreateModalOpen(true);
               }}
-              className="px-2.5 py-1.5 bento-btn text-white text-[9px] font-black uppercase tracking-wider flex items-center gap-1"
+              className="w-9 h-9 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black"
+              title="Create Card"
             >
-              + Create Card
+              ＋
             </button>
-            <span className="flex flex-col items-center text-center">
-              <span className="font-black text-sm uppercase text-white tracking-wider">
-                {lists[activeColumnIndex]?.name}
-              </span>
-              <span className="text-[9px] text-gray-400 font-mono uppercase tracking-wide mt-0.5">
-                # of cards: {cards.filter(c => c.listId === lists[activeColumnIndex]?.id).length}
-              </span>
+            
+            <span className="font-black text-sm uppercase text-white tracking-wider">
+              {lists[activeColumnIndex]?.name}
             </span>
-            <div className="w-[85px]" />
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white font-mono rounded-full text-xs font-black select-none">
+              <span>📋</span>
+              <span className="text-[11px] text-[var(--color-accent,#DF5504)] font-bold">{cards.filter(c => c.listId === lists[activeColumnIndex]?.id).length}</span>
+            </div>
           </div>
 
           {/* HORIZONTAL SWIPE BOARD CONTAINER */}
