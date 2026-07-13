@@ -600,7 +600,6 @@ export default function App() {
           <h1 className="text-2xl font-black uppercase text-white tracking-wider">
             {config.name}
           </h1>
-          <p className="text-xs text-[#8892b0] font-mono mt-1">Platform: {isNative ? 'Apple App Wrapper' : 'Windows / PC Web browser'}</p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <button 
