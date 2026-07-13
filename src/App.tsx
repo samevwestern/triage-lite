@@ -88,7 +88,7 @@ export default function App() {
     }
   };
 
-  const fetchUpcomingCalendarEvents = async (rangeDays: number) => {
+  const fetchUpcomingCalendarEvents = async (rangeDays: number, startDateStr?: string) => {
     setIsCalendarLoading(true);
     try {
       const permission = await CapacitorCalendar.requestReadOnlyCalendarAccess();
@@ -98,12 +98,22 @@ export default function App() {
         return;
       }
 
-      const now = Date.now();
-      const futureOffset = now + rangeDays * 24 * 60 * 60 * 1000;
+      // Calculate start epoch
+      const activeStartStr = startDateStr !== undefined ? startDateStr : calendarStartDate;
+      const baseDate = activeStartStr ? new Date(activeStartStr + 'T00:00:00') : new Date();
+      const fromTime = baseDate.getTime();
+
+      let toTime = fromTime;
+      if (rangeDays === 0) {
+        // Today / Single Day mode (24h period)
+        toTime = fromTime + 24 * 60 * 60 * 1000 - 1000;
+      } else {
+        toTime = fromTime + rangeDays * 24 * 60 * 60 * 1000;
+      }
 
       const response = await CapacitorCalendar.listEventsInRange({
-        from: now,
-        to: futureOffset
+        from: fromTime,
+        to: toTime
       });
 
       if (response && response.result) {
@@ -315,7 +325,14 @@ export default function App() {
   const [isCalendarAgendaOpen, setIsCalendarAgendaOpen] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [calendarRangeDays, setCalendarRangeDays] = useState<number>(30);
-  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage'>('all');
+  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage' | 'diary'>('all');
+  const [calendarStartDate, setCalendarStartDate] = useState<string>(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
   const [isCalendarLoading, setIsCalendarLoading] = useState<boolean>(false);
 
   // Verbal Diary States
@@ -2584,9 +2601,23 @@ export default function App() {
 
             {/* Range and Filters Row */}
             <div className="flex flex-col gap-2.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center flex-wrap gap-2">
                 <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Select Range</span>
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center flex-wrap">
+                  <button
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setCalendarRangeDays(0);
+                      await fetchUpcomingCalendarEvents(0);
+                    }}
+                    className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                      calendarRangeDays === 0
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    Today
+                  </button>
                   {[7, 30, 90].map((days) => (
                     <button
                       key={days}
@@ -2608,6 +2639,20 @@ export default function App() {
               </div>
 
               <div className="flex justify-between items-center">
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Start Date</span>
+                <input
+                  type="date"
+                  value={calendarStartDate}
+                  onChange={async (e) => {
+                    const val = e.target.value;
+                    setCalendarStartDate(val);
+                    await fetchUpcomingCalendarEvents(calendarRangeDays, val);
+                  }}
+                  className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 text-white font-mono text-[9px] uppercase font-bold px-2 py-1 rounded outline-none cursor-pointer"
+                />
+              </div>
+
+              <div className="flex justify-between items-center">
                 <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Filters</span>
                 <div className="flex gap-1">
                   <button
@@ -2615,7 +2660,7 @@ export default function App() {
                       await triggerHaptic();
                       setCalendarFilterType('all');
                     }}
-                    className={`px-2.5 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                    className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
                       calendarFilterType === 'all'
                         ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
                         : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
@@ -2635,6 +2680,19 @@ export default function App() {
                     }`}
                   >
                     Triage Only
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setCalendarFilterType('diary');
+                    }}
+                    className={`px-2.5 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
+                      calendarFilterType === 'diary'
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
+                    }`}
+                  >
+                    Diary Logs
                   </button>
                 </div>
               </div>
@@ -2656,12 +2714,32 @@ export default function App() {
               ) : (
                 (() => {
                   // Filter events
-                  const filtered = calendarEvents.filter((evt) => {
-                    if (calendarFilterType === 'triage') {
-                      return evt.title && evt.title.includes('📌 [Triage Lite]');
-                    }
-                    return true;
-                  });
+                  let filtered: any[] = [];
+                  
+                  if (calendarFilterType === 'diary') {
+                    const baseDate = calendarStartDate ? new Date(calendarStartDate + 'T00:00:00') : new Date();
+                    const startTime = baseDate.getTime();
+                    const endTime = calendarRangeDays === 0
+                      ? startTime + 24 * 60 * 60 * 1000 - 1000
+                      : startTime + calendarRangeDays * 24 * 60 * 60 * 1000;
+
+                    filtered = voiceLogs
+                      .filter(l => l.timestamp >= startTime && l.timestamp <= endTime)
+                      .map(l => ({
+                        title: l.text,
+                        startDate: l.timestamp,
+                        endDate: l.timestamp,
+                        location: l.assignedCardId ? `Sent to: "${cards.find(c => c.id === l.assignedCardId)?.title || ''}"` : undefined,
+                        isDiaryLog: true
+                      }));
+                  } else {
+                    filtered = calendarEvents.filter((evt) => {
+                      if (calendarFilterType === 'triage') {
+                        return evt.title && evt.title.includes('📌 [Triage Lite]');
+                      }
+                      return true;
+                    });
+                  }
 
                   if (filtered.length === 0) {
                     return (
@@ -2677,6 +2755,7 @@ export default function App() {
                     <div className="flex flex-col gap-3.5 py-2">
                       {filtered.map((evt, idx) => {
                         const isTriageEvent = evt.title && evt.title.includes('📌 [Triage Lite]');
+                        const isDiaryLog = !!evt.isDiaryLog;
                         const start = evt.startDate ? new Date(evt.startDate) : null;
                         const end = evt.endDate ? new Date(evt.endDate) : null;
 
@@ -2686,18 +2765,20 @@ export default function App() {
                             className={`p-3 bg-black/20 rounded border transition-all ${
                               isTriageEvent
                                 ? 'border-[var(--color-accent,#DF5504)]/40 border-l-4 border-l-[var(--color-accent,#DF5504)] shadow-[2px_2px_0px_0px_rgba(223,85,4,0.1)]'
+                                : isDiaryLog
+                                ? 'border-amber-500/40 border-l-4 border-l-amber-500 shadow-[2px_2px_0px_0px_rgba(245,158,11,0.1)]'
                                 : 'border-[var(--color-dark-tertiary,#3D3D3D)]/50 hover:border-gray-500'
                             }`}
                           >
                             {/* Event Timeline Date/Time */}
                             <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/20">
-                              <span className="text-[9px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider flex items-center gap-1">
-                                <span>📅</span>
+                              <span className={`text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${isDiaryLog ? 'text-amber-500' : 'text-[var(--color-accent,#DF5504)]'}`}>
+                                <span>{isDiaryLog ? '📔' : '📅'}</span>
                                 {start ? start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date Unknown'}
                               </span>
                               <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">
                                 {start ? start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
-                                {end ? ` - ${end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                {end && !isDiaryLog ? ` - ${end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''}
                               </span>
                             </div>
 
@@ -2709,7 +2790,7 @@ export default function App() {
                             {/* Location & Details */}
                             {evt.location && (
                               <div className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
-                                <span>📍</span>
+                                <span>{isDiaryLog ? '📤' : '📍'}</span>
                                 <span className="truncate">{evt.location}</span>
                               </div>
                             )}
