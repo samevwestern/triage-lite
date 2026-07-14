@@ -359,6 +359,7 @@ export default function App() {
   const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
   const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [showFileHelp, setShowFileHelp] = useState(false);
+  const [isDashboardHelpOpen, setIsDashboardHelpOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -638,6 +639,17 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsDashboardHelpOpen(true);
+            }}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-[10px] font-black transition-colors cursor-pointer"
+            title="Dashboard Runbook"
+          >
+            ❓
+          </button>
+
           <button 
             onClick={async () => {
               await triggerHaptic();
@@ -3343,6 +3355,104 @@ export default function App() {
                 className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ❓ DASHBOARD HELP OVERLAY MODAL */}
+      {isDashboardHelpOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+                ❓ Dashboard Quick Runbook
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsDashboardHelpOpen(false);
+                }}
+                className="text-gray-400 hover:text-white font-black text-sm p-1 border-none bg-transparent cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Scrollable Content */}
+            <div className="overflow-y-auto pr-1 flex flex-col gap-4 leading-relaxed text-gray-300">
+              <div className="border-l-2 border-[var(--color-accent,#DF5504)] pl-3 py-1 bg-black/20">
+                <p className="font-bold text-white mb-1">Welcome to Triage Lite!</p>
+                <p className="text-[11px] text-gray-400">
+                  A high-performance, brutalist Pomodoro Kanban task controller built to track study hours, speech journals, and expenditures with absolute precision.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-sm select-none">📌</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Brutalist Kanban Boards</span>
+                    <span>Track progress through Todo, Doing, and Done. Drag and drop cards to reorder, or use the interactive pagination dots at the top to focus column segments.</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-sm select-none">📅</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Calendar Agenda</span>
+                    <span>Synchronize study timetables, manage deadlines, and set due dates to visualize your schedule limits. Includes dynamic calendar list ranges.</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-sm select-none">📔</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Verbal Diary Speech Journal</span>
+                    <span>Record speech diaries on-the-go to capture verbal logs directly onto your workspace storage index with local voice narration.</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-sm select-none">🧾</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Expenditure Receipts</span>
+                    <span>Log business receipts with merchant names, dates, amounts, and photo file uploads for expense claims.</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-sm select-none">📂</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-black text-white uppercase text-[10px] tracking-wider">File Explorer & Lightbox</span>
+                    <span>Inspect and search all workspace logs, base64 files, and card templates. View inline, or share natively via AirDrop, WhatsApp, and iOS parent sheets.</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-sm select-none">⏱️</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Pomodoro Timer & Checklists</span>
+                    <span>Track focused execution times, complete checklists, and preview next-in-line pending tasks directly inside any card frame.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)] flex-shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsDashboardHelpOpen(false);
+                }}
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded cursor-pointer uppercase text-[10px]"
+              >
+                Acknowledge Runbook
               </button>
             </div>
           </div>
