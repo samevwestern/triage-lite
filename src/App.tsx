@@ -9,6 +9,7 @@ export interface ChecklistItem {
   id: string;
   text: string;
   isChecked: boolean;
+  dueDate?: number | null;
 }
 
 export interface CardChecklist {
@@ -233,6 +234,47 @@ export default function App() {
     }
   };
 
+  const scheduleChecklistItemAlarm = async (cardTitle: string, item: ChecklistItem) => {
+    if (!item.dueDate) return;
+    try {
+      const perm = await LocalNotifications.requestPermissions();
+      if (perm.display !== 'granted') return;
+
+      // Extract a unique numeric id from the item id, or use random fallback
+      const numericId = parseInt(item.id.replace(/\D/g, '')) || Math.floor(Math.random() * 1000000) + 1000000;
+
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: numericId,
+            title: "⏰ Checklist Alarm!",
+            body: `Subtask "${item.text}" from card "${cardTitle}" is due now!`,
+            schedule: { at: new Date(item.dueDate) },
+            sound: 'default'
+          }
+        ]
+      });
+      console.log("[LocalNotifications] Checklist item alarm scheduled.");
+    } catch (e) {
+      console.error("[LocalNotifications] Failed to schedule checklist alarm", e);
+    }
+  };
+
+  const cancelChecklistItemAlarm = async (item: ChecklistItem) => {
+    try {
+      const numericId = parseInt(item.id.replace(/\D/g, '')) || 0;
+      if (numericId > 0) {
+        await LocalNotifications.cancel({
+          notifications: [{ id: numericId }]
+        });
+        console.log("[LocalNotifications] Checklist item alarm cancelled.");
+      }
+    } catch (e) {
+      console.error("[LocalNotifications] Failed to cancel checklist alarm", e);
+    }
+  };
+
+
   // Load accent color dynamically from App Factory configuration
   useEffect(() => {
     document.documentElement.style.setProperty('--accent-color', config.accentColor);
@@ -362,6 +404,7 @@ export default function App() {
   const [isDashboardHelpOpen, setIsDashboardHelpOpen] = useState(false);
   const [isCardHelpOpen, setIsCardHelpOpen] = useState(false);
   const [isAlertsHelpOpen, setIsAlertsHelpOpen] = useState(false);
+  const [checklistItemAlarmEditingId, setChecklistItemAlarmEditingId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1686,20 +1729,39 @@ export default function App() {
                     {selectedCardForEdit.checklists?.[0]?.items.map(item => {
                       const isEditing = editingTaskId === item.id;
                       return (
-                        <div key={item.id} className="flex justify-between items-center bg-black/20 hover:bg-black/35 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] gap-2">
-                          {isEditing ? (
-                            /* Inline Edit Input Field */
-                            <div className="flex items-center gap-1.5 flex-grow">
-                              <span className="text-gray-500">✏️</span>
-                              <input 
-                                type="text"
-                                value={editingTaskText}
-                                onChange={(e) => setEditingTaskText(e.target.value)}
-                                onKeyDown={async (e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
+                        <div key={item.id} className="flex flex-col gap-1.5 bg-black/20 hover:bg-black/35 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px]">
+                          <div className="flex justify-between items-center gap-2">
+                            {isEditing ? (
+                              /* Inline Edit Input Field */
+                              <div className="flex items-center gap-1.5 flex-grow">
+                                <span className="text-gray-500">✏️</span>
+                                <input 
+                                  type="text"
+                                  value={editingTaskText}
+                                  onChange={(e) => setEditingTaskText(e.target.value)}
+                                  onKeyDown={async (e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      if (editingTaskText.trim()) {
+                                        await triggerHaptic();
+                                        const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                          if (idx === 0) {
+                                            return {
+                                              ...cl,
+                                              items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
+                                            };
+                                          }
+                                          return cl;
+                                        }) || [];
+                                        setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                        setEditingTaskId(null);
+                                      }
+                                    } else if (e.key === 'Escape') {
+                                      setEditingTaskId(null);
+                                    }
+                                  }}
+                                  onBlur={async () => {
                                     if (editingTaskText.trim()) {
-                                      await triggerHaptic();
                                       const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
                                         if (idx === 0) {
                                           return {
@@ -1710,93 +1772,173 @@ export default function App() {
                                         return cl;
                                       }) || [];
                                       setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                      setEditingTaskId(null);
                                     }
-                                  } else if (e.key === 'Escape') {
                                     setEditingTaskId(null);
-                                  }
-                                }}
-                                onBlur={async () => {
-                                  if (editingTaskText.trim()) {
+                                  }}
+                                  className="bg-black/40 border border-[var(--color-accent,#DF5504)] px-1.5 py-0.5 text-[11px] text-white rounded font-mono flex-grow focus:outline-none"
+                                  autoFocus
+                                />
+                              </div>
+                            ) : (
+                              /* Read-only Checklist Row */
+                              <label className="flex items-center gap-2 cursor-pointer flex-grow select-none overflow-hidden">
+                                <input 
+                                  type="checkbox"
+                                  checked={item.isChecked}
+                                  onChange={async () => {
+                                    await triggerHaptic();
                                     const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
                                       if (idx === 0) {
                                         return {
                                           ...cl,
-                                          items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
+                                          items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
                                         };
                                       }
                                       return cl;
                                     }) || [];
                                     setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                  }
-                                  setEditingTaskId(null);
-                                }}
-                                className="bg-black/40 border border-[var(--color-accent,#DF5504)] px-1.5 py-0.5 text-[11px] text-white rounded font-mono flex-grow focus:outline-none"
-                                autoFocus
-                              />
-                            </div>
-                          ) : (
-                            /* Read-only Checklist Row */
-                            <label className="flex items-center gap-2 cursor-pointer flex-grow select-none overflow-hidden">
-                              <input 
-                                type="checkbox"
-                                checked={item.isChecked}
-                                onChange={async () => {
+                                  }}
+                                  className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
+                                />
+                                <span className={`text-white transition-all truncate ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
+                                  {item.text}
+                                </span>
+                              </label>
+                            )}
+                            
+                            {/* Row Actions Drawer */}
+                            <div className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0">
+                              {!isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    setEditingTaskId(item.id);
+                                    setEditingTaskText(item.text);
+                                  }}
+                                  className="text-gray-400 hover:text-white font-mono text-[10px] transition-colors cursor-pointer"
+                                  title="Rename subtask"
+                                >
+                                  ✏️
+                                </button>
+                              )}
+
+                              {/* ⏰ Checklist Alarm Toggle Button */}
+                              <button
+                                type="button"
+                                onClick={async () => {
                                   await triggerHaptic();
+                                  if (checklistItemAlarmEditingId === item.id) {
+                                    setChecklistItemAlarmEditingId(null);
+                                  } else {
+                                    setChecklistItemAlarmEditingId(item.id);
+                                  }
+                                }}
+                                className={`font-mono text-[10px] transition-colors cursor-pointer ${
+                                  item.dueDate ? 'text-[var(--color-accent,#DF5504)] font-black' : 'text-gray-400 hover:text-white'
+                                }`}
+                                title={item.dueDate ? "Change checklist alarm" : "Schedule checklist alarm"}
+                              >
+                                {item.dueDate ? '⏰' : '🔔'}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  if (item.dueDate) {
+                                    await cancelChecklistItemAlarm(item);
+                                  }
                                   const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
                                     if (idx === 0) {
                                       return {
                                         ...cl,
-                                        items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
+                                        items: cl.items.filter(it => it.id !== item.id)
                                       };
                                     }
                                     return cl;
                                   }) || [];
                                   setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
                                 }}
-                                className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
-                              />
-                              <span className={`text-white transition-all truncate ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
-                                {item.text}
+                                className="text-red-500 hover:text-red-400 font-bold transition-colors cursor-pointer"
+                                title="Delete subtask"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Render Scheduled Alarm Text Badge */}
+                          {item.dueDate && (
+                            <div className="flex items-center justify-between text-[9px] text-[var(--color-accent,#DF5504)] font-bold pl-5 font-mono select-none">
+                              <span className="flex items-center gap-1">
+                                ⏰ Alarm: {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                               </span>
-                            </label>
-                          )}
-                          
-                          {/* Row Actions Drawer */}
-                          <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
-                            {!isEditing && (
                               <button
                                 type="button"
                                 onClick={async () => {
                                   await triggerHaptic();
-                                  setEditingTaskId(item.id);
-                                  setEditingTaskText(item.text);
+                                  await cancelChecklistItemAlarm(item);
+                                  const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                    if (idx === 0) {
+                                      return {
+                                        ...cl,
+                                        items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: undefined } : it)
+                                      };
+                                    }
+                                    return cl;
+                                  }) || [];
+                                  setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                  showToast("🗑️ Checklist alarm removed!");
                                 }}
-                                className="text-gray-400 hover:text-white font-mono text-[10px] transition-colors"
+                                className="text-gray-500 hover:text-white font-black pl-2 border-none bg-transparent cursor-pointer"
+                                title="Remove alarm"
                               >
-                                ✏️
+                                ✕
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                await triggerHaptic();
-                                const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                  if (idx === 0) {
-                                    return {
-                                      ...cl,
-                                      items: cl.items.filter(it => it.id !== item.id)
-                                    };
-                                  }
-                                  return cl;
-                                }) || [];
-                                setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                              }}
-                              className="text-red-500 hover:text-red-400 font-bold transition-colors"
-                            >
-                              🗑️
-                            </button>
-                          </div>
+                            </div>
+                          )}
+
+                          {/* 📅 Inline Checklist Item Datetime Picker Drawer */}
+                          {checklistItemAlarmEditingId === item.id && (
+                            <div className="pl-5 mt-1 pb-1 flex flex-col gap-1.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-1.5 animate-fadeIn text-left">
+                              <span className="text-[8px] uppercase tracking-wider text-gray-500 font-bold">Configure Sub-Task Alarm</span>
+                              <div className="flex items-center gap-1.5 w-full">
+                                <input
+                                  type="datetime-local"
+                                  value={formatTimestampToDatetimeLocal(item.dueDate)}
+                                  onChange={async (e) => {
+                                    const parsed = e.target.value ? Date.parse(e.target.value) : null;
+                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                      if (idx === 0) {
+                                        return {
+                                          ...cl,
+                                          items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: parsed } : it)
+                                        };
+                                      }
+                                      return cl;
+                                    }) || [];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                  }}
+                                  className="flex-grow bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-1.5 py-1 text-[9px] text-white rounded font-mono focus:border-[var(--color-accent,#DF5504)]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    if (item.dueDate) {
+                                      await scheduleChecklistItemAlarm(selectedCardForEdit.title, item);
+                                      showToast("⏰ Sub-task alarm scheduled!");
+                                    }
+                                    setChecklistItemAlarmEditingId(null);
+                                  }}
+                                  className="px-2 py-1 bento-btn text-white text-[9px] font-bold uppercase rounded cursor-pointer"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1850,19 +1992,7 @@ export default function App() {
               </div>
 
               {/* Date Row (Datetime-Local upgrade) */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Due Date & Time</label>
-                  <input 
-                    type="datetime-local"
-                    value={formatTimestampToDatetimeLocal(selectedCardForEdit.dueDate)}
-                    onChange={(e) => {
-                      const parsed = e.target.value ? Date.parse(e.target.value) : null;
-                      setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: parsed });
-                    }}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded focus:border-[var(--color-accent,#DF5504)]"
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Deadline & Time</label>
                   <input 
@@ -1897,19 +2027,14 @@ export default function App() {
 
                 <button 
                   type="button"
-                  disabled={!selectedCardForEdit.dueDate}
                   onClick={async () => {
                     await triggerHaptic();
                     setIsNotificationStudioOpen(true);
                   }}
-                  className={`flex-grow px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all ${
-                    selectedCardForEdit.dueDate 
-                      ? 'bento-btn text-white' 
-                      : 'bg-[var(--color-dark-tertiary,#3D3D3D)] text-gray-500 border border-[var(--color-dark-tertiary,#3D3D3D)] cursor-not-allowed opacity-60'
-                  }`}
+                  className="flex-grow px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all bento-btn text-white"
                 >
                   <span>🔔</span>
-                  <span>{selectedCardForEdit.dueDate ? 'Configure Alerts & Notifications' : 'Set Due Date to Enable Alerts'}</span>
+                  <span>Configure Alerts & Notifications</span>
                 </button>
               </div>
 
@@ -2637,6 +2762,27 @@ export default function App() {
 
             <div className="text-gray-400 text-[10px] leading-relaxed uppercase tracking-wider">
               Configure and test multi-channel reminders for: <span className="text-white font-bold">"{selectedCardForEdit.title}"</span>
+            </div>
+
+            {/* Primary Date Configuration */}
+            <div className="p-3.5 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2">
+              <label className="block text-[10px] font-mono font-bold uppercase text-gray-400 tracking-wider">
+                ⏰ Card Due Date & Time
+              </label>
+              <input 
+                type="datetime-local"
+                value={formatTimestampToDatetimeLocal(selectedCardForEdit.dueDate)}
+                onChange={(e) => {
+                  const parsed = e.target.value ? Date.parse(e.target.value) : null;
+                  setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: parsed });
+                }}
+                className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded focus:border-[var(--color-accent,#DF5504)] transition-colors"
+              />
+              {!selectedCardForEdit.dueDate && (
+                <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold uppercase tracking-wider mt-0.5">
+                  ⚠️ Configure a Due Date above to enable automated alarm schedules.
+                </span>
+              )}
             </div>
 
             {/* Preference Toggles */}
