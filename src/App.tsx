@@ -1952,11 +1952,13 @@ export default function App() {
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
               <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-                <h4 className="font-mono font-black text-xs uppercase text-[var(--color-accent,#DF5504)] tracking-wider mb-3 flex items-center gap-1.5">
-                  📁 Document & Resource Studio
-                </h4>
-                
-                <div className="flex flex-col gap-3">
+                <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/25 rounded p-2.5 overflow-hidden transition-all">
+                  <summary className="font-mono font-black text-xs uppercase text-[var(--color-accent,#DF5504)] tracking-wider cursor-pointer list-none flex justify-between items-center select-none">
+                    <span className="flex items-center gap-1.5">📁 Document & Resource Studio</span>
+                    <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                  </summary>
+                  
+                  <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40">
                   
                   {/* 1. CENTRAL SUBMISSION PORTAL */}
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
@@ -2426,6 +2428,7 @@ export default function App() {
                   </details>
 
                 </div>
+              </details>
               </div>
             </div>
 
