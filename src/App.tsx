@@ -3441,20 +3441,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="flex justify-end pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)] flex-shrink-0">
-              <button
-                type="button"
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsDashboardHelpOpen(false);
-                }}
-                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded cursor-pointer uppercase text-[10px]"
-              >
-                Acknowledge Runbook
-              </button>
-            </div>
           </div>
         </div>
       )}
