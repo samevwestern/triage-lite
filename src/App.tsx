@@ -2033,33 +2033,48 @@ export default function App() {
                       </div>
 
                       {/* Citation inputs */}
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="flex flex-col gap-1.5 font-mono">
                         <input 
                           type="text"
                           placeholder="Source Book/Author..."
                           value={newCitationTitle}
                           onChange={(e) => setNewCitationTitle(e.target.value)}
-                          className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] rounded font-mono"
+                          className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1.5 text-white text-[10px] rounded font-mono w-full"
                         />
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-2 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-2 rounded font-mono text-[11px] focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/20 transition-all">
+                          <span className="text-[12px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
                           <input 
                             type="text"
-                            placeholder="URL or Page Reference..."
+                            placeholder="URL or Page reference... (Press Enter to Add)"
                             value={newCitationUrl}
                             onChange={(e) => setNewCitationUrl(e.target.value)}
-                            className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] flex-grow rounded font-mono"
-                          />
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (newCitationTitle.trim() && newCitationUrl.trim()) {
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const title = newCitationTitle.trim();
+                                const url = newCitationUrl.trim();
+
+                                if (!title && !url) return;
+
+                                if (title && !url) {
+                                  await triggerHaptic();
+                                  showToast("⚠️ Citation reference URL/Page is missing!");
+                                  return;
+                                }
+                                if (!title && url) {
+                                  await triggerHaptic();
+                                  showToast("⚠️ Citation description is missing!");
+                                  return;
+                                }
+
+                                // Both are filled
                                 await triggerHaptic();
                                 const nextCitations = [
                                   ...(selectedCardForEdit.resources || []),
                                   {
                                     id: 'cit-' + Date.now(),
-                                    title: newCitationTitle.trim(),
-                                    url: newCitationUrl.trim(),
+                                    title: title,
+                                    url: url,
                                     addedAt: Date.now()
                                   } as ResourceCitation
                                 ];
@@ -2068,10 +2083,8 @@ export default function App() {
                                 setNewCitationUrl('');
                               }
                             }}
-                            className="bg-[var(--color-accent,#DF5504)] text-white font-bold text-[10px] px-2 rounded hover:opacity-90"
-                          >
-                            Add
-                          </button>
+                            className="bg-transparent text-white border-none focus:outline-none placeholder-gray-500 text-[10px] font-mono flex-grow w-full"
+                          />
                         </div>
                       </div>
 
@@ -2155,29 +2168,43 @@ export default function App() {
                       <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="flex flex-col gap-1.5 font-mono">
                         <input 
                           type="text"
                           placeholder="Link Label (e.g. iCloud Folder)..."
                           value={newCloudLinkName}
                           onChange={(e) => setNewCloudLinkName(e.target.value)}
-                          className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] rounded font-mono"
+                          className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1.5 text-white text-[10px] rounded font-mono w-full"
                         />
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-2 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-2 rounded font-mono text-[11px] focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/20 transition-all">
+                          <span className="text-[12px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
                           <input 
                             type="text"
-                            placeholder="https://drive.google.com/..."
+                            placeholder="https://drive.google.com/... (Press Enter to Add)"
                             value={newCloudLinkUrl}
                             onChange={(e) => setNewCloudLinkUrl(e.target.value)}
-                            className="bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[10px] flex-grow rounded font-mono"
-                          />
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (newCloudLinkName.trim() && newCloudLinkUrl.trim()) {
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const label = newCloudLinkName.trim();
+                                const url = newCloudLinkUrl.trim();
+
+                                if (!label && !url) return;
+
+                                if (label && !url) {
+                                  await triggerHaptic();
+                                  showToast("⚠️ Link URL is missing!");
+                                  return;
+                                }
+                                if (!label && url) {
+                                  await triggerHaptic();
+                                  showToast("⚠️ Link description is missing!");
+                                  return;
+                                }
+
+                                // Both are filled
                                 await triggerHaptic();
-                                // Normalize link
-                                let finalUrl = newCloudLinkUrl.trim();
+                                let finalUrl = url;
                                 if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
                                   finalUrl = 'https://' + finalUrl;
                                 }
@@ -2185,7 +2212,7 @@ export default function App() {
                                   ...(selectedCardForEdit.attachments || []),
                                   {
                                     id: 'attach-' + Date.now(),
-                                    name: newCloudLinkName.trim(),
+                                    name: label,
                                     type: 'cloud_link',
                                     dataUrl: finalUrl,
                                     addedAt: Date.now()
@@ -2196,10 +2223,8 @@ export default function App() {
                                 setNewCloudLinkUrl('');
                               }
                             }}
-                            className="bg-[var(--color-accent,#DF5504)] text-white font-bold text-[10px] px-2 rounded hover:opacity-90"
-                          >
-                            Add
-                          </button>
+                            className="bg-transparent text-white border-none focus:outline-none placeholder-gray-500 text-[10px] font-mono flex-grow w-full"
+                          />
                         </div>
                       </div>
 
@@ -2259,6 +2284,11 @@ export default function App() {
               </button>
               <button 
                 onClick={async () => {
+                  if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
+                    await triggerHaptic();
+                    showToast("⚠️ Task description is empty! Please write a summary.");
+                    return;
+                  }
                   await triggerHaptic();
                   const updatedCards = cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c);
                   await saveCards(updatedCards);
@@ -2391,7 +2421,13 @@ export default function App() {
               <button 
                 onClick={async () => {
                   if (!newCardData.title.trim()) {
-                    alert('Title is required');
+                    await triggerHaptic();
+                    showToast("⚠️ Title is required to create a card!");
+                    return;
+                  }
+                  if (!newCardData.description || !newCardData.description.trim()) {
+                    await triggerHaptic();
+                    showToast("⚠️ Task description is empty! Please write a summary.");
                     return;
                   }
                   await triggerHaptic();
