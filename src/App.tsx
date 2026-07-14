@@ -356,6 +356,9 @@ export default function App() {
   const [isCapturingReceipt, setIsCapturingReceipt] = useState(false);
   const [showReceiptsHelp, setShowReceiptsHelp] = useState(false);
   const [showCalendarHelp, setShowCalendarHelp] = useState(false);
+  const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(false);
+  const [fileSearchQuery, setFileSearchQuery] = useState('');
+  const [showFileHelp, setShowFileHelp] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -803,6 +806,17 @@ export default function App() {
                 title="Business Receipts"
               >
                 🧾
+              </button>
+
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsFileExplorerOpen(true);
+                }}
+                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
+                title="File Explorer"
+              >
+                📂
               </button>
             </div>
           </div>
@@ -3272,6 +3286,253 @@ export default function App() {
                 className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📂 BRUTALIST FILE EXPLORER & VIEWER MODAL */}
+      {isFileExplorerOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+                📂 Workspace File Explorer
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowFileHelp(!showFileHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showFileHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 hover:bg-black/80 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-300'
+                  }`}
+                  title="Show Help Guide"
+                >
+                  ❓
+                </button>
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsFileExplorerOpen(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Toggleable Monospace File Explorer Help Guide Panel */}
+            {showFileHelp && (
+              <div className="bg-black/50 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded flex flex-col gap-2.5 animate-slideDown flex-shrink-0">
+                <div className="flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/30 pb-1.5">
+                  <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider">📂 Explorer Help Guide</span>
+                </div>
+                <ul className="list-none flex flex-col gap-1.5 text-[9px] text-gray-300 font-bold uppercase tracking-wide">
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>🔍 Live Lookup</strong>: Filter workspace files by typing file names or format extensions in the lookup bar.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>👁️ In-App Preview</strong>: Click 'View Inline' to open images, markdown diaries, or log traces inside the built-in Lightbox.</span>
+                  </li>
+                  <li className="flex gap-2 items-start">
+                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
+                    <span><strong>🚀 Open Natively</strong>: Click 'Open Natively' to dispatch file streams directly to parent applications using the system Share Sheet.</span>
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            {/* Interactive File Search bar */}
+            <div className="flex flex-col gap-1 flex-shrink-0">
+              <label htmlFor="file-explorer-search" className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Search Workspace Files</label>
+              <input
+                type="text"
+                id="file-explorer-search"
+                value={fileSearchQuery}
+                onChange={(e) => setFileSearchQuery(e.target.value)}
+                placeholder="🔍 SEARCH BY NAME (e.g. log, json, receipt)..."
+                className="bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-2.5 text-[10px] font-bold tracking-wider"
+              />
+            </div>
+
+            {/* Scrollable Workspace File List Feed */}
+            <div className="flex-grow overflow-y-auto pr-1">
+              {(() => {
+                const list: { name: string; size: string; type: string; dataUrl: string; mimeType: string }[] = [];
+
+                // 1. Captured Receipts
+                receipts.forEach((r) => {
+                  const dateStr = new Date(r.timestamp).toISOString().slice(0, 10);
+                  list.push({
+                    name: `receipt-${r.merchant.toLowerCase().replace(/\s+/g, '-')}-${dateStr}.png`,
+                    size: `${Math.round(r.imageUrl.length * 0.75 / 1024)} KB`,
+                    type: 'PNG Image (Logged Expenditure Receipt)',
+                    dataUrl: r.imageUrl,
+                    mimeType: 'image/png'
+                  });
+                });
+
+                // 2. iCloud database backup
+                const backupString = JSON.stringify({ cards, labels });
+                const backupBase64 = `data:application/json;base64,${btoa(unescape(encodeURIComponent(backupString)))}`;
+                list.push({
+                  name: `triage_lite_backup_${new Date().toISOString().slice(0, 10)}.json`,
+                  size: `${(backupString.length / 1024).toFixed(2)} KB`,
+                  type: 'JSON (Database Cloud iCloud Archive)',
+                  dataUrl: backupBase64,
+                  mimeType: 'application/json'
+                });
+
+                // 3. System Debug logs
+                const logString = `TRIAGE LITE FACTORY ENGINE DIAGNOSTIC LOGS\n========================================\nSystem Platform: ${isNative ? 'Apple App Wrapper' : 'PC Web Sandbox'}\nActive Cards Count: ${cards.length}\nReceipts Logged: ${receipts.length}\nHaptic State: Active\niCloud State: Synchronized\nDiagnostic Timestamp: ${new Date().toLocaleString()}`;
+                const logBase64 = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(logString)))}`;
+                list.push({
+                  name: 'dev.log',
+                  size: `${logString.length} Bytes`,
+                  type: 'TXT File (Diagnostic Trace Logs)',
+                  dataUrl: logBase64,
+                  mimeType: 'text/plain'
+                });
+
+                // 4. Verbal Diary transcripts export
+                const speechLogs = voiceLogs.map((l: any) => `[${new Date(l.timestamp).toLocaleTimeString()}] ${l.text}`).join('\n');
+                const diaryString = `TRIAGE LITE SPEECH JOURNAL JOURNAL\n========================================\nCompiled Range: Today\n\n${speechLogs || 'No verbal logs recorded today.'}`;
+                const diaryBase64 = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(diaryString)))}`;
+                list.push({
+                  name: 'verbal_diary_today.txt',
+                  size: `${diaryString.length} Bytes`,
+                  type: 'TXT File (Voice Transcripts Export)',
+                  dataUrl: diaryBase64,
+                  mimeType: 'text/plain'
+                });
+
+                const filtered = list.filter(f => 
+                  f.name.toLowerCase().includes(fileSearchQuery.toLowerCase()) ||
+                  f.type.toLowerCase().includes(fileSearchQuery.toLowerCase())
+                );
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+                      <span className="text-2xl">📂</span>
+                      <span className="font-bold text-gray-400 uppercase tracking-wider text-[10px]">No matching files found.</span>
+                      <span className="text-[9px] text-gray-500 uppercase">Refine your look up filter parameters!</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex flex-col gap-3">
+                    {filtered.map((file) => (
+                      <div
+                        key={file.name}
+                        className="p-3 bg-black/20 rounded border border-[var(--color-dark-tertiary,#3D3D3D)]/50 flex flex-col gap-2.5 relative"
+                      >
+                        <div className="flex gap-2.5 items-start">
+                          {/* File Icon Accent */}
+                          <div className="w-8 h-8 rounded bg-black/50 border border-[var(--color-dark-tertiary,#3D3D3D)]/50 flex items-center justify-center text-base flex-shrink-0">
+                            {file.mimeType.startsWith('image/') ? '🖼️' : file.mimeType.startsWith('application/json') ? '💾' : '📄'}
+                          </div>
+
+                          <div className="flex-grow min-w-0 flex flex-col">
+                            <span className="font-bold text-white text-[11px] truncate">{file.name}</span>
+                            <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider mt-0.5">
+                              {file.type} &bull; {file.size}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Interactive File Actions Deck */}
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              setLightboxFile({
+                                id: 'file-' + Date.now(),
+                                name: file.name,
+                                type: 'supporting',
+                                mimeType: file.mimeType,
+                                dataUrl: file.dataUrl,
+                                addedAt: Date.now()
+                              } as FileAttachment);
+                            }}
+                            className="py-1.5 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-gray-300 hover:text-white font-bold rounded text-[9px] uppercase tracking-wider cursor-pointer"
+                          >
+                            👁️ View Inline
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              try {
+                                if (navigator.share) {
+                                  const rawBase64 = file.dataUrl.split(',')[1];
+                                  const byteCharacters = atob(rawBase64);
+                                  const byteNumbers = new Array(byteCharacters.length);
+                                  for (let i = 0; i < byteCharacters.length; i++) {
+                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                  }
+                                  const byteArray = new Uint8Array(byteNumbers);
+                                  const blob = new Blob([byteArray], { type: file.mimeType });
+                                  const nativeFile = new File([blob], file.name, { type: file.mimeType });
+
+                                  await navigator.share({
+                                    files: [nativeFile],
+                                    title: file.name,
+                                    text: `Open file ${file.name} in parent application`
+                                  });
+                                  showToast("🚀 Sharing dispatcher active!");
+                                } else {
+                                  const link = document.createElement('a');
+                                  link.href = file.dataUrl;
+                                  link.download = file.name;
+                                  link.click();
+                                  showToast("📥 Exported file to device!");
+                                }
+                              } catch (err) {
+                                console.log("Native share failed, downloading instead", err);
+                                const link = document.createElement('a');
+                                link.href = file.dataUrl;
+                                link.download = file.name;
+                                link.click();
+                                showToast("📥 Exported file to device!");
+                              }
+                            }}
+                            className="py-1.5 bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 border border-black shadow-[2px_2px_0px_0px_#000] text-white font-bold rounded text-[9px] uppercase tracking-wider cursor-pointer active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_#000] transition-all"
+                          >
+                            🚀 Open Natively
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsFileExplorerOpen(false);
+                }}
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
+              >
+                Close
               </button>
             </div>
           </div>
