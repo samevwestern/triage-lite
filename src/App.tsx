@@ -404,6 +404,7 @@ export default function App() {
   const [isDashboardHelpOpen, setIsDashboardHelpOpen] = useState(false);
   const [isCardHelpOpen, setIsCardHelpOpen] = useState(false);
   const [isAlertsHelpOpen, setIsAlertsHelpOpen] = useState(false);
+  const [isAlertStudioHelpOpen, setIsAlertStudioHelpOpen] = useState(false);
   const [checklistItemAlarmEditingId, setChecklistItemAlarmEditingId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -2749,16 +2750,76 @@ export default function App() {
               <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
                 🔔 Alert Studio
               </span>
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsNotificationStudioOpen(false);
-                }}
-                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsAlertStudioHelpOpen(!isAlertStudioHelpOpen);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-colors cursor-pointer ${
+                    isAlertStudioHelpOpen
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                  }`}
+                  title="Alert Studio Guide"
+                >
+                  ❓
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsNotificationStudioOpen(false);
+                    setIsAlertStudioHelpOpen(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
             </div>
+
+            {/* Dynamic Interactive Alert Studio Help Panel */}
+            {isAlertStudioHelpOpen && (
+              <div className="mt-1 p-3 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 animate-fadeIn text-left">
+                <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
+                  <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
+                    🔔 Alert Studio Runbook
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsAlertStudioHelpOpen(false)}
+                    className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-1.5 text-gray-300">
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none">⏰</span>
+                    <span><strong className="text-white">DUE DATE</strong>: Set the main target milestone date and time for the card. Required to trigger automated schedules.</span>
+                  </div>
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none">📱</span>
+                    <span><strong className="text-white">IN-APP TOAST</strong>: Displays rich local overlays in real-time while using the web application.</span>
+                  </div>
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none">🔔</span>
+                    <span><strong className="text-white">SYSTEM LOCK-SCREEN</strong>: Schedules native push alerts using mobile background notification dispatchers.</span>
+                  </div>
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none">📅</span>
+                    <span><strong className="text-white">CALENDAR SYNC</strong>: Pushes tasks directly into local calendar applications as alarms.</span>
+                  </div>
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none">📧</span>
+                    <span><strong className="text-white">EMAIL COMPOSER</strong>: Opens the local mail composer pre-filled with specific card details and deadlines.</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="text-gray-400 text-[10px] leading-relaxed uppercase tracking-wider">
               Configure and test multi-channel reminders for: <span className="text-white font-bold">"{selectedCardForEdit.title}"</span>
