@@ -952,7 +952,7 @@ export default function App() {
                         e.dataTransfer.effectAllowed = 'move';
                       }}
                       onClick={() => setSelectedCardForEdit(card)}
-                      className="p-3 bento-box bento-box-interactive flex flex-col justify-between cursor-move hover:border-[var(--color-accent,#DF5504)] transition-colors active:opacity-50"
+                      className="p-3 bento-box bento-box-interactive border-2 border-[#4C4C4C] flex flex-col justify-between cursor-move hover:border-[var(--color-accent,#DF5504)] transition-colors active:opacity-50"
                     >
                       <div>
                         {/* Labels Render */}
