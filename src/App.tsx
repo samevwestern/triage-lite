@@ -360,6 +360,7 @@ export default function App() {
   const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [showFileHelp, setShowFileHelp] = useState(false);
   const [isDashboardHelpOpen, setIsDashboardHelpOpen] = useState(false);
+  const [isCardHelpOpen, setIsCardHelpOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1458,20 +1459,88 @@ export default function App() {
           <div className="w-full max-w-md bento-box p-6 text-white max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex flex-col gap-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mb-4">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-center">
                 <h3 className="font-black text-xs font-mono uppercase tracking-wider text-gray-400">
                   Card details
                 </h3>
-                <button 
-                  onClick={() => {
-                    setSelectedCardForEdit(null);
-                    setIsLabelManagerOpen(false);
-                  }}
-                  className="text-gray-400 hover:text-white font-black text-lg p-1"
-                >
-                  &times;
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsCardHelpOpen(!isCardHelpOpen);
+                    }}
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-[9px] transition-all cursor-pointer ${
+                      isCardHelpOpen
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                    }`}
+                    title="Card Help Guide"
+                  >
+                    ❓
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setSelectedCardForEdit(null);
+                      setIsLabelManagerOpen(false);
+                      setIsCardHelpOpen(false);
+                    }}
+                    className="text-gray-400 hover:text-white font-black text-lg p-1 border-none bg-transparent cursor-pointer"
+                  >
+                    &times;
+                  </button>
+                </div>
               </div>
+
+              {/* Dynamic Interactive Card Help Panel */}
+              {isCardHelpOpen && (
+                <div className="mt-2.5 p-3 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 animate-fadeIn text-left">
+                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
+                    <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
+                      📋 Card Edit Suite Runbook
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCardHelpOpen(false)}
+                      className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                    >
+                      ✕ Close
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5 text-gray-300">
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">🏷️</span>
+                      <span><strong className="text-white">LABEL MANAGER</strong>: Classify card targets with neon tags from the board's Custom Label Studio.</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">📝</span>
+                      <span><strong className="text-white">TASK SUMMARY</strong>: Write main titles and context summaries. (Empty descriptions block edits with a toast alarm).</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">⏱️</span>
+                      <span><strong className="text-white">POMODORO TIMER</strong>: Track study hours and count seconds.</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">📅</span>
+                      <span><strong className="text-white">DEADLINE & TIME</strong>: Target milestones with clear uppercase deadline limits.</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">📋</span>
+                      <span><strong className="text-white">CHECKLIST BULLETS</strong>: Break work items into micro checklists with completion percent logs.</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">📚</span>
+                      <span><strong className="text-white">RESEARCH CITATIONS</strong>: Log academic bibliography sources. (URLs and descriptions require each other).</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">🌐</span>
+                      <span><strong className="text-white">CLOUD DRIVES</strong>: Connect iCloud/OneDrive/GDrive directories with full validation checks.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Active Selected Labels Header */}
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
