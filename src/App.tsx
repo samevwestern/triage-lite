@@ -582,21 +582,70 @@ export default function App() {
     <div className="min-h-screen flex flex-col justify-between ios-safe-top ios-safe-bottom bg-[var(--color-dark-bg,#282828)] px-4 py-6 select-none">
       
       {/* HEADER SECTION */}
-      <header className="flex justify-between items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6">
+      <header className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6">
         <div>
-          <h1 className="text-2xl font-black uppercase text-white tracking-wider">
+          <h1 className="text-lg sm:text-2xl font-black uppercase text-white tracking-wider truncate max-w-[100px] sm:max-w-none">
             {config.name}
           </h1>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
+
+        {/* Global Action Icons Deck (Always Visible on PC + Mobile) */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsCalendarAgendaOpen(true);
+              await fetchUpcomingCalendarEvents(calendarRangeDays);
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+            title="Calendar Agenda"
+          >
+            📅
+          </button>
+
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsDiaryOpen(true);
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+            title="Verbal Diary"
+          >
+            📔
+          </button>
+
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsReceiptsOpen(true);
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+            title="Business Receipts"
+          >
+            🧾
+          </button>
+
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsFileExplorerOpen(true);
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+            title="File Explorer"
+          >
+            📂
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5">
           <button 
             onClick={async () => {
               await triggerHaptic();
               setIsMenuOpen(!isMenuOpen);
             }}
-            className="text-[10px] leading-none px-2.5 py-1.5 bento-btn text-white uppercase font-black rounded-sm tracking-wide flex items-center gap-1"
+            className="text-[9px] sm:text-[10px] leading-none px-2 py-1.5 sm:px-2.5 bento-btn text-white uppercase font-black rounded-sm tracking-wide flex items-center gap-1"
           >
-            {isMenuOpen ? '✕ Close Menu' : '☰ Menu'}
+            {isMenuOpen ? '✕ Close' : '☰ Menu'}
           </button>
         </div>
       </header>
@@ -750,7 +799,7 @@ export default function App() {
           </div>
 
           {/* COLUMN NAVIGATION HEADER (Mobile Only) */}
-          <div className="flex sm:hidden justify-between items-center p-3 bento-box mb-4 font-mono text-xs gap-2">
+          <div className="flex sm:hidden justify-between items-center p-2.5 bento-box mb-4 font-mono text-xs gap-3">
             <button 
               onClick={async () => {
                 await triggerHaptic();
@@ -767,57 +816,25 @@ export default function App() {
                 });
                 setIsCreateModalOpen(true);
               }}
-              className="w-9 h-9 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black"
-              title="Create Card"
+              className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black"
+              title="Quick-Add Card"
             >
               ＋
             </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsCalendarAgendaOpen(true);
-                  await fetchUpcomingCalendarEvents(calendarRangeDays);
-                }}
-                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
-                title="Calendar Agenda"
-              >
-                📅
-              </button>
-
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsDiaryOpen(true);
-                }}
-                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
-                title="Verbal Diary"
-              >
-                📔
-              </button>
-
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsReceiptsOpen(true);
-                }}
-                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
-                title="Business Receipts"
-              >
-                🧾
-              </button>
-
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsFileExplorerOpen(true);
-                }}
-                className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors"
-                title="File Explorer"
-              >
-                📂
-              </button>
+            {/* Custom iOS/Mobile Swipe Pagination Dots */}
+            <div className="flex items-center gap-2 pr-1.5">
+              <div className="flex items-center gap-1.5">
+                {lists.map((list, idx) => (
+                  <span 
+                    key={list.id} 
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === activeColumnIndex ? 'bg-[var(--color-accent,#DF5504)] scale-125' : 'bg-gray-600'}`}
+                  />
+                ))}
+              </div>
+              <span className="text-[10px] font-black text-white uppercase tracking-wider pl-1 font-mono">
+                {lists[activeColumnIndex]?.name}
+              </span>
             </div>
           </div>
 

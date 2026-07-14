@@ -93,6 +93,68 @@ To compile Triage Lite onto your actual phone:
 
 ---
 
+## ✦ How to Test Live on Physical iOS Devices (Wi-Fi Hot Reload)
+
+To skip compile times during fast iterative coding, your colleagues can stream the live development server directly to their physical iPhone/iPad over the local Wi-Fi network.
+
+### Step 1: Align the Local Network
+Make sure both the **macOS Computer** and the **iOS Device** are connected to the **same Wi-Fi network**.
+
+### Step 2: Retrieve the Mac's Local IP Address
+Open Terminal on the Mac and run:
+```bash
+ipconfig getifaddr en0
+# Or check: System Settings > Wi-Fi > Details > IP Address
+# Example result: 192.168.1.15
+```
+
+### Step 3: Boot Vite Dev Server with Local Host Access
+To allow external devices on the Wi-Fi to load your server, boot Vite with the `--host` flag:
+```bash
+bun run dev --host
+# or: npm run dev -- --host
+```
+Vite will output access URLs:
+* `Local`: `http://localhost:8081`
+* `Network`: `http://192.168.1.15:8081` (This is the address the iPhone will use!)
+
+---
+
+### Step 4: Option A - View Instantly in Safari (No Apps Required)
+1. Open the **Safari web browser** on the iPhone/iPad.
+2. Type in the Mac's local network URL (e.g., `http://192.168.1.15:8081`).
+3. The full app will load instantly and preserve hot-reloading!
+
+---
+
+### Step 5: Option B - View Inside Xcode/Physical Device Sandbox
+To stream the hot-reloading server straight into the **native iOS App Wrapper**:
+1. Open `capacitor.config.ts` in your code editor.
+2. Temporarily inject a `server` object pointing to your Mac's Local IP address:
+   ```typescript
+   import { CapacitorConfig } from '@capacitor/cli';
+
+   const config: CapacitorConfig = {
+     appId: 'com.triagelite.app',
+     appName: 'Triage Lite',
+     webDir: 'dist',
+     server: {
+       url: 'http://192.168.1.15:8081', // <--- Your Mac's Wi-Fi IP
+       cleartext: true
+     }
+   };
+   export default config;
+   ```
+3. Run the synchronization and open the project in Xcode:
+   ```bash
+   npx cap sync ios
+   npx cap open ios
+   ```
+4. In Xcode, select your plugged-in physical device and click **Play (Build)**.
+5. The app boots in your hand, but instead of static files, it streams live code! Modify any React component in your Mac's IDE, save it, and watch it instantly update in your physical iOS device screen!
+
+---
+
 ## ✦ 5-Judge Cost & Integration Matrix
 
 Before pushing to production, review these key operational points verified by the five-judge panel:
