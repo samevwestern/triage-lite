@@ -361,6 +361,7 @@ export default function App() {
   const [showFileHelp, setShowFileHelp] = useState(false);
   const [isDashboardHelpOpen, setIsDashboardHelpOpen] = useState(false);
   const [isCardHelpOpen, setIsCardHelpOpen] = useState(false);
+  const [isAlertsHelpOpen, setIsAlertsHelpOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1877,22 +1878,77 @@ export default function App() {
               </div>
 
               {/* 🔔 NOTIFICATION & ALERT STUDIO POPUP TRIGGER */}
-              <button 
-                type="button"
-                disabled={!selectedCardForEdit.dueDate}
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsNotificationStudioOpen(true);
-                }}
-                className={`w-full mt-2.5 px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all ${
-                  selectedCardForEdit.dueDate 
-                    ? 'bento-btn text-white' 
-                    : 'bg-[var(--color-dark-tertiary,#3D3D3D)] text-gray-500 border border-[var(--color-dark-tertiary,#3D3D3D)] cursor-not-allowed opacity-60'
-                }`}
-              >
-                <span>🔔</span>
-                <span>{selectedCardForEdit.dueDate ? 'Configure Alerts & Notifications' : 'Set Due Date to Enable Alerts'}</span>
-              </button>
+              <div className="flex gap-2 items-center mt-2.5 w-full">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsAlertsHelpOpen(!isAlertsHelpOpen);
+                  }}
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded bento-box flex items-center justify-center font-bold text-xs transition-all cursor-pointer flex-shrink-0 ${
+                    isAlertsHelpOpen
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                  }`}
+                  title="Alerts Guide"
+                >
+                  ❓
+                </button>
+
+                <button 
+                  type="button"
+                  disabled={!selectedCardForEdit.dueDate}
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsNotificationStudioOpen(true);
+                  }}
+                  className={`flex-grow px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all ${
+                    selectedCardForEdit.dueDate 
+                      ? 'bento-btn text-white' 
+                      : 'bg-[var(--color-dark-tertiary,#3D3D3D)] text-gray-500 border border-[var(--color-dark-tertiary,#3D3D3D)] cursor-not-allowed opacity-60'
+                  }`}
+                >
+                  <span>🔔</span>
+                  <span>{selectedCardForEdit.dueDate ? 'Configure Alerts & Notifications' : 'Set Due Date to Enable Alerts'}</span>
+                </button>
+              </div>
+
+              {/* Expandable Notification Help Info Block */}
+              {isAlertsHelpOpen && (
+                <div className="mt-2.5 p-3.5 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
+                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
+                    <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
+                      ⏰ Alert Notifications Guide
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAlertsHelpOpen(false)}
+                      className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                    >
+                      ✕ Close
+                    </button>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1.5 text-gray-300">
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">📌</span>
+                      <span><strong className="text-white">DUE DATE TRIGGER</strong>: Notifications are calculated and anchored directly based on your configured Due Date & Time. You must assign a Due Date first to unlock alert options.</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">🔔</span>
+                      <span><strong className="text-white">CAPACITOR LOCAL PUSH ALERTS</strong>: Uses native device push notification schedulers so that tactile alerts fire even when your screen is locked or the app is closed.</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">⏳</span>
+                      <span><strong className="text-white">CHOOSE REMINDER LEAD TIME</strong>: Configure the system to notify you exactly at the due time, 5 mins before, 15 mins before, 1 hour before, or 1 day before.</span>
+                    </div>
+                    <div className="flex gap-2 items-start">
+                      <span className="select-none">⚡</span>
+                      <span><strong className="text-white">HAPTIC CONFIRMATIONS</strong>: Tactile haptic hums confirm successful notification scheduling on compatible physical iPhone & mobile devices.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
               <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
