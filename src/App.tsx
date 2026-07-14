@@ -774,32 +774,8 @@ export default function App() {
         {/* COL 1 & 2: THE BRUTAL KANBAN BOARD */}
         <div className="w-full grid grid-cols-1 gap-4">
           
-          {/* Create Task Button */}
-          <div className="hidden sm:flex justify-start">
-            <button 
-              onClick={async () => {
-                await triggerHaptic();
-                setNewCardData({
-                  id: 'card-' + Date.now(),
-                  listId: 'todo',
-                  title: '',
-                  description: '',
-                  timeSpent: 0,
-                  labelIds: [],
-                  checklists: [],
-                  dueDate: null,
-                  completedAt: null
-                });
-                setIsCreateModalOpen(true);
-              }}
-              className="px-5 py-2.5 bento-btn text-white font-black uppercase text-xs tracking-wider flex items-center gap-2"
-            >
-              <span>+ Create Card</span>
-            </button>
-          </div>
-
-          {/* COLUMN NAVIGATION HEADER (Mobile Only) */}
-          <div className="flex sm:hidden justify-between items-center p-2.5 bento-box mb-4 font-mono text-xs gap-3">
+          {/* UNIVERSAL COLUMN NAVIGATION SUBHEADER */}
+          <div className="flex justify-between items-center p-2.5 bento-box mb-4 font-mono text-xs gap-3 w-full">
             <button 
               onClick={async () => {
                 await triggerHaptic();
@@ -816,19 +792,33 @@ export default function App() {
                 });
                 setIsCreateModalOpen(true);
               }}
-              className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black"
+              className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black transition-all"
               title="Quick-Add Card"
             >
               ＋
             </button>
 
-            {/* Custom iOS/Mobile Swipe Pagination Dots */}
+            {/* Custom Interactive Swipe Pagination Dots & Column Indicators */}
             <div className="flex items-center gap-2 pr-1.5">
               <div className="flex items-center gap-1.5">
                 {lists.map((list, idx) => (
-                  <span 
+                  <button 
                     key={list.id} 
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === activeColumnIndex ? 'bg-[var(--color-accent,#DF5504)] scale-125' : 'bg-gray-600'}`}
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setActiveColumnIndex(idx);
+                      // Smooth scroll container to focus column if in horizontal layout
+                      const container = document.getElementById('board-columns-container');
+                      if (container) {
+                        const isMobile = window.innerWidth < 640; // Tailwind 'sm' threshold
+                        if (isMobile) {
+                          const colWidth = container.clientWidth * 0.9;
+                          container.scrollTo({ left: idx * colWidth, behavior: 'smooth' });
+                        }
+                      }
+                    }}
+                    className={`w-2.5 h-2.5 rounded-full transition-all duration-300 border-none outline-none cursor-pointer ${idx === activeColumnIndex ? 'bg-[var(--color-accent,#DF5504)] scale-125' : 'bg-gray-600 hover:bg-gray-400'}`}
+                    title={`Focus ${list.name}`}
                   />
                 ))}
               </div>
@@ -852,10 +842,23 @@ export default function App() {
             }}
             className="flex flex-row overflow-x-auto gap-4 pb-6 scroll-smooth snap-x snap-mandatory sm:grid sm:grid-cols-3 sm:overflow-x-visible"
           >
-            {lists.map((list) => (
-              <div 
-                key={list.id} 
-                className="flex-shrink-0 w-[88vw] sm:w-auto snap-center snap-always p-3 bento-box transition-colors"
+            {lists.map((list) => {
+              const isActive = lists[activeColumnIndex]?.id === list.id;
+              return (
+                <div 
+                  key={list.id} 
+                  onClick={async () => {
+                    const idx = lists.findIndex(l => l.id === list.id);
+                    if (idx !== activeColumnIndex) {
+                      await triggerHaptic();
+                      setActiveColumnIndex(idx);
+                    }
+                  }}
+                  className={`flex-shrink-0 w-[88vw] sm:w-auto snap-center snap-always p-3 bento-box transition-all cursor-pointer ${
+                    isActive 
+                      ? 'border-[var(--color-accent,#DF5504)] shadow-[4px_4px_0px_0px_rgba(223,85,4,0.15)] bg-[var(--color-dark-secondary,#333333)]/70' 
+                      : 'border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white/20'
+                  }`}
                 onDragOver={(e) => {
                   e.preventDefault(); // Necessary to allow dropping
                   e.currentTarget.style.backgroundColor = 'var(--color-dark-tertiary)'; // Highlight drop zone
@@ -1002,7 +1005,8 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
 
         </div>
