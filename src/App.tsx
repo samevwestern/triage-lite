@@ -2123,7 +2123,7 @@ export default function App() {
                 return (
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)]/20 hover:border-[var(--color-accent,#DF5504)] rounded transition-all font-mono text-xs">
                     <summary className="p-2.5 flex justify-between items-center cursor-pointer font-bold uppercase tracking-wider select-none text-gray-400 hover:text-white">
-                      <span>⏱️ Focus History ({sessions.length} sessions)</span>
+                      <span>⏱️ Session History ({sessions.length} sessions)</span>
                       <span className="transition-transform group-open:rotate-180">▼</span>
                     </summary>
                     <div className="p-2.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)] flex flex-col gap-2 max-h-[160px] overflow-y-auto">
