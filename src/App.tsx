@@ -3380,6 +3380,13 @@ export default function App() {
                     
                     const mailtoUrl = `mailto:?subject=${encodeURIComponent("Triage Lite - Study Focus Session Logs")}&body=${encodeURIComponent(emailBody)}`;
                     
+                    // Copy to clipboard as a powerful cross-platform backup!
+                    let copied = false;
+                    try {
+                      await navigator.clipboard.writeText(emailBody);
+                      copied = true;
+                    } catch (e) {}
+
                     try {
                       const mailLink = document.createElement("a");
                       mailLink.href = mailtoUrl;
@@ -3390,7 +3397,12 @@ export default function App() {
                     } catch (err) {
                       window.open(mailtoUrl, '_self');
                     }
-                    showToast("✉️ Email summary drafted!");
+
+                    if (copied) {
+                      showToast("📋 Copied to clipboard & Mail app triggered!");
+                    } else {
+                      showToast("✉️ Email summary drafted!");
+                    }
                   }}
                   className={`px-2.5 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/40 hover:bg-black/80 hover:border-white text-white font-bold uppercase text-[9px] sm:text-[10px] rounded transition-all cursor-pointer ${
                     cards.some(c => (c.timeSpent || 0) > 0) ? 'opacity-100' : 'opacity-40 cursor-not-allowed'
