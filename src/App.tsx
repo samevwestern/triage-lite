@@ -2312,7 +2312,10 @@ export default function App() {
                         const val = e.target.value;
                         if (val === 'add-new') {
                           await triggerHaptic();
-                          setIsLabelManagerOpen(true);
+                          setEditingLabelId(null);
+                          setLabelFormText('');
+                          setLabelFormColor('#DF5504');
+                          setIsGlobalLabelModalOpen(true);
                         } else if (val) {
                           await triggerHaptic();
                           const labelId = val;
@@ -2353,12 +2356,11 @@ export default function App() {
               {isLabelManagerOpen && (
                 <div className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2.5 rounded mt-2 animate-fadeIn flex flex-col gap-2 font-mono text-xs">
                   <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1">
-                    <span className="font-bold text-[9px] uppercase text-gray-400">Toggle Card Labels</span>
+                    <span className="font-bold text-[9px] uppercase text-gray-400">Toggle Card Labels (Active Only)</span>
                   </div>
                   
                   <div className="flex flex-wrap gap-1.5">
-                    {labels.map(lbl => {
-                      const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
+                    {labels.filter(lbl => selectedCardForEdit.labelIds?.includes(lbl.id)).map(lbl => {
                       return (
                         <button
                           key={lbl.id}
@@ -2366,50 +2368,19 @@ export default function App() {
                           onClick={async () => {
                             await triggerHaptic();
                             const currentIds = selectedCardForEdit.labelIds || [];
-                            const nextIds = currentIds.includes(lbl.id)
-                              ? currentIds.filter(id => id !== lbl.id)
-                              : [...currentIds, lbl.id];
+                            const nextIds = currentIds.filter(id => id !== lbl.id);
                             setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
                           }}
-                          className={`text-[9px] font-black px-1.5 py-0.5 border transition-all rounded flex items-center gap-1 ${
-                            hasLabel 
-                              ? 'border-white scale-105 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]' 
-                              : 'border-[var(--color-dark-tertiary)]/50 opacity-40'
-                          }`}
+                          className="text-[9px] font-black px-1.5 py-0.5 border border-white scale-105 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)] transition-all rounded flex items-center gap-1"
                           style={{ backgroundColor: lbl.color, color: 'white' }}
                         >
-                          {lbl.text} {hasLabel ? '✓' : ''}
+                          {lbl.text} ✓
                         </button>
                       );
                     })}
-                  </div>
-
-                  {/* Add New Quick Label In-Place */}
-                  <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-2 mt-1">
-                    <input 
-                      type="text"
-                      placeholder="＋ Create new label... (Press Enter)"
-                      className="w-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[9px] rounded font-mono"
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const input = e.currentTarget;
-                          const text = input.value.trim().toUpperCase();
-                          if (text) {
-                            await triggerHaptic();
-                            const colors = ['#ff3b30', '#DF5504', '#34c759', '#007aff', '#ffcc00', '#a2845e', '#5856d6'];
-                            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                            const newLabel = {
-                              id: 'label-' + Date.now(),
-                              text,
-                              color: randomColor
-                            };
-                            setLabels([...labels, newLabel]);
-                            input.value = '';
-                          }
-                        }
-                      }}
-                    />
+                    {(!selectedCardForEdit.labelIds || selectedCardForEdit.labelIds.filter(id => labels.some(l => l.id === id)).length === 0) && (
+                      <span className="text-[9px] text-gray-500 italic">No active labels assigned. Use the dropdown above to add one.</span>
+                    )}
                   </div>
                 </div>
               )}
