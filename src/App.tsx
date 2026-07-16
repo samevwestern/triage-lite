@@ -1257,7 +1257,7 @@ export default function App() {
                       <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-3 pt-2 flex justify-between items-center font-mono">
                         <span className="text-[10px] text-[var(--color-accent,#DF5504)]">⏱ {Math.floor((card.timeSpent || 0) / 60)}m spent</span>
                         {/* Card Move Dropdown Box */}
-                        <div className="relative">
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
                           <select
                             value={list.id}
                             onChange={async (e) => {
