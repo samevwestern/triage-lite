@@ -2247,7 +2247,6 @@ export default function App() {
                   }}
                   className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
                 >
-                  <span className="text-sm">🔔</span>
                   <span>Configure Alerts & Notifications</span>
                 </button>
               </div>
@@ -2291,28 +2290,6 @@ export default function App() {
 
               {/* Active Selected Labels Header (Repositioned below Alerts & Notifications) */}
               <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Labels</label>
-                
-                {/* Active Labels List Display */}
-                <div className="flex flex-wrap items-center gap-1.5 mb-2.5 min-h-[22px]">
-                  {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(labelId => {
-                    const labelObj = labels.find(l => l.id === labelId);
-                    if (!labelObj) return null;
-                    return (
-                      <span 
-                        key={labelId}
-                        className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]"
-                        style={{ backgroundColor: labelObj.color }}
-                      >
-                        {labelObj.text}
-                      </span>
-                    );
-                  })}
-                  {(!selectedCardForEdit.labelIds || selectedCardForEdit.labelIds.length === 0) && (
-                    <span className="text-[9px] text-gray-500 font-mono italic">No labels assigned to this card</span>
-                  )}
-                </div>
-
                 {/* Unified Labels Bar (Matches Alerts and Document layout format) */}
                 <div className="flex gap-2 items-center w-full">
                   <button
@@ -2366,7 +2343,6 @@ export default function App() {
                       type="button"
                       className="w-full h-full text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
                     >
-                      <span className="text-sm">🏷️</span>
                       <span>{isLabelManagerOpen ? 'Close Label Editor' : 'Manage Card Labels ▼'}</span>
                     </button>
                   </div>
@@ -2461,7 +2437,6 @@ export default function App() {
                     }}
                     className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
                   >
-                    <span className="text-sm">📂</span>
                     <span>Document & Resource Studio</span>
                     <span className="text-[10px] ml-1 transition-transform" style={{ transform: isDocStudioOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
                   </button>
