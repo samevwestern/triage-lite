@@ -464,6 +464,7 @@ export default function App() {
   const [inlineNewTaskText, setInlineNewTaskText] = useState('');
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListVal, setNewListVal] = useState('');
+  const [draggedOverCardId, setDraggedOverCardId] = useState<string | null>(null);
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationStudioOpen, setIsNotificationStudioOpen] = useState(false);
@@ -739,16 +740,18 @@ export default function App() {
   const handleMoveCard = async (cardId: string, nextListId: string) => {
     await triggerHaptic();
     setCards(prevCards => {
-      const updated = prevCards.map(c => {
-        if (c.id === cardId) {
-          return { 
-            ...c, 
-            listId: nextListId,
-            completedAt: nextListId === 'done' ? Date.now() : null
-          };
-        }
-        return c;
-      });
+      const targetCard = prevCards.find(c => c.id === cardId);
+      if (!targetCard) return prevCards;
+
+      const updatedCard = { 
+        ...targetCard, 
+        listId: nextListId,
+        completedAt: nextListId === 'done' ? Date.now() : null
+      };
+
+      const withoutCard = prevCards.filter(c => c.id !== cardId);
+      const updated = [...withoutCard, updatedCard];
+
       syncData(`factory_app_${config.id}_cards`, updated);
       return updated;
     });
@@ -1296,17 +1299,33 @@ export default function App() {
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
+                        if (draggedOverCardId !== card.id) {
+                          setDraggedOverCardId(card.id);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (draggedOverCardId === card.id) {
+                          setDraggedOverCardId(null);
+                        }
                       }}
                       onDrop={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setDraggedOverCardId(null);
                         const draggedId = e.dataTransfer.getData('text/plain');
                         if (draggedId && draggedId !== card.id) {
                           handleReorderCard(draggedId, card.id);
                         }
                       }}
+                      onDragEnd={() => {
+                        setDraggedOverCardId(null);
+                      }}
                       onClick={() => setSelectedCardForEdit(card)}
-                      className="p-3 bento-box bento-box-interactive border-2 border-[#4C4C4C] flex flex-col justify-between cursor-move hover:border-[var(--color-accent,#DF5504)] transition-colors active:opacity-50"
+                      className={`p-3 bento-box bento-box-interactive flex flex-col justify-between cursor-move transition-all duration-150 active:opacity-50 ${
+                        draggedOverCardId === card.id 
+                          ? 'border-2 border-[var(--color-accent,#DF5504)] bg-black/40 scale-[1.01] shadow-[0_0_12px_rgba(223,85,4,0.3)]' 
+                          : 'border-2 border-[#4C4C4C] hover:border-[var(--color-accent,#DF5504)]'
+                      }`}
                     >
                       <div>
                         <h4 className="font-bold text-sm text-white">{card.title}</h4>
