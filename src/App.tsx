@@ -817,95 +817,96 @@ export default function App() {
     <div className="min-h-screen flex flex-col justify-between ios-safe-top ios-safe-bottom bg-[var(--color-dark-bg,#282828)] px-4 py-6 select-none">
       
       {/* HEADER SECTION */}
-      <header className="flex flex-col gap-3.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6">
-        {/* Row 1: App Title and Menu Toggle (Perfectly fitted inside mobile viewport limits) */}
-        <div className="flex justify-between items-center w-full">
+      <header className="flex justify-between items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6">
+        {/* Left Column: Title and Menu Toggle (Left-aligned, stacked vertically) */}
+        <div className="flex flex-col items-start gap-2">
           <h1 className="text-xl sm:text-2xl font-black uppercase text-white tracking-wider">
             {config.name}
           </h1>
 
-          <div className="flex items-center gap-1.5">
+          <button 
+            onClick={async () => {
+              await triggerHaptic();
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            className="text-[9px] sm:text-[10px] leading-none px-2 py-1.5 sm:px-2.5 bento-btn text-white uppercase font-black rounded-sm tracking-wide flex items-center gap-1 cursor-pointer"
+          >
+            {isMenuOpen ? '✕ Close' : '☰ Menu'}
+          </button>
+        </div>
+
+        {/* Right Column: Runbook and Action Deck (Right-aligned, stacked vertically) */}
+        <div className="flex flex-col items-end gap-2.5">
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsDashboardHelpOpen(true);
+            }}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-[10px] font-black transition-colors cursor-pointer"
+            title="Dashboard Runbook"
+          >
+            ❓
+          </button>
+
+          {/* Global Action Icons Deck */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={async () => {
                 await triggerHaptic();
-                setIsDashboardHelpOpen(true);
+                setIsCalendarAgendaOpen(true);
+                await fetchUpcomingCalendarEvents(calendarRangeDays);
               }}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-[10px] font-black transition-colors cursor-pointer"
-              title="Dashboard Runbook"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+              title="Calendar Agenda"
             >
-              ❓
+              📅
             </button>
 
-            <button 
+            <button
               onClick={async () => {
                 await triggerHaptic();
-                setIsMenuOpen(!isMenuOpen);
+                setIsDiaryOpen(true);
               }}
-              className="text-[9px] sm:text-[10px] leading-none px-2 py-1.5 sm:px-2.5 bento-btn text-white uppercase font-black rounded-sm tracking-wide flex items-center gap-1 cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+              title="Verbal Diary"
             >
-              {isMenuOpen ? '✕ Close' : '☰ Menu'}
+              📔
+            </button>
+
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsReceiptsOpen(true);
+              }}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+              title="Business Receipts"
+            >
+              🧾
+            </button>
+
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsTimerModalOpen(true);
+              }}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+              title="Pomodoro Study Timer"
+            >
+              🍅
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await triggerHaptic();
+                document.getElementById('global-file-picker')?.click();
+              }}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors cursor-pointer"
+              title="Open File Picker"
+            >
+              📂
             </button>
           </div>
-        </div>
-
-        {/* Row 2: Global Action Icons Deck (Always Visible, flows beautifully underneath the label on mobile) */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsCalendarAgendaOpen(true);
-              await fetchUpcomingCalendarEvents(calendarRangeDays);
-            }}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-            title="Calendar Agenda"
-          >
-            📅
-          </button>
-
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsDiaryOpen(true);
-            }}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-            title="Verbal Diary"
-          >
-            📔
-          </button>
-
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsReceiptsOpen(true);
-            }}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-            title="Business Receipts"
-          >
-            🧾
-          </button>
-
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsTimerModalOpen(true);
-            }}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-            title="Pomodoro Study Timer"
-          >
-            🍅
-          </button>
-
-          <button
-            type="button"
-            onClick={async () => {
-              await triggerHaptic();
-              document.getElementById('global-file-picker')?.click();
-            }}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors cursor-pointer"
-            title="Open File Picker"
-          >
-            📂
-          </button>
         </div>
       </header>
 
