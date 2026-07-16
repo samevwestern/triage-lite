@@ -466,6 +466,7 @@ export default function App() {
   const [newListVal, setNewListVal] = useState('');
   const [draggedOverCardId, setDraggedOverCardId] = useState<string | null>(null);
   const [isSessionLogOpen, setIsSessionLogOpen] = useState(false);
+  const [uncheckedLogCardIds, setUncheckedLogCardIds] = useState<string[]>([]);
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationStudioOpen, setIsNotificationStudioOpen] = useState(false);
@@ -3186,13 +3187,17 @@ export default function App() {
             {/* Total Summary Analytics Banner */}
             {(() => {
               const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
-              const totalSeconds = cards.reduce((sum, c) => sum + (c.timeSpent || 0), 0);
+              const includedCards = activeCardsWithTime.filter(c => !uncheckedLogCardIds.includes(c.id));
+              const totalSeconds = cards.reduce((sum, c) => {
+                const isChecked = !uncheckedLogCardIds.includes(c.id);
+                return isChecked ? sum + (c.timeSpent || 0) : sum;
+              }, 0);
               const totalHours = Math.floor(totalSeconds / 3600);
               const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
               const remainingSeconds = totalSeconds % 60;
 
               return (
-                <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-1 text-left">
+                <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-1 text-left animate-fadeIn">
                   <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">⏱️ TOTAL STUDY DURATION</div>
                   <div className="text-xl font-black text-[var(--color-accent,#DF5504)] flex items-baseline gap-1">
                     {totalHours}<span className="text-xs text-gray-400 font-normal uppercase">h</span>{' '}
@@ -3200,7 +3205,7 @@ export default function App() {
                     {remainingSeconds}<span className="text-xs text-gray-400 font-normal uppercase">s</span>
                   </div>
                   <div className="text-[9px] text-gray-400 uppercase mt-1">
-                    Logged across <strong className="text-white">{activeCardsWithTime.length}</strong> active card focus targets
+                    Summing <strong className="text-white">{includedCards.length}</strong> of <strong className="text-gray-400">{activeCardsWithTime.length}</strong> active card focus targets
                   </div>
                 </div>
               );
@@ -3231,22 +3236,47 @@ export default function App() {
                       const hrs = Math.floor((card.timeSpent || 0) / 3600);
                       const mins = Math.floor(((card.timeSpent || 0) % 3600) / 60);
                       const secs = (card.timeSpent || 0) % 60;
+                      const isChecked = !uncheckedLogCardIds.includes(card.id);
 
                       return (
                         <div 
                           key={card.id}
-                          className="p-3 bg-[var(--color-dark-bg,#282828)]/50 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] transition-all flex justify-between items-center text-left gap-4"
+                          className={`p-3 border transition-all flex justify-between items-center text-left gap-4 ${
+                            isChecked 
+                              ? 'bg-[var(--color-dark-bg,#282828)]/50 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)]' 
+                              : 'bg-black/10 border-[#222222] opacity-60'
+                          }`}
                         >
-                          <div className="flex flex-col gap-1 min-w-0 flex-1">
-                            <span className="font-bold text-white text-xs truncate uppercase tracking-wide">
-                              {card.title || 'Untitled Card Target'}
-                            </span>
-                            <span className="text-[9px] font-bold text-[var(--color-accent,#DF5504)] uppercase">
-                              List: {cardList ? cardList.name.toUpperCase() : 'UNKNOWN'}
-                            </span>
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            {/* Styled custom checkbox */}
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={async () => {
+                                await triggerHaptic();
+                                setUncheckedLogCardIds(prev => 
+                                  isChecked 
+                                    ? [...prev, card.id] 
+                                    : prev.filter(id => id !== card.id)
+                                );
+                              }}
+                              className="w-4 h-4 rounded border border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] bg-black/40 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[var(--color-accent,#DF5504)] flex-shrink-0"
+                            />
+                            <div className="flex flex-col gap-1 min-w-0 flex-1">
+                              <span className={`font-bold text-xs truncate uppercase tracking-wide transition-all ${
+                                isChecked ? 'text-white' : 'text-gray-500 line-through'
+                              }`}>
+                                {card.title || 'Untitled Card Target'}
+                              </span>
+                              <span className={`text-[9px] font-bold uppercase transition-all ${
+                                isChecked ? 'text-[var(--color-accent,#DF5504)]' : 'text-gray-600'
+                              }`}>
+                                List: {cardList ? cardList.name.toUpperCase() : 'UNKNOWN'}
+                              </span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-3 flex-shrink-0">
-                            <span className="font-bold text-white text-[11px]">
+                            <span className={`font-bold text-[11px] transition-all ${isChecked ? 'text-white' : 'text-gray-500'}`}>
                               {hrs}h {mins}m {secs}s
                             </span>
                             <button
