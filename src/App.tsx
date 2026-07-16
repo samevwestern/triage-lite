@@ -2363,14 +2363,10 @@ export default function App() {
                     await triggerHaptic();
                     setIsAlertsHelpOpen(!isAlertsHelpOpen);
                   }}
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded bento-box flex items-center justify-center font-bold text-xs transition-all cursor-pointer flex-shrink-0 ${
-                    isAlertsHelpOpen
-                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
-                      : 'bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
-                  }`}
+                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
                   title="Alerts Guide"
                 >
-                  ❓
+                  <span className="text-red-500 font-extrabold text-base">?</span>
                 </button>
 
                 <button 
@@ -2379,9 +2375,9 @@ export default function App() {
                     await triggerHaptic();
                     setIsNotificationStudioOpen(true);
                   }}
-                  className="flex-grow px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all bento-btn text-white"
+                  className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
                 >
-                  <span>🔔</span>
+                  <span className="text-sm">🔔</span>
                   <span>Configure Alerts & Notifications</span>
                 </button>
               </div>
@@ -2432,14 +2428,10 @@ export default function App() {
                       await triggerHaptic();
                       setIsDocsHelpOpen(!isDocsHelpOpen);
                     }}
-                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded bento-box flex items-center justify-center font-bold text-xs transition-all cursor-pointer flex-shrink-0 ${
-                      isDocsHelpOpen
-                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
-                        : 'bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
-                    }`}
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
                     title="Documents Guide"
                   >
-                    ❓
+                    <span className="text-red-500 font-extrabold text-base">?</span>
                   </button>
 
                   <button 
@@ -2448,9 +2440,9 @@ export default function App() {
                       await triggerHaptic();
                       setIsDocStudioOpen(!isDocStudioOpen);
                     }}
-                    className="flex-grow px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all bento-btn text-white"
+                    className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
                   >
-                    <span>📁</span>
+                    <span className="text-sm">📂</span>
                     <span>Document & Resource Studio</span>
                     <span className="text-[10px] ml-1 transition-transform" style={{ transform: isDocStudioOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
                   </button>
