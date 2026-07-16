@@ -43,6 +43,12 @@ export interface ResourceCitation {
   addedAt: number;
 }
 
+export interface StudySession {
+  id: string;
+  duration: number; // in seconds
+  timestamp: number; // epoch timestamp
+}
+
 export interface Card {
   id: string;
   listId: string;
@@ -50,6 +56,7 @@ export interface Card {
   description?: string;
   isTimerRunning?: boolean;
   timeSpent?: number;
+  studySessions?: StudySession[];
   labelIds?: string[];
   checklists?: CardChecklist[];
   dueDate?: number | null;
@@ -468,6 +475,8 @@ export default function App() {
   const [isSessionLogOpen, setIsSessionLogOpen] = useState(false);
   const [uncheckedLogCardIds, setUncheckedLogCardIds] = useState<string[]>([]);
   const [isLogHelpOpen, setIsLogHelpOpen] = useState(false);
+  const [currentSessionStartTime, setCurrentSessionStartTime] = useState<number | null>(null);
+  const [currentSessionDuration, setCurrentSessionDuration] = useState<number>(0);
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationStudioOpen, setIsNotificationStudioOpen] = useState(false);
@@ -663,11 +672,35 @@ export default function App() {
 
 
 
+  // Session Ref Trackers (Bypasses state stale-closure rules in useEffect cleanup handlers)
+  const sessionStartTimeRef = useRef<number | null>(null);
+  const sessionDurationRef = useRef<number>(0);
+  const selectedCardIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    sessionStartTimeRef.current = currentSessionStartTime;
+  }, [currentSessionStartTime]);
+
+  useEffect(() => {
+    sessionDurationRef.current = currentSessionDuration;
+  }, [currentSessionDuration]);
+
+  useEffect(() => {
+    selectedCardIdRef.current = selectedCardForEdit ? selectedCardForEdit.id : null;
+  }, [selectedCardForEdit?.id]);
+
   // Automatic Screen-Open Card Focus Timer Thread
   useEffect(() => {
     let interval: any = null;
     if (selectedCardForEdit) {
+      // Initialize active session metrics
+      setCurrentSessionStartTime(Date.now());
+      setCurrentSessionDuration(0);
+
       interval = setInterval(() => {
+        // Increment session stopwatch counters
+        setCurrentSessionDuration(d => d + 1);
+
         // Increment timeSpent on the selected card in real-time
         setSelectedCardForEdit(prev => {
           if (!prev) return null;
@@ -687,8 +720,38 @@ export default function App() {
         );
       }, 1000);
     }
+
+    // Modal Exit Cleanup Handler: Compile and save the active session
     return () => {
       if (interval) clearInterval(interval);
+
+      const closedCardId = selectedCardIdRef.current;
+      const duration = sessionDurationRef.current;
+      const startTime = sessionStartTimeRef.current;
+
+      if (closedCardId && duration > 0 && startTime !== null) {
+        const sessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+        const newSession: StudySession = {
+          id: sessionId,
+          duration: duration,
+          timestamp: startTime
+        };
+
+        setCards(prevCards => {
+          const updated = prevCards.map(c => {
+            if (c.id === closedCardId) {
+              const sessions = c.studySessions ? [...c.studySessions, newSession] : [newSession];
+              return { ...c, studySessions: sessions };
+            }
+            return c;
+          });
+          // Persist the session history update automatically to localStorage/DB
+          syncData(`factory_app_${config.id}_cards`, updated).catch(err => {
+            console.error("Failed to sync session history:", err);
+          });
+          return updated;
+        });
+      }
     };
   }, [selectedCardForEdit?.id]);
 
@@ -2054,6 +2117,76 @@ export default function App() {
                   {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
                 </div>
               </div>
+              {/* Individual Focus Session History list (Collapsible Details Panel) */}
+              {(() => {
+                const sessions = selectedCardForEdit.studySessions || [];
+                return (
+                  <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)]/20 hover:border-[var(--color-accent,#DF5504)] rounded transition-all font-mono text-xs">
+                    <summary className="p-2.5 flex justify-between items-center cursor-pointer font-bold uppercase tracking-wider select-none text-gray-400 hover:text-white">
+                      <span>⏱️ Focus History ({sessions.length} sessions)</span>
+                      <span className="transition-transform group-open:rotate-180">▼</span>
+                    </summary>
+                    <div className="p-2.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)] flex flex-col gap-2 max-h-[160px] overflow-y-auto">
+                      {sessions.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500 text-[10px]">
+                          No individual focus sessions logged yet. Keep this card modal open to log study focus time!
+                        </div>
+                      ) : (
+                        [...sessions].reverse().map(session => {
+                          const dateStr = new Date(session.timestamp).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          });
+                          const hrs = Math.floor(session.duration / 3600);
+                          const mins = Math.floor((session.duration % 3600) / 60);
+                          const secs = session.duration % 60;
+                          const durationStr = `${hrs > 0 ? hrs + 'h ' : ''}${mins > 0 ? mins + 'm ' : ''}${secs}s`;
+
+                          return (
+                            <div key={session.id} className="flex justify-between items-center bg-black/20 p-2 border border-[#2c2c2c] rounded">
+                              <div className="flex flex-col gap-0.5 text-left">
+                                <span className="text-[10px] text-gray-400 font-bold">{dateStr}</span>
+                                <span className="text-[11px] text-[var(--color-accent,#DF5504)] font-black uppercase">Duration: {durationStr}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  if (confirm("Delete this individual study focus session? This will subtract its duration from the card's total time.")) {
+                                    const updatedSessions = sessions.filter(s => s.id !== session.id);
+                                    const newTimeSpent = Math.max(0, (selectedCardForEdit.timeSpent || 0) - session.duration);
+                                    
+                                    setSelectedCardForEdit({
+                                      ...selectedCardForEdit,
+                                      studySessions: updatedSessions,
+                                      timeSpent: newTimeSpent
+                                    });
+
+                                    const updatedCards = cards.map(c => 
+                                      c.id === selectedCardForEdit.id 
+                                        ? { ...c, studySessions: updatedSessions, timeSpent: newTimeSpent } 
+                                        : c
+                                    );
+                                    await saveCards(updatedCards);
+                                    showToast("🗑️ Individual session deleted successfully!");
+                                  }
+                                }}
+                                className="w-5 h-5 rounded bg-black/40 hover:bg-red-950 hover:text-red-400 border border-[var(--color-dark-tertiary,#3D3D3D)] flex items-center justify-center text-[9px] transition-colors cursor-pointer"
+                                title="Delete Session"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </details>
+                );
+              })()}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
@@ -3293,61 +3426,95 @@ export default function App() {
                       const isChecked = !uncheckedLogCardIds.includes(card.id);
 
                       return (
-                        <div 
-                          key={card.id}
-                          className={`p-3 border transition-all flex justify-between items-center text-left gap-4 ${
-                            isChecked 
-                              ? 'bg-[var(--color-dark-bg,#282828)]/50 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)]' 
-                              : 'bg-black/10 border-[#222222] opacity-60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            {/* Styled custom checkbox */}
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={async () => {
-                                await triggerHaptic();
-                                setUncheckedLogCardIds(prev => 
-                                  isChecked 
-                                    ? [...prev, card.id] 
-                                    : prev.filter(id => id !== card.id)
-                                );
-                              }}
-                              className="w-4 h-4 rounded border border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] bg-black/40 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[var(--color-accent,#DF5504)] flex-shrink-0"
-                            />
-                            <div className="flex flex-col gap-1 min-w-0 flex-1">
-                              <span className={`font-bold text-xs truncate uppercase tracking-wide transition-all ${
-                                isChecked ? 'text-white' : 'text-gray-500 line-through'
-                              }`}>
-                                {card.title || 'Untitled Card Target'}
+                        <div key={card.id} className="flex flex-col border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)]/30 rounded overflow-hidden">
+                          {/* Main Row */}
+                          <div 
+                            className={`p-3 transition-all flex justify-between items-center text-left gap-4 ${
+                              isChecked 
+                                ? 'bg-[var(--color-dark-bg,#282828)]/50' 
+                                : 'bg-black/10 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              {/* Styled custom checkbox */}
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={async () => {
+                                  await triggerHaptic();
+                                  setUncheckedLogCardIds(prev => 
+                                    isChecked 
+                                      ? [...prev, card.id] 
+                                      : prev.filter(id => id !== card.id)
+                                  );
+                                }}
+                                className="w-4 h-4 rounded border border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] bg-black/40 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[var(--color-accent,#DF5504)] flex-shrink-0"
+                              />
+                              <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                <span className={`font-bold text-xs truncate uppercase tracking-wide transition-all ${
+                                  isChecked ? 'text-white' : 'text-gray-500 line-through'
+                                }`}>
+                                  {card.title || 'Untitled Card Target'}
+                                </span>
+                                <span className={`text-[9px] font-bold uppercase transition-all ${
+                                  isChecked ? 'text-[var(--color-accent,#DF5504)]' : 'text-gray-600'
+                                }`}>
+                                  List: {cardList ? cardList.name.toUpperCase() : 'UNKNOWN'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <span className={`font-bold text-[11px] transition-all ${isChecked ? 'text-white' : 'text-gray-500'}`}>
+                                {hrs}h {mins}m {secs}s
                               </span>
-                              <span className={`text-[9px] font-bold uppercase transition-all ${
-                                isChecked ? 'text-[var(--color-accent,#DF5504)]' : 'text-gray-600'
-                              }`}>
-                                List: {cardList ? cardList.name.toUpperCase() : 'UNKNOWN'}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  if (confirm(`Reset session time and clear focus logs for "${card.title || 'this card'}"?`)) {
+                                    const updated = cards.map(c => c.id === card.id ? { ...c, timeSpent: 0, studySessions: [] } : c);
+                                    await saveCards(updated);
+                                    showToast("🗑️ Log history cleared!");
+                                  }
+                                }}
+                                className="w-6 h-6 rounded bg-black/40 hover:bg-red-950 hover:text-red-400 border border-[var(--color-dark-tertiary,#3D3D3D)] flex items-center justify-center text-[10px] transition-colors cursor-pointer animate-fadeIn"
+                                title="Reset Card Time"
+                              >
+                                🗑️
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <span className={`font-bold text-[11px] transition-all ${isChecked ? 'text-white' : 'text-gray-500'}`}>
-                              {hrs}h {mins}m {secs}s
-                            </span>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                await triggerHaptic();
-                                if (confirm(`Reset session time for "${card.title || 'this card'}"?`)) {
-                                  const updated = cards.map(c => c.id === card.id ? { ...c, timeSpent: 0 } : c);
-                                  await saveCards(updated);
-                                }
-                              }}
-                              className="w-6 h-6 rounded bg-black/40 hover:bg-red-950 hover:text-red-400 border border-[var(--color-dark-tertiary,#3D3D3D)] flex items-center justify-center text-[10px] transition-colors cursor-pointer animate-fadeIn"
-                              title="Reset Card Time"
-                            >
-                              🗑️
-                            </button>
-                          </div>
+
+                          {/* Sessions Sub-List (Nested Collapsible Panel) */}
+                          {card.studySessions && card.studySessions.length > 0 && (
+                            <details className="group border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 bg-black/15 font-mono text-[9px]">
+                              <summary className="p-2 px-3 flex justify-between items-center cursor-pointer select-none text-gray-500 hover:text-white uppercase font-bold tracking-wider">
+                                <span>📋 Individual Sessions ({card.studySessions.length})</span>
+                                <span className="transition-transform group-open:rotate-180">▼</span>
+                              </summary>
+                              <div className="px-3 pb-2.5 flex flex-col gap-1.5 max-h-[120px] overflow-y-auto">
+                                {[...card.studySessions].reverse().map(session => {
+                                  const dateStr = new Date(session.timestamp).toLocaleString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  });
+                                  const sHrs = Math.floor(session.duration / 3600);
+                                  const sMins = Math.floor((session.duration % 3600) / 60);
+                                  const sSecs = session.duration % 60;
+                                  const sDurationStr = `${sHrs > 0 ? sHrs + 'h ' : ''}${sMins > 0 ? sMins + 'm ' : ''}${sSecs}s`;
+
+                                  return (
+                                    <div key={session.id} className="flex justify-between items-center bg-black/30 p-1.5 border border-[#222] rounded">
+                                      <span className="text-gray-400 font-bold">{dateStr}</span>
+                                      <span className="text-[var(--color-accent,#DF5504)] font-black uppercase font-mono text-[8px] sm:text-[9px]">Duration: {sDurationStr}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </details>
+                          )}
                         </div>
                       );
                     })}
@@ -3370,7 +3537,7 @@ export default function App() {
                       return;
                     }
                     const csvRows = [
-                      ["Card ID", "Card Title", "List Column", "Time Spent (Seconds)", "Formatted Duration"]
+                      ["Card ID", "Card Title", "List Column", "Time Spent (Seconds)", "Formatted Duration", "Session Log Date", "Session Duration"]
                     ];
                     includedCards.forEach(card => {
                       const listObj = lists.find(l => l.id === card.listId);
@@ -3382,8 +3549,30 @@ export default function App() {
                         card.title || 'Untitled',
                         listObj ? listObj.name : 'Unknown',
                         String(card.timeSpent || 0),
-                        `${hrs}h ${mins}m ${secs}s`
+                        `${hrs}h ${mins}m ${secs}s`,
+                        "TOTAL ACCUMULATED FOCUS TIME",
+                        ""
                       ]);
+
+                      if (card.studySessions && card.studySessions.length > 0) {
+                        card.studySessions.forEach((session, sIdx) => {
+                          const dateStr = new Date(session.timestamp).toLocaleString();
+                          const sHrs = Math.floor(session.duration / 3600);
+                          const sMins = Math.floor((session.duration % 3600) / 60);
+                          const sSecs = session.duration % 60;
+                          const sDurationStr = `${sHrs > 0 ? sHrs + 'h ' : ''}${sMins > 0 ? sMins + 'm ' : ''}${sSecs}s`;
+                          
+                          csvRows.push([
+                            "",
+                            `  ├─ Session #${sIdx + 1}`,
+                            "",
+                            String(session.duration),
+                            "",
+                            dateStr,
+                            sDurationStr
+                          ]);
+                        });
+                      }
                     });
                     const csvContent = csvRows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
                     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -3428,6 +3617,17 @@ export default function App() {
                       const mins = Math.floor(((card.timeSpent || 0) % 3600) / 60);
                       const secs = (card.timeSpent || 0) % 60;
                       emailBody += `${idx + 1}. ${card.title || 'Untitled'} (${listObj ? listObj.name.toUpperCase() : 'UNKNOWN'}) - ${hrs}h ${mins}m ${secs}s\n`;
+                      
+                      if (card.studySessions && card.studySessions.length > 0) {
+                        card.studySessions.forEach((session, sIdx) => {
+                          const dateStr = new Date(session.timestamp).toLocaleString();
+                          const sHrs = Math.floor(session.duration / 3600);
+                          const sMins = Math.floor((session.duration % 3600) / 60);
+                          const sSecs = session.duration % 60;
+                          const sDurationStr = `${sHrs > 0 ? sHrs + 'h ' : ''}${sMins > 0 ? sMins + 'm ' : ''}${sSecs}s`;
+                          emailBody += `   ├─ Session #${sIdx + 1}: ${dateStr} for ${sDurationStr}\n`;
+                        });
+                      }
                     });
                     
                     emailBody += "\n\nGenerated via Triage Lite Board on " + new Date().toLocaleString() + "\n";
