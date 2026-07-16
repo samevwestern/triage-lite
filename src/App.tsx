@@ -507,6 +507,7 @@ export default function App() {
 
   // Dedicated Global Label Manager Modal State
   const [isGlobalLabelModalOpen, setIsGlobalLabelModalOpen] = useState(false);
+  const [showLabelHelp, setShowLabelHelp] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [labelFormText, setLabelFormText] = useState('');
   const [labelFormColor, setLabelFormColor] = useState('#DF5504');
@@ -1065,9 +1066,23 @@ export default function App() {
                 }}
               >
                 <div className="border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2 mb-3 flex flex-col items-start gap-0.5 font-mono">
-                  <h3 className="font-black text-sm uppercase text-white tracking-wide flex items-center gap-1">
-                    <span>{list.name}</span>
-                  </h3>
+                  <div className="flex justify-between items-center w-full">
+                    <h3 className="font-black text-sm uppercase text-white tracking-wide">
+                      {list.name}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await triggerHaptic();
+                        setIsDashboardHelpOpen(true);
+                      }}
+                      className="w-5 h-5 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-[8px] font-black transition-colors cursor-pointer"
+                      title={`${list.name} Runbook`}
+                    >
+                      ❓
+                    </button>
+                  </div>
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">
                     # of cards: {cards.filter(c => c.listId === list.id).length}
                   </span>
@@ -1457,19 +1472,52 @@ export default function App() {
           <div className="w-full max-w-md bento-box p-6 text-white flex flex-col gap-5">
             {/* Header */}
             <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
-              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
+              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-1.5">
                 🏷 Board Label Studio
               </h3>
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsGlobalLabelModalOpen(false);
-                }}
-                className="text-gray-400 hover:text-white font-black text-lg"
-              >
-                &times;
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowLabelHelp(!showLabelHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showLabelHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 hover:bg-black/80 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-300'
+                  }`}
+                  title="Label Studio Guide"
+                >
+                  ❓
+                </button>
+                <button 
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsGlobalLabelModalOpen(false);
+                    setShowLabelHelp(false);
+                  }}
+                  className="text-gray-400 hover:text-white font-black text-lg cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
+
+            {/* ℹ️ Sliding Label Runbook Info Panel */}
+            {showLabelHelp && (
+              <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded-lg flex flex-col gap-2 max-h-[30vh] overflow-y-auto animate-fadeIn text-[10px] text-gray-300 font-mono">
+                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Board Classification Runbook</span>
+                <p className="leading-relaxed font-bold text-gray-400">
+                  Board labels allow you to categorize and instantly filter task cards on your Kanban list columns:
+                </p>
+                <ul className="list-disc pl-4 flex flex-col gap-1 leading-relaxed text-gray-400">
+                  <li><span className="text-white">🏷️ Categories</span>: Create tags like `URGENT`, `WEEKLY`, or `PERSONAL` to isolate tasks.</li>
+                  <li><span className="text-white">🎨 Palettes</span>: Assign highly distinct neon, primary, or monochrome colors for visual cues.</li>
+                  <li><span className="text-white">✨ Assignment</span>: Choose labels inside any card detailed edit panel to flag active categories.</li>
+                </ul>
+              </div>
+            )}
 
             {/* Label Form */}
             <div className="border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-4 font-mono text-xs">
