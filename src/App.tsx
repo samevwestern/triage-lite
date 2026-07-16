@@ -736,33 +736,39 @@ export default function App() {
 
   const handleMoveCard = async (cardId: string, nextListId: string) => {
     await triggerHaptic();
-    const updated = cards.map(c => {
-      if (c.id === cardId) {
-        return { 
-          ...c, 
-          listId: nextListId,
-          completedAt: nextListId === 'done' ? Date.now() : null
-        };
-      }
-      return c;
+    setCards(prevCards => {
+      const updated = prevCards.map(c => {
+        if (c.id === cardId) {
+          return { 
+            ...c, 
+            listId: nextListId,
+            completedAt: nextListId === 'done' ? Date.now() : null
+          };
+        }
+        return c;
+      });
+      syncData(`factory_app_${config.id}_cards`, updated);
+      return updated;
     });
-    await saveCards(updated);
   };
 
   const handleToggleChecklistItem = async (cardId: string, checklistId: string, itemId: string) => {
     await triggerHaptic();
-    const updated = cards.map(c => {
-      if (c.id !== cardId) return c;
-      const updatedChecklists = c.checklists?.map(cl => {
-        if (cl.id !== checklistId) return cl;
-        return {
-          ...cl,
-          items: cl.items.map(item => item.id === itemId ? { ...item, isChecked: !item.isChecked } : item)
-        };
+    setCards(prevCards => {
+      const updated = prevCards.map(c => {
+        if (c.id !== cardId) return c;
+        const updatedChecklists = c.checklists?.map(cl => {
+          if (cl.id !== checklistId) return cl;
+          return {
+            ...cl,
+            items: cl.items.map(item => item.id === itemId ? { ...item, isChecked: !item.isChecked } : item)
+          };
+        });
+        return { ...c, checklists: updatedChecklists };
       });
-      return { ...c, checklists: updatedChecklists };
+      syncData(`factory_app_${config.id}_cards`, updated);
+      return updated;
     });
-    await saveCards(updated);
   };
 
   const handleExportCSV = () => {
@@ -1785,11 +1791,18 @@ export default function App() {
                         onClick={async () => {
                           await triggerHaptic();
                           if (window.confirm(`Delete label "${lbl.text}"? This will clear it from all cards.`)) {
-                            setLabels(labels.filter(l => l.id !== lbl.id));
-                            setCards(cards.map(c => ({
-                              ...c,
-                              labelIds: c.labelIds?.filter(id => id !== lbl.id) || []
-                            })));
+                            const filteredLabels = labels.filter(l => l.id !== lbl.id);
+                            setLabels(filteredLabels);
+                            syncData(`factory_app_${config.id}_labels`, filteredLabels);
+
+                            setCards(prevCards => {
+                              const updated = prevCards.map(c => ({
+                                ...c,
+                                labelIds: c.labelIds?.filter(id => id !== lbl.id) || []
+                              }));
+                              syncData(`factory_app_${config.id}_cards`, updated);
+                              return updated;
+                            });
                             if (editingLabelId === lbl.id) {
                               setEditingLabelId(null);
                               setLabelFormText('');
