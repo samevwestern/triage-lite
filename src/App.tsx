@@ -467,6 +467,7 @@ export default function App() {
   const [draggedOverCardId, setDraggedOverCardId] = useState<string | null>(null);
   const [isSessionLogOpen, setIsSessionLogOpen] = useState(false);
   const [uncheckedLogCardIds, setUncheckedLogCardIds] = useState<string[]>([]);
+  const [isLogHelpOpen, setIsLogHelpOpen] = useState(false);
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationStudioOpen, setIsNotificationStudioOpen] = useState(false);
@@ -3169,9 +3170,26 @@ export default function App() {
           <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
-              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
-                📊 SESSION TIME LOGS
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider">
+                  📊 SESSION TIME LOGS
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsLogHelpOpen(prev => !prev);
+                  }}
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all cursor-pointer border ${
+                    isLogHelpOpen 
+                      ? 'bg-blue-900 border-blue-400 text-white shadow-[0_0_8px_rgba(59,130,246,0.5)]' 
+                      : 'bg-black/40 border-gray-600 text-gray-400 hover:text-white hover:border-white'
+                  }`}
+                  title="Toggle Help Guide"
+                >
+                  ❓
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={async () => {
@@ -3183,6 +3201,42 @@ export default function App() {
                 ×
               </button>
             </div>
+
+            {/* Interactive Help Guide Section */}
+            {isLogHelpOpen && (
+              <div className="p-3.5 bg-blue-950/20 border border-blue-900/40 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono">
+                  <span>ℹ️ HOW LOGS WORK GUIDE</span>
+                  <button 
+                    type="button" 
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsLogHelpOpen(false);
+                    }}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    ⏱️ <strong className="text-white font-mono">Active Focus Sorting:</strong> Lists active study targets with logged study times, sorted descending from most focused to least focused.
+                  </p>
+                  <p>
+                    🗹 <strong className="text-white font-mono">Active Target Checkboxes:</strong> Check/uncheck targets to dynamically include or exclude their focus sessions from the <strong>Total Study Duration</strong> calculation instantly.
+                  </p>
+                  <p>
+                    📥 <strong className="text-white font-mono">CSV Spreadsheet Export:</strong> Generates and downloads an Excel-compatible CSV file compiling <strong>only your checked</strong> target focus sessions.
+                  </p>
+                  <p>
+                    ✉️ <strong className="text-white font-mono">Email & Clipboard Backup:</strong> Triggers your default system mail client prefilled with a structured summary, while **automatically copying** the full report text directly to your macOS clipboard! If no native client opens, simply press **Cmd+V (Paste)** anywhere to paste your full pre-formatted text report!
+                  </p>
+                  <p>
+                    🗑️ <strong className="text-white font-mono">Resetting Times:</strong> Tap any card's trash icon to reset its specific focused timer back to zero.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Total Summary Analytics Banner */}
             {(() => {
