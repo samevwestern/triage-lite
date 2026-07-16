@@ -3962,59 +3962,77 @@ export default function App() {
 
             {/* Modal Scrollable Content */}
             <div className="overflow-y-auto pr-1 flex flex-col gap-4 leading-relaxed text-gray-300">
-              <div className="border-l-2 border-[var(--color-accent,#DF5504)] pl-3 py-1 bg-black/20">
-                <p className="font-bold text-white mb-1">Welcome to Triage Lite!</p>
-                <p className="text-[11px] text-gray-400">
-                  A high-performance, brutalist Pomodoro Kanban task controller built to track study hours, speech journals, and expenditures with absolute precision.
+              <div className="border-l-2 border-[var(--color-accent,#DF5504)] pl-3 py-1 bg-black/20 text-[10px]">
+                <p className="font-bold text-white mb-0.5">BOARD QUICK RUNBOOK</p>
+                <p className="text-gray-400 font-bold">
+                  A high-level guide to navigating the main board list interface. Detailed card edits are found within the Card's own help icon.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="flex gap-2.5 items-start">
-                  <span className="text-sm select-none">📌</span>
+              <div className="flex flex-col gap-3 font-mono text-[10px]">
+                {/* Section 1: Board Structure */}
+                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                  <span className="text-sm select-none">🎛️</span>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Brutalist Kanban Boards</span>
-                    <span>Track progress through Todo, Doing, and Done. Drag and drop cards to reorder, or use the interactive pagination dots at the top to focus column segments.</span>
+                    <span className="font-black text-white uppercase tracking-wide">Board Columns (Lists)</span>
+                    <span className="font-bold text-gray-400">Your work is split into three lists: <strong className="text-white">TO DO</strong> (pending actions), <strong className="text-white">DOING</strong> (active focus), and <strong className="text-white">DONE</strong> (completed items). The count shows the active cards in each.</span>
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 items-start">
-                  <span className="text-sm select-none">📅</span>
+                {/* Section 2: Mobile Swiping */}
+                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                  <span className="text-sm select-none">📱</span>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Calendar Agenda</span>
-                    <span>Synchronize study timetables, manage deadlines, and set due dates to visualize your schedule limits. Includes dynamic calendar list ranges.</span>
+                    <span className="font-black text-white uppercase tracking-wide">Mobile Column Navigation</span>
+                    <span className="font-bold text-gray-400">On mobile, <strong className="text-white">swipe left or right</strong> on the screen to slide between columns, or tap the pagination dots at the top of the board to jump directly to a list.</span>
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 items-start">
-                  <span className="text-sm select-none">📔</span>
+                {/* Section 3: Card Selection & Creation */}
+                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                  <span className="text-sm select-none">📄</span>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Verbal Diary Speech Journal</span>
-                    <span>Record speech diaries on-the-go to capture verbal logs directly onto your workspace storage index with local voice narration.</span>
+                    <span className="font-black text-white uppercase tracking-wide">Card Interaction</span>
+                    <ul className="list-disc pl-4 flex flex-col gap-0.5 text-gray-400 mt-1 font-bold">
+                      <li><strong className="text-white">Select a Card</strong>: Tap any card's frame to open the Card Details modal (to edit checklist bullets, set alarms, or attach documents).</li>
+                      <li><strong className="text-white">Create a Card</strong>: Tap the <strong className="text-[var(--color-accent,#DF5504)]">+</strong> icon in the header bar to create a card in the current column.</li>
+                    </ul>
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 items-start">
-                  <span className="text-sm select-none">🧾</span>
+                {/* Section 4: Changing Lists (Moving Cards) */}
+                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                  <span className="text-sm select-none">🔄</span>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Expenditure Receipts</span>
-                    <span>Log business receipts with merchant names, dates, amounts, and photo file uploads for expense claims.</span>
+                    <span className="font-black text-white uppercase tracking-wide">Moving Cards between columns</span>
+                    <span className="font-bold text-gray-400">Tap the orange <strong className="text-[var(--color-accent,#DF5504)]">MOVE ▾</strong> button in the bottom-right of any card to instantly shift columns. On desktop, click and drag cards directly to any list column.</span>
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 items-start">
-                  <span className="text-sm select-none">📂</span>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase text-[10px] tracking-wider">File Explorer & Lightbox</span>
-                    <span>Inspect and search all workspace logs, base64 files, and card templates. View inline, or share natively via AirDrop, WhatsApp, and iOS parent sheets.</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2.5 items-start">
+                {/* Section 5: Card Progress & Active Timers */}
+                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                   <span className="text-sm select-none">⏱️</span>
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase text-[10px] tracking-wider">Pomodoro Timer & Checklists</span>
-                    <span>Track focused execution times, complete checklists, and preview next-in-line pending tasks directly inside any card frame.</span>
+                    <span className="font-black text-white uppercase tracking-wide">Timers & Checklist Indicators</span>
+                    <ul className="list-disc pl-4 flex flex-col gap-0.5 text-gray-400 mt-1 font-bold">
+                      <li><strong className="text-white">Spent Timer (e.g. 15m spent)</strong>: Displays total time spent on this card, updated by active Pomodoro study sessions.</li>
+                      <li><strong className="text-white">Task Progress</strong>: Shows percentage progress and next pending sub-checklist items directly on the card face.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Section 6: Global Feature Icons */}
+                <div className="flex gap-2.5 items-start">
+                  <span className="text-sm select-none">🕹️</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-black text-white uppercase tracking-wide">Global Footer Icons</span>
+                    <span className="font-bold text-gray-400">Tapping the icons in the bottom navigation bar launches primary utilities:</span>
+                    <ul className="list-disc pl-4 flex flex-col gap-0.5 text-gray-400 mt-1 font-bold">
+                      <li><strong className="text-white">📅 Calendar</strong>: Toggle the native agenda timetable overlay.</li>
+                      <li><strong className="text-white">📔 Verbal Journal</strong>: Launch speech recording entries.</li>
+                      <li><strong className="text-white">🧾 Receipts</strong>: Log claims and upload expense captures.</li>
+                      <li><strong className="text-white">🍅 Pomodoro</strong>: Launch study timers mapped to iOS Focus Modes.</li>
+                    </ul>
                   </div>
                 </div>
               </div>
