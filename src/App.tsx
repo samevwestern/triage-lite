@@ -3383,8 +3383,7 @@ export default function App() {
                     try {
                       const mailLink = document.createElement("a");
                       mailLink.href = mailtoUrl;
-                      mailLink.target = "_blank";
-                      mailLink.rel = "noopener noreferrer";
+                      mailLink.target = "_self";
                       document.body.appendChild(mailLink);
                       mailLink.click();
                       document.body.removeChild(mailLink);
