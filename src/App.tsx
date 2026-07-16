@@ -3303,14 +3303,104 @@ export default function App() {
             </div>
 
             {/* Bottom Actions Row */}
-            <div className="flex justify-end items-center border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
+            <div className="flex justify-between items-center border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2 gap-2 flex-wrap sm:flex-nowrap">
+              <div className="flex gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
+                    if (activeCardsWithTime.length === 0) {
+                      showToast("⚠️ No study logs to export!");
+                      return;
+                    }
+                    const csvRows = [
+                      ["Card ID", "Card Title", "List Column", "Time Spent (Seconds)", "Formatted Duration", "Status"]
+                    ];
+                    activeCardsWithTime.forEach(card => {
+                      const listObj = lists.find(l => l.id === card.listId);
+                      const hrs = Math.floor((card.timeSpent || 0) / 3600);
+                      const mins = Math.floor(((card.timeSpent || 0) % 3600) / 60);
+                      const secs = (card.timeSpent || 0) % 60;
+                      const isChecked = !uncheckedLogCardIds.includes(card.id);
+                      csvRows.push([
+                        card.id,
+                        card.title || 'Untitled',
+                        listObj ? listObj.name : 'Unknown',
+                        String(card.timeSpent || 0),
+                        `${hrs}h ${mins}m ${secs}s`,
+                        isChecked ? 'Included' : 'Excluded'
+                      ]);
+                    });
+                    const csvContent = csvRows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `triage_focus_session_logs_${Date.now()}.csv`);
+                    link.click();
+                    showToast("📥 CSV Export downloaded successfully!");
+                  }}
+                  className={`px-2.5 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/40 hover:bg-black/80 hover:border-white text-white font-bold uppercase text-[9px] sm:text-[10px] rounded transition-all cursor-pointer ${
+                    cards.some(c => (c.timeSpent || 0) > 0) ? 'opacity-100' : 'opacity-40 cursor-not-allowed'
+                  }`}
+                  title="Export Logs as CSV file"
+                >
+                  📥 Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
+                    if (activeCardsWithTime.length === 0) {
+                      showToast("⚠️ No study logs to share!");
+                      return;
+                    }
+                    let emailBody = "TRIAGE LITE - STUDY FOCUS SESSIONS SUMMARY\n";
+                    emailBody += "=========================================\n\n";
+                    const totalSeconds = cards.reduce((sum, c) => {
+                      const isChecked = !uncheckedLogCardIds.includes(c.id);
+                      return isChecked ? sum + (c.timeSpent || 0) : sum;
+                    }, 0);
+                    const totalHours = Math.floor(totalSeconds / 3600);
+                    const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
+                    const remainingSeconds = totalSeconds % 60;
+                    emailBody += `Total Active Study Duration: ${totalHours}h ${totalMinutes}m ${remainingSeconds}s\n`;
+                    emailBody += `Summed across ${activeCardsWithTime.filter(c => !uncheckedLogCardIds.includes(c.id)).length} of ${activeCardsWithTime.length} active target sessions.\n\n`;
+                    emailBody += "SESSIONS LIST:\n";
+                    emailBody += "-------------\n";
+                    
+                    activeCardsWithTime.forEach((card, idx) => {
+                      const listObj = lists.find(l => l.id === card.listId);
+                      const hrs = Math.floor((card.timeSpent || 0) / 3600);
+                      const mins = Math.floor(((card.timeSpent || 0) % 3600) / 60);
+                      const secs = (card.timeSpent || 0) % 60;
+                      const isChecked = !uncheckedLogCardIds.includes(card.id);
+                      emailBody += `${idx + 1}. [${isChecked ? 'CHECKED' : 'UNCHECKED'}] ${card.title || 'Untitled'} (${listObj ? listObj.name.toUpperCase() : 'UNKNOWN'}) - ${hrs}h ${mins}m ${secs}s\n`;
+                    });
+                    
+                    emailBody += "\n\nGenerated via Triage Lite Board on " + new Date().toLocaleString() + "\n";
+                    
+                    const mailtoUrl = `mailto:?subject=${encodeURIComponent("Triage Lite - Study Focus Session Logs")}&body=${encodeURIComponent(emailBody)}`;
+                    window.location.href = mailtoUrl;
+                    showToast("✉️ Email draft preloaded!");
+                  }}
+                  className={`px-2.5 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/40 hover:bg-black/80 hover:border-white text-white font-bold uppercase text-[9px] sm:text-[10px] rounded transition-all cursor-pointer ${
+                    cards.some(c => (c.timeSpent || 0) > 0) ? 'opacity-100' : 'opacity-40 cursor-not-allowed'
+                  }`}
+                  title="Share Logs via Email"
+                >
+                  ✉️ Email Summary
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={async () => {
                   await triggerHaptic();
                   setIsSessionLogOpen(false);
                 }}
-                className="px-4 py-1.5 bento-btn text-white font-bold uppercase text-[10px] rounded cursor-pointer"
+                className="px-4 py-1.5 bento-btn text-white font-bold uppercase text-[9px] sm:text-[10px] rounded cursor-pointer flex-shrink-0"
               >
                 Close Logs
               </button>
