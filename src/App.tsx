@@ -3273,25 +3273,7 @@ export default function App() {
             </div>
 
             {/* Bottom Actions Row */}
-            <div className="flex justify-between items-center border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
-                  if (activeCardsWithTime.length === 0) return;
-                  await triggerHaptic();
-                  if (confirm("⚠️ Are you sure you want to RESET ALL study session times across all lists and cards? This action is permanent!")) {
-                    const updated = cards.map(c => ({ ...c, timeSpent: 0 }));
-                    await saveCards(updated);
-                    showToast("🧹 All study session times reset successfully.");
-                  }
-                }}
-                className={`px-3 py-1.5 border border-red-900/50 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold uppercase text-[10px] rounded transition-all cursor-pointer ${
-                  cards.some(c => (c.timeSpent || 0) > 0) ? 'opacity-100' : 'opacity-30 cursor-not-allowed'
-                }`}
-              >
-                Reset All Times
-              </button>
+            <div className="flex justify-end items-center border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
               <button
                 type="button"
                 onClick={async () => {
