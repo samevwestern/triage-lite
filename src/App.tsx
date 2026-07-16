@@ -576,19 +576,7 @@ export default function App() {
   const [labelFormText, setLabelFormText] = useState('');
   const [labelFormColor, setLabelFormColor] = useState('#DF5504');
 
-  // Dedicated Card Creation Modal State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newCardData, setNewCardData] = useState<Card>({
-    id: '',
-    listId: 'todo',
-    title: '',
-    description: '',
-    timeSpent: 0,
-    labelIds: [],
-    checklists: [],
-    dueDate: null,
-    completedAt: null
-  });
+
 
   // Simulated Native StoreKit Receipt Verification
   useEffect(() => {
@@ -1056,18 +1044,23 @@ export default function App() {
             <button 
               onClick={async () => {
                 await triggerHaptic();
-                setNewCardData({
+                const newCard: Card = {
                   id: 'card-' + Date.now(),
                   listId: lists[activeColumnIndex]?.id || 'todo',
                   title: '',
                   description: '',
                   timeSpent: 0,
                   labelIds: [],
-                  checklists: [],
+                  checklists: [
+                    {
+                      id: 'cl-' + Date.now(),
+                      items: []
+                    }
+                  ],
                   dueDate: null,
                   completedAt: null
-                });
-                setIsCreateModalOpen(true);
+                };
+                setSelectedCardForEdit(newCard);
               }}
               className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black transition-all"
               title="Quick-Add Card"
@@ -2962,13 +2955,21 @@ export default function App() {
               </button>
               <button 
                 onClick={async () => {
+                  if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
+                    await triggerHaptic();
+                    showToast("⚠️ Task title is required to save the card!");
+                    return;
+                  }
                   if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
                     await triggerHaptic();
                     showToast("⚠️ Task description is empty! Please write a summary.");
                     return;
                   }
                   await triggerHaptic();
-                  const updatedCards = cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c);
+                  const exists = cards.some(c => c.id === selectedCardForEdit.id);
+                  const updatedCards = exists 
+                    ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
+                    : [...cards, selectedCardForEdit];
                   await saveCards(updatedCards);
 
                   // Phase 5: Trigger Native iOS Integrations
@@ -2980,152 +2981,9 @@ export default function App() {
                   setSelectedCardForEdit(null);
                   setIsLabelManagerOpen(false);
                 }}
-                className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded"
+                className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
               >
                 Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CUSTOM BRUTALIST CREATION MODAL */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="w-full max-w-md bento-box p-6 text-white">
-            {/* Header */}
-            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mb-4">
-              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
-                Create New Card
-              </h3>
-              <button 
-                onClick={() => {
-                  setIsCreateModalOpen(false);
-                }}
-                className="text-gray-400 hover:text-white font-black text-lg"
-              >
-                &times;
-              </button>
-            </div>
-
-            {/* Inputs */}
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
-                <input 
-                  type="text"
-                  placeholder="Task title..."
-                  value={newCardData.title}
-                  onChange={(e) => setNewCardData({ ...newCardData, title: e.target.value })}
-                  className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Description</label>
-                <textarea 
-                  placeholder="Describe this task..."
-                  value={newCardData.description || ''}
-                  onChange={(e) => setNewCardData({ ...newCardData, description: e.target.value })}
-                  className="w-full h-20 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Board Column</label>
-                  <select 
-                    value={newCardData.listId}
-                    onChange={(e) => setNewCardData({ ...newCardData, listId: e.target.value })}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded"
-                  >
-                    <option value="todo">To Do</option>
-                    <option value="progress">In Progress</option>
-                    <option value="done">Completed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Due Date</label>
-                  <input 
-                    type="date"
-                    value={newCardData.dueDate ? new Date(newCardData.dueDate).toISOString().split('T')[0] : ''}
-                    onChange={(e) => {
-                      const parsed = e.target.value ? Date.parse(e.target.value) : null;
-                      setNewCardData({ ...newCardData, dueDate: parsed });
-                    }}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded"
-                  />
-                </div>
-              </div>
-
-              {/* Label Mapping Section */}
-              <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-2">Labels</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {labels.map(lbl => {
-                    const hasLabel = newCardData.labelIds?.includes(lbl.id);
-                    return (
-                      <button
-                        key={lbl.id}
-                        type="button"
-                        onClick={() => {
-                          const currentIds = newCardData.labelIds || [];
-                          const nextIds = currentIds.includes(lbl.id)
-                            ? currentIds.filter(id => id !== lbl.id)
-                            : [...currentIds, lbl.id];
-                          setNewCardData({ ...newCardData, labelIds: nextIds });
-                        }}
-                        className={`text-[10px] font-bold px-2 py-1 border transition-all rounded ${hasLabel ? 'border-white scale-105 shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]' : 'border-[var(--color-dark-tertiary)]/50 opacity-60'}`}
-                        style={{ backgroundColor: lbl.color, color: 'white' }}
-                      >
-                        {lbl.text} {hasLabel ? '✓' : ''}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
-              <button 
-                onClick={() => {
-                  setIsCreateModalOpen(false);
-                }}
-                className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={async () => {
-                  if (!newCardData.title.trim()) {
-                    await triggerHaptic();
-                    showToast("⚠️ Title is required to create a card!");
-                    return;
-                  }
-                  if (!newCardData.description || !newCardData.description.trim()) {
-                    await triggerHaptic();
-                    showToast("⚠️ Task description is empty! Please write a summary.");
-                    return;
-                  }
-                  await triggerHaptic();
-                  const finalCard: Card = {
-                    ...newCardData,
-                    title: newCardData.title.trim()
-                  };
-                  await saveCards([...cards, finalCard]);
-
-                  // Phase 5: Trigger Native iOS Integrations
-                  if (isNative && finalCard.dueDate) {
-                    await scheduleLocalAlarm(finalCard);
-                    await syncToAppleCalendar(finalCard);
-                  }
-
-                  setIsCreateModalOpen(false);
-                }}
-                className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded"
-              >
-                Create Card
               </button>
             </div>
           </div>
