@@ -2015,12 +2015,9 @@ export default function App() {
             {/* Inputs */}
             <div className="flex flex-col gap-4">
               {/* Active Focus Session Widget */}
-              <div className="p-3 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-accent,#DF5504)] rounded flex justify-between items-center font-mono text-xs shadow-[2px_2px_0px_0px_var(--color-accent,#DF5504)] animate-pulse">
-                <div className="flex flex-col">
-                  <span className="text-[9px] text-[#8892b0] font-bold uppercase tracking-wider">🎯 FOCUS SESSION ACTIVE</span>
-                  <span className="text-[10px] text-white">Keep this screen open to study</span>
-                </div>
-                <div className="text-[12px] font-black text-[var(--color-accent,#DF5504)]">
+              <div className="p-2.5 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-accent,#DF5504)] rounded flex justify-between items-center font-mono text-xs shadow-[2px_2px_0px_0px_var(--color-accent,#DF5504)] animate-pulse">
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">⏱️ SESSION TIME</span>
+                <div className="text-[11px] font-black text-[var(--color-accent,#DF5504)]">
                   {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
                 </div>
               </div>
