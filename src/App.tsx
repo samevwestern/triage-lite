@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCapacitor } from './hooks/useCapacitor';
 import { config } from './factory-config';
 import { CapacitorCalendar } from '@ebarooni/capacitor-calendar';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Camera, CameraResultType } from '@capacitor/camera';
+import { SpeechRecognition } from '@capacitor-community/speech-recognition';
+
 
 export interface ChecklistItem {
   id: string;
@@ -108,6 +110,7 @@ const POMODORO_PRESETS: Record<
 
 export default function App() {
   const { isNative, getStorage, setStorage, triggerHaptic } = useCapacitor();
+  const recognitionRef = useRef<any>(null);
 
   // Native Integration Wrappers
   const syncToAppleCalendar = async (card: Card) => {
@@ -179,51 +182,115 @@ export default function App() {
     }
   };
 
-  const startDictation = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      showToast("⚠️ Speech recognition not supported on this browser!");
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-
-      recognition.onstart = () => {
-        setIsRecording(true);
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        if (transcript && transcript.trim() !== '') {
-          const newLog = {
-            id: 'log-' + Date.now(),
-            timestamp: Date.now(),
-            text: transcript.trim()
-          };
-          setVoiceLogs(prev => [newLog, ...prev]);
-          showToast("🎙️ Captured Voice Reflection!");
+  const startDictation = async () => {
+    if (isNative) {
+      try {
+        const permission = await SpeechRecognition.requestPermissions();
+        if (permission.speechRecognition !== 'granted') {
+          showToast("⚠️ Permission denied for speech recognition!");
+          return;
         }
-      };
 
-      recognition.onerror = (e: any) => {
-        console.error("[WebSpeech] Recognition error", e);
+        const { available } = await SpeechRecognition.available();
+        if (!available) {
+          showToast("⚠️ iOS Speech recognition is not available!");
+          return;
+        }
+
+        setIsRecording(true);
+        // Start offline on-device iOS AI speech recognition
+        const result = await SpeechRecognition.start({
+          language: 'en-US',
+          partialResults: false,
+          popup: false
+        });
+
+        if (result.matches && result.matches.length > 0) {
+          const transcript = result.matches[0];
+          if (transcript && transcript.trim() !== '') {
+            const newLog = {
+              id: 'log-' + Date.now(),
+              timestamp: Date.now(),
+              text: transcript.trim()
+            };
+            setVoiceLogs(prev => [newLog, ...prev]);
+            showToast("🎙️ Captured On-Device iOS Voice Reflection!");
+          }
+        }
+      } catch (error) {
+        console.error("[SpeechRecognition] iOS Native error", error);
         showToast("⚠️ Speech recognition failed!");
-      };
-
-      recognition.onend = () => {
+      } finally {
         setIsRecording(false);
-      };
+      }
+    } else {
+      // Standard browser fallback
+      const WebSpeech = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!WebSpeech) {
+        showToast("⚠️ Speech recognition not supported on this browser!");
+        return;
+      }
 
-      recognition.start();
-    } catch (e) {
-      console.error("[WebSpeech] Initiation failed", e);
-      showToast("⚠️ Failed to start speech engine");
-      setIsRecording(false);
+      try {
+        const recognition = new WebSpeech();
+        recognitionRef.current = recognition;
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+          setIsRecording(true);
+        };
+
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          if (transcript && transcript.trim() !== '') {
+            const newLog = {
+              id: 'log-' + Date.now(),
+              timestamp: Date.now(),
+              text: transcript.trim()
+            };
+            setVoiceLogs(prev => [newLog, ...prev]);
+            showToast("🎙️ Captured Voice Reflection!");
+          }
+        };
+
+        recognition.onerror = (e: any) => {
+          console.error("[WebSpeech] Recognition error", e);
+          showToast("⚠️ Speech recognition failed!");
+        };
+
+        recognition.onend = () => {
+          setIsRecording(false);
+          recognitionRef.current = null;
+        };
+
+        recognition.start();
+      } catch (error) {
+        console.error("[WebSpeech] Web initialization error", error);
+        showToast("⚠️ Speech recognition failed!");
+        setIsRecording(false);
+      }
     }
+  };
+
+  const stopDictation = async () => {
+    if (isNative) {
+      try {
+        await SpeechRecognition.stop();
+      } catch (error) {
+        console.error("[SpeechRecognition] stop error", error);
+      }
+    } else {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (error) {
+          console.error("[WebSpeech] stop error", error);
+        }
+      }
+    }
+    setIsRecording(false);
   };
 
   const dispatchLogToCard = (logId: string, cardId: string) => {
@@ -425,6 +492,7 @@ export default function App() {
   }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showDiaryHelp, setShowDiaryHelp] = useState(false);
+  const [typedDiaryText, setTypedDiaryText] = useState('');
 
   // Receipts / Expenditures States
   const [isReceiptsOpen, setIsReceiptsOpen] = useState(false);
@@ -4124,28 +4192,79 @@ export default function App() {
 
             {/* Microphone Dictation Action Panel */}
             <div className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-4 rounded flex flex-col items-center gap-3 flex-shrink-0">
-              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Voice Dictation Journal</span>
+              <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Daily Journal Log</span>
               
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  if (!isRecording) {
-                    startDictation();
-                  }
-                }}
-                disabled={isRecording}
-                className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-[0px_0px_0px_0px_#000] transition-all ${
-                  isRecording 
-                    ? 'bg-red-600 text-white animate-pulse border-2 border-white' 
-                    : 'bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 text-white border border-black'
-                }`}
-              >
-                🎙️
-              </button>
+              <div className="flex flex-col items-center gap-2 w-full">
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    if (isRecording) {
+                      await stopDictation();
+                    } else {
+                      await startDictation();
+                    }
+                  }}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-[4px_4px_0px_0px_#000] active:translate-y-1 active:shadow-[0px_0px_0px_0px_#000] transition-all cursor-pointer ${
+                    isRecording 
+                      ? 'bg-red-600 text-white animate-pulse border-2 border-white' 
+                      : 'bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 text-white border border-black'
+                  }`}
+                  title={isRecording ? "Stop Recording" : "Start Voice Dictation"}
+                >
+                  🎙️
+                </button>
 
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${isRecording ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}>
-                {isRecording ? '🔴 Listening... Speak Now' : '🎙️ Tap to Dictate Daily Note'}
-              </span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isRecording ? 'text-red-500 animate-pulse' : 'text-gray-400'}`}>
+                  {isRecording ? '🔴 Listening... Tap to Save' : '🎙️ Tap to Dictate Daily Note'}
+                </span>
+              </div>
+
+              {/* Inline Keyboard Entry Fallback Container */}
+              <div className="w-full flex flex-col gap-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-3">
+                <span className="text-[9px] text-gray-500 uppercase font-black font-mono self-start">✍️ Or Type Journal Reflection:</span>
+                <div className="flex gap-2 w-full">
+                  <input 
+                    type="text"
+                    placeholder="Type journal entry or reflection here..."
+                    value={typedDiaryText}
+                    onChange={(e) => setTypedDiaryText(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && typedDiaryText.trim()) {
+                        e.preventDefault();
+                        await triggerHaptic();
+                        const newLog = {
+                          id: 'log-' + Date.now(),
+                          timestamp: Date.now(),
+                          text: typedDiaryText.trim()
+                        };
+                        setVoiceLogs(prev => [newLog, ...prev]);
+                        setTypedDiaryText('');
+                        showToast("✍️ Added Typed Daily Reflection!");
+                      }
+                    }}
+                    className="flex-grow bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-3 py-1.5 text-xs text-white rounded font-mono focus:border-[var(--color-accent,#DF5504)] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (typedDiaryText.trim()) {
+                        await triggerHaptic();
+                        const newLog = {
+                          id: 'log-' + Date.now(),
+                          timestamp: Date.now(),
+                          text: typedDiaryText.trim()
+                        };
+                        setVoiceLogs(prev => [newLog, ...prev]);
+                        setTypedDiaryText('');
+                        showToast("✍️ Added Typed Daily Reflection!");
+                      }
+                    }}
+                    className="px-3 py-1.5 bento-btn text-white text-[10px] font-black uppercase rounded cursor-pointer transition-all flex items-center justify-center gap-1"
+                  >
+                    <span>＋</span> Add
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Scrollable Diary Feed List */}

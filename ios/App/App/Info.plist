@@ -45,5 +45,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Triage Lite requires speech recognition access to transcribe verbal diary entries and daily journal logs locally on your device.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Triage Lite requires microphone access to capture your speech for transcribing verbal reflections.</string>
 </dict>
 </plist>
