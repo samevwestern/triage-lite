@@ -1909,6 +1909,25 @@ export default function App() {
                 />
               </div>
 
+              {/* Active Labels List Display (Under Title, Above Description) */}
+              {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(id => labels.find(l => l.id === id)).filter(Boolean).length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 min-h-[22px] -mt-1">
+                  {selectedCardForEdit.labelIds.map(labelId => {
+                    const labelObj = labels.find(l => l.id === labelId);
+                    if (!labelObj) return null;
+                    return (
+                      <span 
+                        key={labelId}
+                        className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]"
+                        style={{ backgroundColor: labelObj.color }}
+                      >
+                        {labelObj.text}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Description</label>
                 <textarea 
