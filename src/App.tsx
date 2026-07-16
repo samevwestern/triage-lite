@@ -2532,21 +2532,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Date Row (Datetime-Local upgrade) */}
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Deadline & Time</label>
-                  <input 
-                    type="datetime-local"
-                    value={formatTimestampToDatetimeLocal(selectedCardForEdit.completedAt)}
-                    onChange={(e) => {
-                      const parsed = e.target.value ? Date.parse(e.target.value) : null;
-                      setSelectedCardForEdit({ ...selectedCardForEdit, completedAt: parsed });
-                    }}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded focus:border-[var(--color-accent,#DF5504)]"
-                  />
-                </div>
-              </div>
 
               {/* 🔔 NOTIFICATION & ALERT STUDIO POPUP TRIGGER */}
               <div className="flex gap-2 items-center mt-2.5 w-full">
@@ -3768,7 +3753,7 @@ export default function App() {
             {/* Primary Date Configuration */}
             <div className="p-3.5 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2">
               <label className="block text-[10px] font-mono font-bold uppercase text-gray-400 tracking-wider">
-                ⏰ Card Due Date & Time
+                ⏰ Deadline & Time
               </label>
               <input 
                 type="datetime-local"
@@ -3781,7 +3766,7 @@ export default function App() {
               />
               {!selectedCardForEdit.dueDate && (
                 <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold uppercase tracking-wider mt-0.5">
-                  ⚠️ Configure a Due Date above to enable automated alarm schedules.
+                  ⚠️ Configure a Deadline above to enable automated alarm schedules.
                 </span>
               )}
             </div>
