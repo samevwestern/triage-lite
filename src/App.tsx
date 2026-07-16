@@ -476,6 +476,7 @@ export default function App() {
   const [uncheckedLogCardIds, setUncheckedLogCardIds] = useState<string[]>([]);
   const [isLogHelpOpen, setIsLogHelpOpen] = useState(false);
   const [isMenuHelpOpen, setIsMenuHelpOpen] = useState(false);
+  const [isCardSessionLogExpanded, setIsCardSessionLogExpanded] = useState(false);
   const [currentSessionStartTime, setCurrentSessionStartTime] = useState<number | null>(null);
   const [currentSessionDuration, setCurrentSessionDuration] = useState<number>(0);
   
@@ -2180,83 +2181,104 @@ export default function App() {
 
             {/* Inputs */}
             <div className="flex flex-col gap-4">
-              {/* Active Focus Session Widget */}
-              <div className="p-2.5 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-accent,#DF5504)] rounded flex justify-between items-center font-mono text-xs shadow-[2px_2px_0px_0px_var(--color-accent,#DF5504)] animate-pulse">
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">⏱️ SESSION TIME</span>
-                <div className="text-[11px] font-black text-[var(--color-accent,#DF5504)]">
+              {/* Active Focus Session Widget - High-fidelity Orange Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsCardSessionLogExpanded(prev => !prev);
+                }}
+                className={`w-full p-3.5 bento-btn rounded-lg flex justify-between items-center font-mono transition-all text-left uppercase font-black cursor-pointer border-2 ${
+                  isCardSessionLogExpanded
+                    ? 'bg-black/45 border-[var(--color-accent,#DF5504)] text-white shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]'
+                    : 'bg-[#DF5504] border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                }`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <span>⏱️</span> {isCardSessionLogExpanded ? 'Hide Session History' : 'View Session History'}
+                </span>
+                <div className={`text-xs font-black font-mono ${isCardSessionLogExpanded ? 'text-[var(--color-accent,#DF5504)]' : 'text-white'}`}>
                   {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
                 </div>
-              </div>
-              {/* Individual Focus Session History list (Collapsible Details Panel) */}
-              {(() => {
-                const sessions = selectedCardForEdit.studySessions || [];
-                return (
-                  <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)]/20 hover:border-[var(--color-accent,#DF5504)] rounded transition-all font-mono text-xs">
-                    <summary className="p-2.5 flex justify-between items-center cursor-pointer font-bold uppercase tracking-wider select-none text-gray-400 hover:text-white">
-                      <span>⏱️ Session History ({sessions.length} sessions)</span>
-                      <span className="transition-transform group-open:rotate-180">▼</span>
-                    </summary>
-                    <div className="p-2.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)] flex flex-col gap-2 max-h-[160px] overflow-y-auto">
-                      {sessions.length === 0 ? (
-                        <div className="text-center py-4 text-gray-500 text-[10px]">
-                          No individual focus sessions logged yet. Keep this card modal open to log study focus time!
-                        </div>
-                      ) : (
-                        [...sessions].reverse().map(session => {
-                          const dateStr = new Date(session.timestamp).toLocaleString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                          });
-                          const hrs = Math.floor(session.duration / 3600);
-                          const mins = Math.floor((session.duration % 3600) / 60);
-                          const secs = session.duration % 60;
-                          const durationStr = `${hrs > 0 ? hrs + 'h ' : ''}${mins > 0 ? mins + 'm ' : ''}${secs}s`;
+              </button>
 
-                          return (
-                            <div key={session.id} className="flex justify-between items-center bg-black/20 p-2 border border-[#2c2c2c] rounded">
-                              <div className="flex flex-col gap-0.5 text-left">
-                                <span className="text-[10px] text-gray-400 font-bold">{dateStr}</span>
-                                <span className="text-[11px] text-[var(--color-accent,#DF5504)] font-black uppercase">Duration: {durationStr}</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  await triggerHaptic();
-                                  if (confirm("Delete this individual study focus session? This will subtract its duration from the card's total time.")) {
-                                    const updatedSessions = sessions.filter(s => s.id !== session.id);
-                                    const newTimeSpent = Math.max(0, (selectedCardForEdit.timeSpent || 0) - session.duration);
-                                    
-                                    setSelectedCardForEdit({
-                                      ...selectedCardForEdit,
-                                      studySessions: updatedSessions,
-                                      timeSpent: newTimeSpent
-                                    });
+              {/* Expandable High-Fidelity Session Log List matching global popup style */}
+              {isCardSessionLogExpanded && (
+                <div className="animate-fadeIn p-3.5 bento-box border border-[var(--color-accent,#DF5504)] bg-black/25 font-mono text-xs flex flex-col gap-3">
+                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1.5">
+                    <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px] flex items-center gap-1.5">
+                      <span>📋</span> Individual Sessions ({(selectedCardForEdit.studySessions || []).length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCardSessionLogExpanded(false)}
+                      className="text-[9px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                    >
+                      ✕ Close
+                    </button>
+                  </div>
 
-                                    const updatedCards = cards.map(c => 
-                                      c.id === selectedCardForEdit.id 
-                                        ? { ...c, studySessions: updatedSessions, timeSpent: newTimeSpent } 
-                                        : c
-                                    );
-                                    await saveCards(updatedCards);
-                                    showToast("🗑️ Individual session deleted successfully!");
-                                  }
-                                }}
-                                className="w-5 h-5 rounded bg-black/40 hover:bg-red-950 hover:text-red-400 border border-[var(--color-dark-tertiary,#3D3D3D)] flex items-center justify-center text-[9px] transition-colors cursor-pointer"
-                                title="Delete Session"
-                              >
-                                🗑️
-                              </button>
+                  <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
+                    {!(selectedCardForEdit.studySessions && selectedCardForEdit.studySessions.length > 0) ? (
+                      <div className="text-center py-4 text-gray-500 text-[10px] uppercase font-bold tracking-wider">
+                        No individual focus sessions logged yet.
+                      </div>
+                    ) : (
+                      [...selectedCardForEdit.studySessions].reverse().map(session => {
+                        const dateStr = new Date(session.timestamp).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        });
+                        const hrs = Math.floor(session.duration / 3600);
+                        const mins = Math.floor((session.duration % 3600) / 60);
+                        const secs = session.duration % 60;
+                        const durationStr = `${hrs > 0 ? hrs + 'h ' : ''}${mins > 0 ? mins + 'm ' : ''}${secs}s`;
+
+                        return (
+                          <div key={session.id} className="flex justify-between items-center bg-black/30 p-2 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 rounded hover:bg-black/55 transition-all">
+                            <div className="flex flex-col gap-0.5 text-left">
+                              <span className="text-[10px] text-gray-400 font-bold">{dateStr}</span>
+                              <span className="text-[11px] text-[var(--color-accent,#DF5504)] font-black uppercase">Duration: {durationStr}</span>
                             </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </details>
-                );
-              })()}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                if (confirm("Delete this individual study focus session? This will subtract its duration from the card's total time.")) {
+                                  const sessions = selectedCardForEdit.studySessions || [];
+                                  const updatedSessions = sessions.filter(s => s.id !== session.id);
+                                  const newTimeSpent = Math.max(0, (selectedCardForEdit.timeSpent || 0) - session.duration);
+                                  
+                                  setSelectedCardForEdit({
+                                    ...selectedCardForEdit,
+                                    studySessions: updatedSessions,
+                                    timeSpent: newTimeSpent
+                                  });
+
+                                  const updatedCards = cards.map(c => 
+                                    c.id === selectedCardForEdit.id 
+                                      ? { ...c, studySessions: updatedSessions, timeSpent: newTimeSpent } 
+                                      : c
+                                  );
+                                  await saveCards(updatedCards);
+                                  showToast("🗑️ Individual session deleted successfully!");
+                                }
+                              }}
+                              className="w-6 h-6 rounded bg-black/40 hover:bg-red-950 hover:text-red-400 border border-[var(--color-dark-tertiary,#3D3D3D)] flex items-center justify-center text-[10px] transition-colors cursor-pointer"
+                              title="Delete Session"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
@@ -3322,6 +3344,7 @@ export default function App() {
                 onClick={() => {
                   setSelectedCardForEdit(null);
                   setIsLabelManagerOpen(false);
+                  setIsCardSessionLogExpanded(false);
                 }}
                 className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded"
               >
@@ -3354,6 +3377,7 @@ export default function App() {
 
                   setSelectedCardForEdit(null);
                   setIsLabelManagerOpen(false);
+                  setIsCardSessionLogExpanded(false);
                 }}
                 className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
               >
