@@ -465,6 +465,7 @@ export default function App() {
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListVal, setNewListVal] = useState('');
   const [draggedOverCardId, setDraggedOverCardId] = useState<string | null>(null);
+  const [isSessionLogOpen, setIsSessionLogOpen] = useState(false);
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationStudioOpen, setIsNotificationStudioOpen] = useState(false);
@@ -937,6 +938,17 @@ export default function App() {
                 title="Pomodoro Study Timer"
               >
                 🍅
+              </button>
+
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsSessionLogOpen(true);
+                }}
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+                title="Session Time Logs"
+              >
+                📊
               </button>
 
               <button
@@ -3144,6 +3156,151 @@ export default function App() {
                 className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📊 SESSIONS & TIME ANALYSIS LOG POPUP MODAL */}
+      {isSessionLogOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
+              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+                📊 SESSION TIME LOGS
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsSessionLogOpen(false);
+                }}
+                className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Total Summary Analytics Banner */}
+            {(() => {
+              const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
+              const totalSeconds = cards.reduce((sum, c) => sum + (c.timeSpent || 0), 0);
+              const totalHours = Math.floor(totalSeconds / 3600);
+              const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
+              const remainingSeconds = totalSeconds % 60;
+
+              return (
+                <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-1 text-left">
+                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">⏱️ TOTAL STUDY DURATION</div>
+                  <div className="text-xl font-black text-[var(--color-accent,#DF5504)] flex items-baseline gap-1">
+                    {totalHours}<span className="text-xs text-gray-400 font-normal uppercase">h</span>{' '}
+                    {totalMinutes}<span className="text-xs text-gray-400 font-normal uppercase">m</span>{' '}
+                    {remainingSeconds}<span className="text-xs text-gray-400 font-normal uppercase">s</span>
+                  </div>
+                  <div className="text-[9px] text-gray-400 uppercase mt-1">
+                    Logged across <strong className="text-white">{activeCardsWithTime.length}</strong> active card focus targets
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Scrollable Logs Grid */}
+            <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-1">
+              {(() => {
+                const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
+                if (activeCardsWithTime.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-400 flex flex-col items-center gap-2">
+                      <span className="text-3xl select-none">📋</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider leading-relaxed max-w-[280px]">
+                        No focus sessions recorded yet. Open any card details page to start accumulating focus time!
+                      </span>
+                    </div>
+                  );
+                }
+
+                // Sort cards by timeSpent descending
+                const sortedCards = [...activeCardsWithTime].sort((a, b) => (b.timeSpent || 0) - (a.timeSpent || 0));
+
+                return (
+                  <div className="flex flex-col gap-2.5">
+                    {sortedCards.map(card => {
+                      const cardList = lists.find(l => l.id === card.listId);
+                      const hrs = Math.floor((card.timeSpent || 0) / 3600);
+                      const mins = Math.floor(((card.timeSpent || 0) % 3600) / 60);
+                      const secs = (card.timeSpent || 0) % 60;
+
+                      return (
+                        <div 
+                          key={card.id}
+                          className="p-3 bg-[var(--color-dark-bg,#282828)]/50 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] transition-all flex justify-between items-center text-left gap-4"
+                        >
+                          <div className="flex flex-col gap-1 min-w-0 flex-1">
+                            <span className="font-bold text-white text-xs truncate uppercase tracking-wide">
+                              {card.title || 'Untitled Card Target'}
+                            </span>
+                            <span className="text-[9px] font-bold text-[var(--color-accent,#DF5504)] uppercase">
+                              List: {cardList ? cardList.name.toUpperCase() : 'UNKNOWN'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <span className="font-bold text-white text-[11px]">
+                              {hrs}h {mins}m {secs}s
+                            </span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                if (confirm(`Reset session time for "${card.title || 'this card'}"?`)) {
+                                  const updated = cards.map(c => c.id === card.id ? { ...c, timeSpent: 0 } : c);
+                                  await saveCards(updated);
+                                }
+                              }}
+                              className="w-6 h-6 rounded bg-black/40 hover:bg-red-950 hover:text-red-400 border border-[var(--color-dark-tertiary,#3D3D3D)] flex items-center justify-center text-[10px] transition-colors cursor-pointer animate-fadeIn"
+                              title="Reset Card Time"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Bottom Actions Row */}
+            <div className="flex justify-between items-center border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
+                  if (activeCardsWithTime.length === 0) return;
+                  await triggerHaptic();
+                  if (confirm("⚠️ Are you sure you want to RESET ALL study session times across all lists and cards? This action is permanent!")) {
+                    const updated = cards.map(c => ({ ...c, timeSpent: 0 }));
+                    await saveCards(updated);
+                    showToast("🧹 All study session times reset successfully.");
+                  }
+                }}
+                className={`px-3 py-1.5 border border-red-900/50 bg-red-950/20 hover:bg-red-950/40 text-red-400 font-bold uppercase text-[10px] rounded transition-all cursor-pointer ${
+                  cards.some(c => (c.timeSpent || 0) > 0) ? 'opacity-100' : 'opacity-30 cursor-not-allowed'
+                }`}
+              >
+                Reset All Times
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsSessionLogOpen(false);
+                }}
+                className="px-4 py-1.5 bento-btn text-white font-bold uppercase text-[10px] rounded cursor-pointer"
+              >
+                Close Logs
               </button>
             </div>
           </div>
