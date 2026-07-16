@@ -475,6 +475,7 @@ export default function App() {
   const [isSessionLogOpen, setIsSessionLogOpen] = useState(false);
   const [uncheckedLogCardIds, setUncheckedLogCardIds] = useState<string[]>([]);
   const [isLogHelpOpen, setIsLogHelpOpen] = useState(false);
+  const [isMenuHelpOpen, setIsMenuHelpOpen] = useState(false);
   const [currentSessionStartTime, setCurrentSessionStartTime] = useState<number | null>(null);
   const [currentSessionDuration, setCurrentSessionDuration] = useState<number>(0);
   
@@ -1062,19 +1063,88 @@ export default function App() {
           {/* MENU PAGE */}
           <div className="bento-box p-6 flex flex-col gap-6 text-white max-w-2xl mx-auto w-full">
             <div className="border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex justify-between items-center">
-              <h2 className="text-sm font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
-                Triage Board Menu
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
+                  Triage Board Menu
+                </h2>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsMenuHelpOpen(prev => !prev);
+                  }}
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center font-bold text-[10px] transition-colors cursor-pointer ${
+                    isMenuHelpOpen
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                  }`}
+                  title="Triage Settings Runbook"
+                >
+                  ❓
+                </button>
+              </div>
               <button 
                 onClick={async () => {
                   await triggerHaptic();
                   setIsMenuOpen(false);
                 }}
-                className="text-xs uppercase font-mono font-bold text-gray-400 hover:text-white"
+                className="text-xs uppercase font-mono font-bold text-gray-400 hover:text-white cursor-pointer"
               >
                 ✕ Close
               </button>
             </div>
+
+            {/* Expandable Menu Help Info Block */}
+            {isMenuHelpOpen && (
+              <div className="p-4 bento-box border-l-4 border-l-[#003B5C] bg-gradient-to-r from-blue-950/40 to-black/30 font-mono text-[10px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
+                <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
+                  <span className="font-black uppercase tracking-wider text-[#00A3E0] text-[10px] flex items-center gap-1.5">
+                    <span>⚙️</span> Triage Settings Runbook
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsMenuHelpOpen(false)}
+                    className="text-[9px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                  >
+                    ✕ Close
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-2.5 text-gray-300 mt-1">
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none text-base">💾</span>
+                    <div>
+                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Export Data Backup</strong>
+                      Allows you to back up your local database sandbox at any time. It downloads an Excel-compatible CSV containing all card columns, priority values, time trackers, description parameters, and checklist logs.
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none text-base">🍏</span>
+                    <div>
+                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Apple iCloud Synchronization</strong>
+                      Connects your active triage boards across all registered iOS and macOS devices. It synchronizes checklist states, focus sessions, priority levels, and custom labels dynamically through Apple CloudKit channels.
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none text-base">🏷️</span>
+                    <div>
+                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Board Label Studio</strong>
+                      Your central classifications workshop. Define customizable classification labels, assign custom hex code styling, or rename category tags to immediately assign priorities and categorize card widgets.
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 items-start">
+                    <span className="select-none text-base">⚡</span>
+                    <div>
+                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Feature Diagnostics</strong>
+                      Runs localized client feature sweeps. Instantly tests hardware-level compatibility including Capacitive Haptics, LocalStorage read/writes, Web Audio synthesizers, and system Calendar notification schedulers.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Menu Settings Index List */}
             <div className="flex flex-col gap-3 font-mono text-xs">
