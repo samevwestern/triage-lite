@@ -1907,21 +1907,48 @@ export default function App() {
                   );
                 })}
 
-                {/* Adjacent Select Label Button */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await triggerHaptic();
-                    setIsLabelManagerOpen(!isLabelManagerOpen);
-                  }}
-                  className={`text-[9px] font-black font-mono uppercase px-1.5 py-0.5 border rounded transition-all flex items-center gap-1 ${
-                    isLabelManagerOpen 
-                      ? 'border-white bg-white text-black' 
-                      : 'border-[var(--color-accent,#DF5504)] bg-transparent text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] hover:text-white'
-                  }`}
-                >
-                  🏷️ {isLabelManagerOpen ? 'Close' : 'Select'}
-                </button>
+                {/* Adjacent Select Label Dropdown Picker */}
+                <div className="relative">
+                  <select
+                    value=""
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      if (val === 'add-new') {
+                        await triggerHaptic();
+                        setIsLabelManagerOpen(true);
+                      } else if (val) {
+                        await triggerHaptic();
+                        const labelId = val;
+                        const currentIds = selectedCardForEdit.labelIds || [];
+                        const nextIds = currentIds.includes(labelId)
+                          ? currentIds.filter(id => id !== labelId)
+                          : [...currentIds, labelId];
+                        setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
+                      }
+                      e.target.value = ''; // Reset select box
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 font-mono text-[9px]"
+                  >
+                    <option value="">🏷️ Add Label</option>
+                    {labels.map(lbl => {
+                      const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
+                      return (
+                        <option key={lbl.id} value={lbl.id} className="text-white bg-[#282828]">
+                          {lbl.text} {hasLabel ? '✓' : ''}
+                        </option>
+                      );
+                    })}
+                    <option value="add-new" className="text-[var(--color-accent,#DF5504)] font-bold font-mono bg-[#282828]">
+                      ＋ ADD NEW LABEL...
+                    </option>
+                  </select>
+                  <button
+                    type="button"
+                    className="text-[9px] font-black font-mono uppercase px-1.5 py-0.5 border border-[var(--color-accent,#DF5504)] bg-transparent text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] hover:text-white rounded transition-all flex items-center gap-1"
+                  >
+                    🏷️ {isLabelManagerOpen ? 'Close Editor' : 'Add Label ▼'}
+                  </button>
+                </div>
               </div>
 
               {/* Collapsible Label Selector Dropdown (Adjacent Drawer) */}
