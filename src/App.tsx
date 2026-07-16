@@ -462,6 +462,8 @@ export default function App() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskText, setEditingTaskText] = useState('');
   const [inlineNewTaskText, setInlineNewTaskText] = useState('');
+  const [isAddingList, setIsAddingList] = useState(false);
+  const [newListVal, setNewListVal] = useState('');
   
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNotificationStudioOpen, setIsNotificationStudioOpen] = useState(false);
@@ -1100,32 +1102,88 @@ export default function App() {
           
           {/* UNIVERSAL COLUMN NAVIGATION SUBHEADER */}
           <div className="flex justify-between items-center p-2.5 bento-box mb-4 font-mono text-xs gap-3 w-full">
-            <button 
-              onClick={async () => {
-                await triggerHaptic();
-                const newCard: Card = {
-                  id: 'card-' + Date.now(),
-                  listId: lists[activeColumnIndex]?.id || 'todo',
-                  title: '',
-                  description: '',
-                  timeSpent: 0,
-                  labelIds: [],
-                  checklists: [
-                    {
-                      id: 'cl-' + Date.now(),
-                      items: []
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={async () => {
+                  await triggerHaptic();
+                  const newCard: Card = {
+                    id: 'card-' + Date.now(),
+                    listId: lists[activeColumnIndex]?.id || 'todo',
+                    title: '',
+                    description: '',
+                    timeSpent: 0,
+                    labelIds: [],
+                    checklists: [
+                      {
+                        id: 'cl-' + Date.now(),
+                        items: []
+                      }
+                    ],
+                    dueDate: null,
+                    completedAt: null
+                  };
+                  setSelectedCardForEdit(newCard);
+                }}
+                className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black transition-all"
+                title="Quick-Add Card"
+              >
+                ＋
+              </button>
+
+              {isAddingList ? (
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const val = newListVal.trim();
+                    if (val) {
+                      await triggerHaptic();
+                      const newId = `list-${Date.now()}`;
+                      const newList = { id: newId, name: val };
+                      await saveLists([...lists, newList]);
+                      setNewListVal('');
+                      setIsAddingList(false);
                     }
-                  ],
-                  dueDate: null,
-                  completedAt: null
-                };
-                setSelectedCardForEdit(newCard);
-              }}
-              className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black transition-all"
-              title="Quick-Add Card"
-            >
-              ＋
-            </button>
+                  }}
+                  className="flex items-center gap-1 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] p-0.5 rounded-full pr-1.5 transition-all"
+                >
+                  <input 
+                    type="text"
+                    placeholder="New list..."
+                    value={newListVal}
+                    onChange={(e) => setNewListVal(e.target.value)}
+                    className="px-2.5 py-1 bg-transparent text-white text-[11px] font-mono outline-none w-24 sm:w-36"
+                    autoFocus
+                  />
+                  <button 
+                    type="submit" 
+                    className="w-5 h-5 rounded-full bg-[var(--color-accent,#DF5504)] text-white font-bold flex items-center justify-center text-[10px] uppercase hover:opacity-90 active:scale-95 transition-all"
+                  >
+                    ✓
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setNewListVal('');
+                      setIsAddingList(false);
+                    }}
+                    className="w-5 h-5 rounded-full bg-transparent hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-xs font-mono transition-colors"
+                  >
+                    ×
+                  </button>
+                </form>
+              ) : (
+                <button 
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsAddingList(true);
+                  }}
+                  className="h-8 px-2.5 rounded-full bento-btn text-white flex items-center justify-center gap-1 text-[11px] font-bold uppercase transition-all"
+                  title="Add Custom List"
+                >
+                  📋＋
+                </button>
+              )}
+            </div>
 
             {/* Custom Interactive Swipe Pagination Dots & Column Indicators */}
             <div className="flex items-center gap-2 pr-1.5">
@@ -1394,48 +1452,6 @@ export default function App() {
             );
           })}
 
-          {/* Create New Column Button Card */}
-          <div className="flex-shrink-0 w-[85vw] sm:w-[320px] snap-center p-4 bento-box border-2 border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] transition-colors flex flex-col justify-center items-center gap-3 bg-black/10">
-            <span className="text-2xl select-none">📋</span>
-            <span className="font-mono text-xs text-gray-400 font-bold uppercase select-none">New Custom List</span>
-            <div className="w-full flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-              <input
-                id="new-list-name-input"
-                type="text"
-                placeholder="List Name... (Press Enter)"
-                className="w-full font-mono text-xs bg-black/40 text-white border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1.5 focus:border-[var(--color-accent,#DF5504)] outline-none rounded-sm"
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') {
-                    const input = e.currentTarget;
-                    const val = input.value.trim();
-                    if (val) {
-                      await triggerHaptic();
-                      const newId = `list-${Date.now()}`;
-                      const newList = { id: newId, name: val };
-                      await saveLists([...lists, newList]);
-                      input.value = '';
-                    }
-                  }
-                }}
-              />
-              <button
-                onClick={async () => {
-                  const input = document.getElementById('new-list-name-input') as HTMLInputElement;
-                  const val = input?.value.trim();
-                  if (val) {
-                    await triggerHaptic();
-                    const newId = `list-${Date.now()}`;
-                    const newList = { id: newId, name: val };
-                    await saveLists([...lists, newList]);
-                    input.value = '';
-                  }
-                }}
-                className="w-full bento-btn bg-[var(--color-accent,#DF5504)] text-white text-xs font-mono font-bold uppercase py-1.5 cursor-pointer"
-              >
-                ＋ Add List
-              </button>
-            </div>
-          </div>
 
           </div>
 
