@@ -1875,10 +1875,6 @@ export default function App() {
                       <span><strong className="text-white">DEADLINE & TIME</strong>: Target milestones with clear uppercase deadline limits.</span>
                     </div>
                     <div className="flex gap-2 items-start">
-                      <span className="select-none">📋</span>
-                      <span><strong className="text-white">CHECKLIST BULLETS</strong>: Break work items into micro checklists with completion percent logs.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
                       <span className="select-none">📚</span>
                       <span><strong className="text-white">RESEARCH CITATIONS</strong>: Log academic bibliography sources. (URLs and descriptions require each other).</span>
                     </div>
@@ -1886,132 +1882,6 @@ export default function App() {
                       <span className="select-none">🌐</span>
                       <span><strong className="text-white">CLOUD DRIVES</strong>: Connect iCloud/OneDrive/GDrive directories with full validation checks.</span>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Active Selected Labels Header */}
-              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                {/* Render Selected Labels only */}
-                {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(labelId => {
-                  const labelObj = labels.find(l => l.id === labelId);
-                  if (!labelObj) return null;
-                  return (
-                    <span 
-                      key={labelId}
-                      className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]"
-                      style={{ backgroundColor: labelObj.color }}
-                    >
-                      {labelObj.text}
-                    </span>
-                  );
-                })}
-
-                {/* Adjacent Select Label Dropdown Picker */}
-                <div className="relative">
-                  <select
-                    value=""
-                    onChange={async (e) => {
-                      const val = e.target.value;
-                      if (val === 'add-new') {
-                        await triggerHaptic();
-                        setIsLabelManagerOpen(true);
-                      } else if (val) {
-                        await triggerHaptic();
-                        const labelId = val;
-                        const currentIds = selectedCardForEdit.labelIds || [];
-                        const nextIds = currentIds.includes(labelId)
-                          ? currentIds.filter(id => id !== labelId)
-                          : [...currentIds, labelId];
-                        setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
-                      }
-                      e.target.value = ''; // Reset select box
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 font-mono text-[9px]"
-                  >
-                    <option value="">🏷️ Add Label</option>
-                    {labels.map(lbl => {
-                      const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
-                      return (
-                        <option key={lbl.id} value={lbl.id} className="text-white bg-[#282828]">
-                          {lbl.text} {hasLabel ? '✓' : ''}
-                        </option>
-                      );
-                    })}
-                    <option value="add-new" className="text-[var(--color-accent,#DF5504)] font-bold font-mono bg-[#282828]">
-                      ＋ ADD NEW LABEL...
-                    </option>
-                  </select>
-                  <button
-                    type="button"
-                    className="text-[9px] font-black font-mono uppercase px-1.5 py-0.5 border border-[var(--color-accent,#DF5504)] bg-transparent text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] hover:text-white rounded transition-all flex items-center gap-1"
-                  >
-                    🏷️ {isLabelManagerOpen ? 'Close Editor' : 'Add Label ▼'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Collapsible Label Selector Dropdown (Adjacent Drawer) */}
-              {isLabelManagerOpen && (
-                <div className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2.5 rounded mt-2 animate-fadeIn flex flex-col gap-2 font-mono text-xs">
-                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1">
-                    <span className="font-bold text-[9px] uppercase text-gray-400">Toggle Card Labels</span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-1.5">
-                    {labels.map(lbl => {
-                      const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
-                      return (
-                        <button
-                          key={lbl.id}
-                          type="button"
-                          onClick={async () => {
-                            await triggerHaptic();
-                            const currentIds = selectedCardForEdit.labelIds || [];
-                            const nextIds = currentIds.includes(lbl.id)
-                              ? currentIds.filter(id => id !== lbl.id)
-                              : [...currentIds, lbl.id];
-                            setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
-                          }}
-                          className={`text-[9px] font-black px-1.5 py-0.5 border transition-all rounded flex items-center gap-1 ${
-                            hasLabel 
-                              ? 'border-white scale-105 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]' 
-                              : 'border-[var(--color-dark-tertiary)]/50 opacity-40'
-                          }`}
-                          style={{ backgroundColor: lbl.color, color: 'white' }}
-                        >
-                          {lbl.text} {hasLabel ? '✓' : ''}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Add New Quick Label In-Place */}
-                  <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-2 mt-1">
-                    <input 
-                      type="text"
-                      placeholder="＋ Create new label... (Press Enter)"
-                      className="w-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[9px] rounded font-mono"
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const input = e.currentTarget;
-                          const text = input.value.trim().toUpperCase();
-                          if (text) {
-                            await triggerHaptic();
-                            const colors = ['#ff3b30', '#DF5504', '#34c759', '#007aff', '#ffcc00', '#a2845e', '#5856d6'];
-                            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                            const newLabel = {
-                              id: 'label-' + Date.now(),
-                              text,
-                              color: randomColor
-                            };
-                            setLabels([...labels, newLabel]);
-                            input.value = '';
-                          }
-                        }
-                      }}
-                    />
                   </div>
                 </div>
               )}
@@ -2415,6 +2285,155 @@ export default function App() {
                       <span className="select-none">⚡</span>
                       <span><strong className="text-white">HAPTIC CONFIRMATIONS</strong>: Tactile haptic hums confirm successful notification scheduling on compatible physical iPhone & mobile devices.</span>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Active Selected Labels Header (Repositioned below Alerts & Notifications) */}
+              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
+                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Labels</label>
+                
+                {/* Active Labels List Display */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-2.5 min-h-[22px]">
+                  {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(labelId => {
+                    const labelObj = labels.find(l => l.id === labelId);
+                    if (!labelObj) return null;
+                    return (
+                      <span 
+                        key={labelId}
+                        className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]"
+                        style={{ backgroundColor: labelObj.color }}
+                      >
+                        {labelObj.text}
+                      </span>
+                    );
+                  })}
+                  {(!selectedCardForEdit.labelIds || selectedCardForEdit.labelIds.length === 0) && (
+                    <span className="text-[9px] text-gray-500 font-mono italic">No labels assigned to this card</span>
+                  )}
+                </div>
+
+                {/* Unified Labels Bar (Matches Alerts and Document layout format) */}
+                <div className="flex gap-2 items-center w-full">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsLabelManagerOpen(!isLabelManagerOpen);
+                    }}
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
+                    title="Label Manager Guide"
+                  >
+                    <span className="text-red-500 font-extrabold text-base">?</span>
+                  </button>
+
+                  {/* Wide Orange Action Dropdown Trigger */}
+                  <div className="relative flex-grow h-10 sm:h-11">
+                    <select
+                      value=""
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        if (val === 'add-new') {
+                          await triggerHaptic();
+                          setIsLabelManagerOpen(true);
+                        } else if (val) {
+                          await triggerHaptic();
+                          const labelId = val;
+                          const currentIds = selectedCardForEdit.labelIds || [];
+                          const nextIds = currentIds.includes(labelId)
+                            ? currentIds.filter(id => id !== labelId)
+                            : [...currentIds, labelId];
+                          setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
+                        }
+                        e.target.value = ''; // Reset select box
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 font-mono text-[9px]"
+                    >
+                      <option value="">🏷️ Add Label</option>
+                      {labels.map(lbl => {
+                        const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
+                        return (
+                          <option key={lbl.id} value={lbl.id} className="text-white bg-[#282828]">
+                            {lbl.text} {hasLabel ? '✓' : ''}
+                          </option>
+                        );
+                      })}
+                      <option value="add-new" className="text-[var(--color-accent,#DF5504)] font-bold font-mono bg-[#282828]">
+                        ＋ ADD NEW LABEL...
+                      </option>
+                    </select>
+                    <button
+                      type="button"
+                      className="w-full h-full text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
+                    >
+                      <span className="text-sm">🏷️</span>
+                      <span>{isLabelManagerOpen ? 'Close Label Editor' : 'Manage Card Labels ▼'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Collapsible Label Selector Dropdown (Adjacent Drawer) */}
+              {isLabelManagerOpen && (
+                <div className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2.5 rounded mt-2 animate-fadeIn flex flex-col gap-2 font-mono text-xs">
+                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1">
+                    <span className="font-bold text-[9px] uppercase text-gray-400">Toggle Card Labels</span>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-1.5">
+                    {labels.map(lbl => {
+                      const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
+                      return (
+                        <button
+                          key={lbl.id}
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            const currentIds = selectedCardForEdit.labelIds || [];
+                            const nextIds = currentIds.includes(lbl.id)
+                              ? currentIds.filter(id => id !== lbl.id)
+                              : [...currentIds, lbl.id];
+                            setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
+                          }}
+                          className={`text-[9px] font-black px-1.5 py-0.5 border transition-all rounded flex items-center gap-1 ${
+                            hasLabel 
+                              ? 'border-white scale-105 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]' 
+                              : 'border-[var(--color-dark-tertiary)]/50 opacity-40'
+                          }`}
+                          style={{ backgroundColor: lbl.color, color: 'white' }}
+                        >
+                          {lbl.text} {hasLabel ? '✓' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add New Quick Label In-Place */}
+                  <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-2 mt-1">
+                    <input 
+                      type="text"
+                      placeholder="＋ Create new label... (Press Enter)"
+                      className="w-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1 text-white text-[9px] rounded font-mono"
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.currentTarget;
+                          const text = input.value.trim().toUpperCase();
+                          if (text) {
+                            await triggerHaptic();
+                            const colors = ['#ff3b30', '#DF5504', '#34c759', '#007aff', '#ffcc00', '#a2845e', '#5856d6'];
+                            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                            const newLabel = {
+                              id: 'label-' + Date.now(),
+                              text,
+                              color: randomColor
+                            };
+                            setLabels([...labels, newLabel]);
+                            input.value = '';
+                          }
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               )}
