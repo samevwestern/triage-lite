@@ -2024,14 +2024,30 @@ export default function App() {
                   {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
-                <input 
-                  type="text"
-                  value={selectedCardForEdit.title}
-                  onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, title: e.target.value })}
-                  className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
+                  <input 
+                    type="text"
+                    value={selectedCardForEdit.title}
+                    onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, title: e.target.value })}
+                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">List Column</label>
+                  <select
+                    value={selectedCardForEdit.listId}
+                    onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, listId: e.target.value })}
+                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded h-[38px] cursor-pointer"
+                  >
+                    {lists.map(l => (
+                      <option key={l.id} value={l.id} className="text-white bg-[#282828] font-bold font-mono">
+                        {l.name.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Active Labels List Display (Under Title, Above Description) */}
