@@ -65,6 +65,47 @@ interface List {
   name: string;
 }
 
+interface PomodoroPreset {
+  label: string;
+  minutes: number;
+}
+
+const POMODORO_PRESETS: Record<
+  'dnd' | 'work' | 'personal' | 'sleep' | 'driving' | 'study',
+  [PomodoroPreset, PomodoroPreset, PomodoroPreset]
+> = {
+  study: [
+    { label: "Study (25m)", minutes: 25 },
+    { label: "Short (5m)", minutes: 5 },
+    { label: "Long (15m)", minutes: 15 }
+  ],
+  work: [
+    { label: "Work (25m)", minutes: 25 },
+    { label: "Short (5m)", minutes: 5 },
+    { label: "Long (15m)", minutes: 15 }
+  ],
+  dnd: [
+    { label: "Deep Work (50m)", minutes: 50 },
+    { label: "Short (10m)", minutes: 10 },
+    { label: "Long (30m)", minutes: 30 }
+  ],
+  personal: [
+    { label: "Tasks (15m)", minutes: 15 },
+    { label: "Short (3m)", minutes: 3 },
+    { label: "Long (10m)", minutes: 10 }
+  ],
+  sleep: [
+    { label: "Core Sleep (6h)", minutes: 6 * 60 },
+    { label: "Full Sleep (8h)", minutes: 8 * 60 },
+    { label: "Quick Nap (20m)", minutes: 20 }
+  ],
+  driving: [
+    { label: "Safe Drive (45m)", minutes: 45 },
+    { label: "Long Haul (2h)", minutes: 120 },
+    { label: "Quick Pit (10m)", minutes: 10 }
+  ]
+};
+
 export default function App() {
   const { isNative, getStorage, setStorage, triggerHaptic } = useCapacitor();
 
@@ -402,11 +443,46 @@ export default function App() {
   const [isCardHelpOpen, setIsCardHelpOpen] = useState(false);
   const [isAlertsHelpOpen, setIsAlertsHelpOpen] = useState(false);
   const [isAlertStudioHelpOpen, setIsAlertStudioHelpOpen] = useState(false);
+  const [isDocsHelpOpen, setIsDocsHelpOpen] = useState(false);
+  const [isDocStudioOpen, setIsDocStudioOpen] = useState(false);
+  const [isTimerModalOpen, setIsTimerModalOpen] = useState(false);
+  const [showTimerHelp, setShowTimerHelp] = useState(false);
+  const [pomodoroTimeLeft, setPomodoroTimeLeft] = useState(25 * 60); // 25 mins
+  const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
+  const [pomodoroSelectedFocusMode, setPomodoroSelectedFocusMode] = useState<'dnd' | 'work' | 'personal' | 'sleep' | 'driving' | 'study'>('study');
+  const [pomodoroEnableNotifications, setPomodoroEnableNotifications] = useState(true);
+  const [pomodoroEnableHaptics, setPomodoroEnableHaptics] = useState(true);
+  const [pomodoroEnableTimeSensitive, setPomodoroEnableTimeSensitive] = useState(true);
   const [checklistItemAlarmEditingId, setChecklistItemAlarmEditingId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const formatPomodoroTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hrs > 0) {
+      return (
+        <>
+          {hrs}
+          <span className={isPomodoroRunning ? "animate-ping inline-block mx-0.5 text-inherit" : "mx-0.5"}>:</span>
+          {String(mins).padStart(2, '0')}
+          <span className={isPomodoroRunning ? "animate-ping inline-block mx-0.5 text-inherit" : "mx-0.5"}>:</span>
+          {String(secs).padStart(2, '0')}
+        </>
+      );
+    }
+    return (
+      <>
+        {String(mins).padStart(2, '0')}
+        <span className={isPomodoroRunning ? "animate-ping inline-block mx-0.5 text-inherit" : "mx-0.5"}>:</span>
+        {String(secs).padStart(2, '0')}
+      </>
+    );
   };
 
   const formatTimestampToDatetimeLocal = (timestamp: number | null | undefined) => {
@@ -538,6 +614,52 @@ export default function App() {
     };
   }, [selectedCardForEdit?.id]);
 
+  // Standalone Global Pomodoro Timer Thread (Fully Separated)
+  useEffect(() => {
+    let interval: any = null;
+    if (isPomodoroRunning && pomodoroTimeLeft > 0) {
+      interval = setInterval(() => {
+        setPomodoroTimeLeft(prev => {
+          if (prev <= 1) {
+            setIsPomodoroRunning(false);
+            if (pomodoroEnableHaptics) {
+              triggerHaptic();
+            }
+            showToast("🍅 Pomodoro session finished!");
+            
+            // Native capacitor push notification
+            if (isNative && pomodoroEnableNotifications) {
+              const focusLabels: Record<string, string> = {
+                dnd: "🔇 Do Not Disturb Focus",
+                work: "💼 Work Focus",
+                personal: "🏠 Personal Focus",
+                sleep: "🛌 Sleep Focus",
+                driving: "🚗 Driving Focus",
+                study: "📚 Study Focus"
+              };
+              const label = focusLabels[pomodoroSelectedFocusMode] || "Pomodoro";
+
+              LocalNotifications.schedule({
+                notifications: [{
+                  title: `🍅 ${label} Complete!`,
+                  body: "Focus interval complete! Great work.",
+                  id: 888,
+                  schedule: { at: new Date(Date.now() + 100) },
+                  interruptionLevel: pomodoroEnableTimeSensitive ? 'timeSensitive' : 'active'
+                }]
+              }).catch(err => console.error("Pomodoro notification error", err));
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPomodoroRunning, pomodoroTimeLeft, pomodoroEnableHaptics, pomodoroEnableNotifications, pomodoroEnableTimeSensitive, pomodoroSelectedFocusMode]);
+
   // Handlers
 
   const handleMoveCard = async (cardId: string, nextListId: string) => {
@@ -667,6 +789,17 @@ export default function App() {
             title="Business Receipts"
           >
             🧾
+          </button>
+
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsTimerModalOpen(true);
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
+            title="Pomodoro Study Timer"
+          >
+            🍅
           </button>
 
           <button
@@ -2076,13 +2209,77 @@ export default function App() {
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
               <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-                <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/25 rounded p-2.5 overflow-hidden transition-all">
-                  <summary className="font-mono font-black text-xs uppercase text-[var(--color-accent,#DF5504)] tracking-wider cursor-pointer list-none flex justify-between items-center select-none">
-                    <span className="flex items-center gap-1.5">📁 Document & Resource Studio</span>
-                    <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
-                  </summary>
-                  
-                  <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+                <div className="flex gap-2 items-center w-full mb-2.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsDocsHelpOpen(!isDocsHelpOpen);
+                    }}
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded bento-box flex items-center justify-center font-bold text-xs transition-all cursor-pointer flex-shrink-0 ${
+                      isDocsHelpOpen
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                    }`}
+                    title="Documents Guide"
+                  >
+                    ❓
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsDocStudioOpen(!isDocStudioOpen);
+                    }}
+                    className="flex-grow px-4 py-2.5 text-xs font-mono font-bold tracking-wide uppercase flex items-center justify-center gap-1.5 rounded transition-all bento-btn text-white"
+                  >
+                    <span>📁</span>
+                    <span>Document & Resource Studio</span>
+                    <span className="text-[10px] ml-1 transition-transform" style={{ transform: isDocStudioOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+                  </button>
+                </div>
+
+                {/* Expandable Document Help Info Block */}
+                {isDocsHelpOpen && (
+                  <div className="mt-2.5 mb-2.5 p-3.5 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
+                    <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
+                      <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
+                        📁 Document & Resource Guide
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsDocsHelpOpen(false)}
+                        className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                      >
+                        ✕ Close
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1.5 text-gray-300">
+                      <div className="flex gap-2 items-start">
+                        <span className="select-none">🏆</span>
+                        <span><strong className="text-white">CENTRAL SUBMISSION PORTAL</strong>: Upload your final DOCX, slides, or PDF delivery bundle. Max file size is 1.5MB.</span>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <span className="select-none">🖇️</span>
+                        <span><strong className="text-white">SUPPORTING FILE VAULT</strong>: Attach supplementary project files, design specs, images, or assets.</span>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <span className="select-none">📚</span>
+                        <span><strong className="text-white">BIBLIOGRAPHY & CITATIONS</strong>: Search academic databases (Scholar, PubMed, Wiki) and compile citation reference files.</span>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <span className="select-none">🌐</span>
+                        <span><strong className="text-white">CLOUD & DRIVES LINKS</strong>: Connect external shared cloud storage directories from Google Drive, iCloud, or OneDrive.</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expandable Document Studio Content Box */}
+                {isDocStudioOpen && (
+                  <div className="flex flex-col gap-3 mt-1.5 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 animate-fadeIn">
                   
                   {/* 1. CENTRAL SUBMISSION PORTAL */}
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
@@ -2552,7 +2749,7 @@ export default function App() {
                   </details>
 
                 </div>
-              </details>
+              )}
               </div>
             </div>
 
@@ -3969,6 +4166,296 @@ export default function App() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🍅 GLOBAL STANDALONE POMODORO TIMER POPUP MODAL */}
+      {isTimerModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className={`w-full max-w-sm bg-[var(--color-dark-secondary,#333333)] border-2 p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn ${
+            pomodoroSelectedFocusMode === 'dnd'
+              ? 'border-red-500 shadow-[8px_8px_0px_0px_rgba(239,68,68,0.25)]'
+              : pomodoroSelectedFocusMode === 'personal'
+              ? 'border-emerald-500 shadow-[8px_8px_0px_0px_rgba(16,185,129,0.25)]'
+              : pomodoroSelectedFocusMode === 'sleep'
+              ? 'border-violet-500 shadow-[8px_8px_0px_0px_rgba(139,92,246,0.25)]'
+              : pomodoroSelectedFocusMode === 'driving'
+              ? 'border-cyan-500 shadow-[8px_8px_0px_0px_rgba(6,182,212,0.25)]'
+              : pomodoroSelectedFocusMode === 'study'
+              ? 'border-orange-500 shadow-[8px_8px_0px_0px_rgba(249,115,22,0.25)]'
+              : 'border-[var(--color-accent,#DF5504)] shadow-[8px_8px_0px_0px_rgba(223,85,4,0.25)]'
+          }`}>
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+                🍅 Standalone Study Timer
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowTimerHelp(!showTimerHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showTimerHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 hover:bg-black/80 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-300'
+                  }`}
+                  title="Help Guide"
+                >
+                  ❓
+                </button>
+                <button
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsTimerModalOpen(false);
+                    setShowTimerHelp(false);
+                  }}
+                  className="w-6 h-6 rounded-full bg-black/40 hover:bg-black/80 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* ℹ️ Sliding Help Guide Box */}
+            {showTimerHelp && (
+              <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded-lg flex flex-col gap-2 max-h-[30vh] overflow-y-auto animate-fadeIn flex-shrink-0 text-[10px] text-gray-300">
+                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Standalone Pomodoro Runbook</span>
+                <p className="leading-relaxed font-bold">
+                  This study session timer is completely separate from individual card timers and runs as its own high-precision stopwatch:
+                </p>
+                <ul className="list-disc pl-4 flex flex-col gap-1 leading-relaxed font-bold">
+                  <li><span className="text-white">🍅 Work Session</span>: Focus intensely for 25 minutes.</li>
+                  <li><span className="text-white">☕ Short Break</span>: Rest your eyes and relax for 5 minutes.</li>
+                  <li><span className="text-white">🛌 Long Break</span>: Unwind or reset with a longer 15-minute break.</li>
+                  <li><span className="text-white">🔔 Native Notifications</span>: Will fire push notifications and physical device vibrations when the timer completes.</li>
+                </ul>
+              </div>
+            )}
+
+            {/* Huge Glowing Clock Display */}
+            <div className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-6 rounded flex flex-col items-center justify-center gap-1.5 flex-shrink-0 relative overflow-hidden">
+              {/* Pulse effect if active */}
+              {isPomodoroRunning && (
+                <div className="absolute inset-0 bg-[var(--color-accent,#DF5504)]/5 animate-pulse pointer-events-none"></div>
+              )}
+              
+              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                pomodoroSelectedFocusMode === 'dnd'
+                  ? 'bg-red-950/40 text-red-400 border-red-900/50'
+                  : pomodoroSelectedFocusMode === 'personal'
+                  ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/50'
+                  : pomodoroSelectedFocusMode === 'sleep'
+                  ? 'bg-violet-950/40 text-violet-400 border-violet-900/50'
+                  : pomodoroSelectedFocusMode === 'driving'
+                  ? 'bg-cyan-950/40 text-cyan-400 border-cyan-900/50'
+                  : pomodoroSelectedFocusMode === 'study'
+                  ? 'bg-orange-950/40 text-orange-400 border-orange-900/50'
+                  : 'bg-amber-950/40 text-amber-400 border-amber-900/50'
+              }`}>
+                {pomodoroSelectedFocusMode === 'study' && '📚 Study Focus'}
+                {pomodoroSelectedFocusMode === 'work' && '💼 Work Focus'}
+                {pomodoroSelectedFocusMode === 'dnd' && '🔇 Do Not Disturb'}
+                {pomodoroSelectedFocusMode === 'personal' && '🏠 Personal Focus'}
+                {pomodoroSelectedFocusMode === 'sleep' && '🛌 Sleep Focus'}
+                {pomodoroSelectedFocusMode === 'driving' && '🚗 Driving Focus'}
+                {` — ${isPomodoroRunning ? 'Active' : 'Paused'}`}
+              </span>
+
+              <div className="text-5xl font-black font-mono tracking-widest text-white drop-shadow-[0_2px_10px_rgba(223,85,4,0.15)] my-2 flex items-center justify-center">
+                {formatPomodoroTime(pomodoroTimeLeft)}
+              </div>
+
+              <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">
+                {isPomodoroRunning ? '⏳ Countdown Ticking...' : '⏹️ Session Paused'}
+              </span>
+            </div>
+
+            {/* Target iOS Focus Mode Selector Grid */}
+            <div className="flex flex-col gap-1.5 flex-shrink-0">
+              <label className="text-[9px] font-mono font-bold uppercase text-gray-400">
+                🎯 Target iOS Focus Mode
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { value: 'study', label: '📚 Study' },
+                  { value: 'work', label: '💼 Work' },
+                  { value: 'dnd', label: '🔇 DND' },
+                  { value: 'personal', label: '🏠 Personal' },
+                  { value: 'sleep', label: '🛌 Sleep' },
+                  { value: 'driving', label: '🚗 Driving' },
+                ].map((item) => {
+                  const isActive = pomodoroSelectedFocusMode === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsPomodoroRunning(false);
+                        const targetFocus = item.value as 'dnd' | 'work' | 'personal' | 'sleep' | 'driving' | 'study';
+                        setPomodoroSelectedFocusMode(targetFocus);
+                        
+                        // Instantly switch timer to the primary preset of the chosen focus mode
+                        const primaryPreset = POMODORO_PRESETS[targetFocus][0];
+                        setPomodoroTimeLeft(primaryPreset.minutes * 60);
+                      }}
+                      className={`py-2 px-1 rounded font-mono text-[9px] font-black uppercase tracking-tight text-center transition-all border ${
+                        isActive
+                          ? item.value === 'dnd'
+                            ? 'bg-red-500/20 text-red-400 border-red-500 shadow-[2px_2px_0px_0px_#ef4444]'
+                            : item.value === 'personal'
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500 shadow-[2px_2px_0px_0px_#10b981]'
+                            : item.value === 'sleep'
+                            ? 'bg-violet-500/20 text-violet-400 border-violet-500 shadow-[2px_2px_0px_0px_#8b5cf6]'
+                            : item.value === 'driving'
+                            ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500 shadow-[2px_2px_0px_0px_#06b6d4]'
+                            : item.value === 'study'
+                            ? 'bg-orange-500/20 text-orange-400 border-orange-500 shadow-[2px_2px_0px_0px_#f97316]'
+                            : 'bg-amber-500/20 text-amber-400 border-amber-500 shadow-[2px_2px_0px_0px_#f59e0b]'
+                          : 'bg-black/30 text-gray-400 border-[var(--color-dark-tertiary,#3D3D3D)] hover:text-white hover:border-gray-500 active:translate-y-0.5'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mode Selector Buttons */}
+            <div className="grid grid-cols-3 gap-1.5 flex-shrink-0">
+              {POMODORO_PRESETS[pomodoroSelectedFocusMode].map((preset, index) => {
+                const isSelected = pomodoroTimeLeft === preset.minutes * 60;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsPomodoroRunning(false);
+                      setPomodoroTimeLeft(preset.minutes * 60);
+                    }}
+                    className={`py-1.5 rounded font-mono text-[9px] font-black uppercase tracking-wider transition-all border ${
+                      isSelected
+                        ? pomodoroSelectedFocusMode === 'dnd'
+                          ? 'bg-red-600/20 text-red-400 border-red-500'
+                          : pomodoroSelectedFocusMode === 'personal'
+                          ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500'
+                          : pomodoroSelectedFocusMode === 'sleep'
+                          ? 'bg-violet-600/20 text-violet-400 border-violet-500'
+                          : pomodoroSelectedFocusMode === 'driving'
+                          ? 'bg-cyan-600/20 text-cyan-400 border-cyan-500'
+                          : pomodoroSelectedFocusMode === 'study'
+                          ? 'bg-orange-600/20 text-orange-400 border-orange-500'
+                          : 'bg-amber-600/20 text-amber-400 border-amber-500'
+                        : 'bg-black/30 text-gray-400 border-[var(--color-dark-tertiary,#3D3D3D)] hover:text-white'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* iOS System Integrations Preferences */}
+            <div className="bg-black/20 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-2.5 rounded flex flex-col gap-2 flex-shrink-0 font-mono text-[9px] text-gray-300">
+              <span className="font-black text-[9px] text-gray-500 uppercase tracking-widest border-b border-[var(--color-dark-tertiary,#3D3D3D)]/25 pb-1 mb-1 block">📱 iOS SYSTEM INTEGRATIONS</span>
+              
+              <label className="flex items-center justify-between cursor-pointer py-0.5">
+                <span className="font-bold flex items-center gap-1.5">
+                  <span>🔔</span> Lock-Screen Alerts
+                </span>
+                <input 
+                  type="checkbox"
+                  checked={pomodoroEnableNotifications}
+                  onChange={(e) => {
+                    triggerHaptic();
+                    setPomodoroEnableNotifications(e.target.checked);
+                  }}
+                  className="w-3.5 h-3.5 rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] cursor-pointer accent-[var(--color-accent,#DF5504)] bg-black"
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer py-0.5">
+                <span className="font-bold flex items-center gap-1.5">
+                  <span>⚡</span> Time-Sensitive (Bypass Focus)
+                </span>
+                <input 
+                  type="checkbox"
+                  checked={pomodoroEnableTimeSensitive}
+                  disabled={!pomodoroEnableNotifications}
+                  onChange={(e) => {
+                    triggerHaptic();
+                    setPomodoroEnableTimeSensitive(e.target.checked);
+                  }}
+                  className={`w-3.5 h-3.5 rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] cursor-pointer accent-[var(--color-accent,#DF5504)] bg-black ${!pomodoroEnableNotifications ? 'opacity-40' : ''}`}
+                />
+              </label>
+
+              <label className="flex items-center justify-between cursor-pointer py-0.5">
+                <span className="font-bold flex items-center gap-1.5">
+                  <span>💓</span> Haptic Vibrations
+                </span>
+                <input 
+                  type="checkbox"
+                  checked={pomodoroEnableHaptics}
+                  onChange={(e) => {
+                    triggerHaptic();
+                    setPomodoroEnableHaptics(e.target.checked);
+                  }}
+                  className="w-3.5 h-3.5 rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] cursor-pointer accent-[var(--color-accent,#DF5504)] bg-black"
+                />
+              </label>
+            </div>
+
+            {/* Running Actions Controls */}
+            <div className="grid grid-cols-2 gap-2 flex-shrink-0 mt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsPomodoroRunning(!isPomodoroRunning);
+                }}
+                className={`py-2 text-[10px] font-mono font-black uppercase tracking-wider rounded transition-all shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_#000] ${
+                  isPomodoroRunning
+                    ? 'bg-yellow-600 hover:bg-yellow-500 text-white border border-yellow-700'
+                    : 'bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 text-white border border-black'
+                }`}
+              >
+                {isPomodoroRunning ? '⏸️ Pause' : '▶️ Start'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsPomodoroRunning(false);
+                  const primaryPreset = POMODORO_PRESETS[pomodoroSelectedFocusMode][0];
+                  setPomodoroTimeLeft(primaryPreset.minutes * 60);
+                }}
+                className="py-2 text-[10px] font-mono font-black uppercase tracking-wider bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:bg-black/30 rounded transition-all shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_#000]"
+              >
+                🔄 Reset
+              </button>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end mt-1 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsTimerModalOpen(false);
+                }}
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
+              >
+                Close
+              </button>
+            </div>
+
           </div>
         </div>
       )}
