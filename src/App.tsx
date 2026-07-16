@@ -1181,9 +1181,11 @@ export default function App() {
                       className="p-3 bento-box bento-box-interactive border-2 border-[#4C4C4C] flex flex-col justify-between cursor-move hover:border-[var(--color-accent,#DF5504)] transition-colors active:opacity-50"
                     >
                       <div>
-                        {/* Labels Render */}
+                        <h4 className="font-bold text-sm text-white">{card.title}</h4>
+                        
+                        {/* Labels Render (Under Title, Above Description) */}
                         {card.labelIds && card.labelIds.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-2">
+                          <div className="flex flex-wrap gap-1.5 my-1.5">
                             {card.labelIds.map(labelId => {
                               const labelObj = labels.find(l => l.id === labelId);
                               if (!labelObj) return null;
@@ -1199,8 +1201,8 @@ export default function App() {
                             })}
                           </div>
                         )}
-                        <h4 className="font-bold text-sm text-white">{card.title}</h4>
-                        <p className="text-xs text-[#8892b0] mt-1 font-mono">{card.description}</p>
+
+                        <p className="text-xs text-[#8892b0] font-mono">{card.description}</p>
                         
                         {/* Task Completion Bar & Next Task Display */}
                         {card.checklists && card.checklists.length > 0 && card.checklists[0].items.length > 0 && (() => {
