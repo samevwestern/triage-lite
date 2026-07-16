@@ -3310,26 +3310,25 @@ export default function App() {
                   onClick={async () => {
                     await triggerHaptic();
                     const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
-                    if (activeCardsWithTime.length === 0) {
-                      showToast("⚠️ No study logs to export!");
+                    const includedCards = activeCardsWithTime.filter(card => !uncheckedLogCardIds.includes(card.id));
+                    if (includedCards.length === 0) {
+                      showToast("⚠️ No checked study logs to export!");
                       return;
                     }
                     const csvRows = [
-                      ["Card ID", "Card Title", "List Column", "Time Spent (Seconds)", "Formatted Duration", "Status"]
+                      ["Card ID", "Card Title", "List Column", "Time Spent (Seconds)", "Formatted Duration"]
                     ];
-                    activeCardsWithTime.forEach(card => {
+                    includedCards.forEach(card => {
                       const listObj = lists.find(l => l.id === card.listId);
                       const hrs = Math.floor((card.timeSpent || 0) / 3600);
                       const mins = Math.floor(((card.timeSpent || 0) % 3600) / 60);
                       const secs = (card.timeSpent || 0) % 60;
-                      const isChecked = !uncheckedLogCardIds.includes(card.id);
                       csvRows.push([
                         card.id,
                         card.title || 'Untitled',
                         listObj ? listObj.name : 'Unknown',
                         String(card.timeSpent || 0),
-                        `${hrs}h ${mins}m ${secs}s`,
-                        isChecked ? 'Included' : 'Excluded'
+                        `${hrs}h ${mins}m ${secs}s`
                       ]);
                     });
                     const csvContent = csvRows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -3353,31 +3352,28 @@ export default function App() {
                   onClick={async () => {
                     await triggerHaptic();
                     const activeCardsWithTime = cards.filter(c => (c.timeSpent || 0) > 0);
-                    if (activeCardsWithTime.length === 0) {
-                      showToast("⚠️ No study logs to share!");
+                    const includedCards = activeCardsWithTime.filter(card => !uncheckedLogCardIds.includes(card.id));
+                    if (includedCards.length === 0) {
+                      showToast("⚠️ No checked study logs to share!");
                       return;
                     }
                     let emailBody = "TRIAGE LITE - STUDY FOCUS SESSIONS SUMMARY\n";
                     emailBody += "=========================================\n\n";
-                    const totalSeconds = cards.reduce((sum, c) => {
-                      const isChecked = !uncheckedLogCardIds.includes(c.id);
-                      return isChecked ? sum + (c.timeSpent || 0) : sum;
-                    }, 0);
+                    const totalSeconds = includedCards.reduce((sum, c) => sum + (c.timeSpent || 0), 0);
                     const totalHours = Math.floor(totalSeconds / 3600);
                     const totalMinutes = Math.floor((totalSeconds % 3600) / 60);
                     const remainingSeconds = totalSeconds % 60;
                     emailBody += `Total Active Study Duration: ${totalHours}h ${totalMinutes}m ${remainingSeconds}s\n`;
-                    emailBody += `Summed across ${activeCardsWithTime.filter(c => !uncheckedLogCardIds.includes(c.id)).length} of ${activeCardsWithTime.length} active target sessions.\n\n`;
+                    emailBody += `Summed across ${includedCards.length} active target focus sessions.\n\n`;
                     emailBody += "SESSIONS LIST:\n";
                     emailBody += "-------------\n";
                     
-                    activeCardsWithTime.forEach((card, idx) => {
+                    includedCards.forEach((card, idx) => {
                       const listObj = lists.find(l => l.id === card.listId);
                       const hrs = Math.floor((card.timeSpent || 0) / 3600);
                       const mins = Math.floor(((card.timeSpent || 0) % 3600) / 60);
                       const secs = (card.timeSpent || 0) % 60;
-                      const isChecked = !uncheckedLogCardIds.includes(card.id);
-                      emailBody += `${idx + 1}. [${isChecked ? 'CHECKED' : 'UNCHECKED'}] ${card.title || 'Untitled'} (${listObj ? listObj.name.toUpperCase() : 'UNKNOWN'}) - ${hrs}h ${mins}m ${secs}s\n`;
+                      emailBody += `${idx + 1}. ${card.title || 'Untitled'} (${listObj ? listObj.name.toUpperCase() : 'UNKNOWN'}) - ${hrs}h ${mins}m ${secs}s\n`;
                     });
                     
                     emailBody += "\n\nGenerated via Triage Lite Board on " + new Date().toLocaleString() + "\n";
