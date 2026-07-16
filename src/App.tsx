@@ -389,11 +389,7 @@ export default function App() {
   }, []);
 
   // Application State
-  const [lists] = useState<List[]>([
-    { id: 'todo', name: 'To Do' },
-    { id: 'progress', name: 'In Progress' },
-    { id: 'done', name: 'Completed' }
-  ]);
+  const [lists, setLists] = useState<List[]>([]);
 
   const [cards, setCards] = useState<Card[]>([
     { 
@@ -642,6 +638,20 @@ export default function App() {
       const storageKeyCards = `factory_app_${config.id}_cards`;
       const savedCards = await getStorage(storageKeyCards);
       if (savedCards) setCards(JSON.parse(savedCards));
+
+      const storageKeyLists = `factory_app_${config.id}_lists`;
+      const savedLists = await getStorage(storageKeyLists);
+      if (savedLists) {
+        setLists(JSON.parse(savedLists));
+      } else {
+        const defaultLists = [
+          { id: 'todo', name: 'To Do' },
+          { id: 'progress', name: 'In Progress' },
+          { id: 'done', name: 'Completed' }
+        ];
+        setLists(defaultLists);
+        await syncData(storageKeyLists, defaultLists);
+      }
     };
     loadSavedData();
   }, []);
@@ -650,6 +660,11 @@ export default function App() {
   const saveCards = async (newCards: Card[]) => {
     setCards(newCards);
     await syncData(`factory_app_${config.id}_cards`, newCards);
+  };
+
+  const saveLists = async (newLists: List[]) => {
+    setLists(newLists);
+    await syncData(`factory_app_${config.id}_lists`, newLists);
   };
 
 
@@ -1102,7 +1117,7 @@ export default function App() {
                 setActiveColumnIndex(index);
               }
             }}
-            className="flex flex-row overflow-x-auto gap-4 pb-6 scroll-smooth snap-x snap-mandatory sm:grid sm:grid-cols-3 sm:overflow-x-visible"
+             className="flex flex-row overflow-x-auto gap-4 pb-6 scroll-smooth snap-x snap-mandatory items-start w-full"
           >
             {lists.map((list) => {
               const isActive = lists[activeColumnIndex]?.id === list.id;
@@ -1116,7 +1131,7 @@ export default function App() {
                       setActiveColumnIndex(idx);
                     }
                   }}
-                  className={`flex-shrink-0 w-[88vw] sm:w-auto snap-center snap-always p-3 bento-box transition-all cursor-pointer ${
+                  className={`flex-shrink-0 w-[85vw] sm:w-[320px] snap-center snap-always p-3 bento-box transition-all cursor-pointer ${
                     isActive 
                       ? 'border-[var(--color-accent,#DF5504)] shadow-[4px_4px_0px_0px_rgba(223,85,4,0.15)] bg-[var(--color-dark-secondary,#333333)]/70' 
                       : 'border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white/20'
@@ -1259,7 +1274,7 @@ export default function App() {
                         {/* Card Move Dropdown Box */}
                         <div className="relative" onClick={(e) => e.stopPropagation()}>
                           <select
-                            value={list.id}
+                            value={card.listId}
                             onChange={async (e) => {
                               await triggerHaptic();
                               handleMoveCard(card.id, e.target.value);
@@ -1283,6 +1298,50 @@ export default function App() {
               </div>
             );
           })}
+
+          {/* Create New Column Button Card */}
+          <div className="flex-shrink-0 w-[85vw] sm:w-[320px] snap-center p-4 bento-box border-2 border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] transition-colors flex flex-col justify-center items-center gap-3 bg-black/10">
+            <span className="text-2xl select-none">📋</span>
+            <span className="font-mono text-xs text-gray-400 font-bold uppercase select-none">New Custom List</span>
+            <div className="w-full flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+              <input
+                id="new-list-name-input"
+                type="text"
+                placeholder="List Name... (Press Enter)"
+                className="w-full font-mono text-xs bg-black/40 text-white border border-[var(--color-dark-tertiary,#3D3D3D)] px-2 py-1.5 focus:border-[var(--color-accent,#DF5504)] outline-none rounded-sm"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const input = e.currentTarget;
+                    const val = input.value.trim();
+                    if (val) {
+                      await triggerHaptic();
+                      const newId = `list-${Date.now()}`;
+                      const newList = { id: newId, name: val };
+                      await saveLists([...lists, newList]);
+                      input.value = '';
+                    }
+                  }
+                }}
+              />
+              <button
+                onClick={async () => {
+                  const input = document.getElementById('new-list-name-input') as HTMLInputElement;
+                  const val = input?.value.trim();
+                  if (val) {
+                    await triggerHaptic();
+                    const newId = `list-${Date.now()}`;
+                    const newList = { id: newId, name: val };
+                    await saveLists([...lists, newList]);
+                    input.value = '';
+                  }
+                }}
+                className="w-full bento-btn bg-[var(--color-accent,#DF5504)] text-white text-xs font-mono font-bold uppercase py-1.5 cursor-pointer"
+              >
+                ＋ Add List
+              </button>
+            </div>
+          </div>
+
           </div>
 
         </div>
