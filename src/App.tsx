@@ -1898,233 +1898,26 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">
-                  📋 Checklist & Tasks
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsNotificationStudioOpen(true);
+                    }}
+                    className="text-xs font-mono font-bold uppercase text-gray-400 hover:text-white flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer transition-colors"
+                    title="Open Alerts & Tasks Alarm Studio"
+                  >
+                    <span>📋 Checklist & Tasks</span>
+                    <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black">⚙️</span>
+                  </button>
+                </div>
                 
                 {/* Drag-resizable and scrollable checklist viewport container */}
                 <div className="w-full resize-y overflow-auto min-h-[120px] h-36 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 rounded flex flex-col focus-within:border-[var(--color-accent,#DF5504)] transition-all">
                   <div className="flex-grow flex flex-col gap-1.5 overflow-y-auto pr-1">
-                    {/* Render active tasks */}
-                    {selectedCardForEdit.checklists?.[0]?.items.map(item => {
-                      const isEditing = editingTaskId === item.id;
-                      return (
-                        <div key={item.id} className="flex flex-col gap-1.5 bg-black/20 hover:bg-black/35 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px]">
-                          <div className="flex justify-between items-center gap-2">
-                            {isEditing ? (
-                              /* Inline Edit Input Field */
-                              <div className="flex items-center gap-1.5 flex-grow">
-                                <span className="text-gray-500">✏️</span>
-                                <input 
-                                  type="text"
-                                  value={editingTaskText}
-                                  onChange={(e) => setEditingTaskText(e.target.value)}
-                                  onKeyDown={async (e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      if (editingTaskText.trim()) {
-                                        await triggerHaptic();
-                                        const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                          if (idx === 0) {
-                                            return {
-                                              ...cl,
-                                              items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
-                                            };
-                                          }
-                                          return cl;
-                                        }) || [];
-                                        setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                        setEditingTaskId(null);
-                                      }
-                                    } else if (e.key === 'Escape') {
-                                      setEditingTaskId(null);
-                                    }
-                                  }}
-                                  onBlur={async () => {
-                                    if (editingTaskText.trim()) {
-                                      const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                        if (idx === 0) {
-                                          return {
-                                            ...cl,
-                                            items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
-                                          };
-                                        }
-                                        return cl;
-                                      }) || [];
-                                      setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                    }
-                                    setEditingTaskId(null);
-                                  }}
-                                  className="bg-black/40 border border-[var(--color-accent,#DF5504)] px-1.5 py-0.5 text-[11px] text-white rounded font-mono flex-grow focus:outline-none"
-                                  autoFocus
-                                />
-                              </div>
-                            ) : (
-                              /* Read-only Checklist Row */
-                              <label className="flex items-center gap-2 cursor-pointer flex-grow select-none overflow-hidden">
-                                <input 
-                                  type="checkbox"
-                                  checked={item.isChecked}
-                                  onChange={async () => {
-                                    await triggerHaptic();
-                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                      if (idx === 0) {
-                                        return {
-                                          ...cl,
-                                          items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
-                                        };
-                                      }
-                                      return cl;
-                                    }) || [];
-                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                  }}
-                                  className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
-                                />
-                                <span className={`text-white transition-all truncate ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
-                                  {item.text}
-                                </span>
-                              </label>
-                            )}
-                            
-                            {/* Row Actions Drawer */}
-                            <div className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0">
-                              {!isEditing && (
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await triggerHaptic();
-                                    setEditingTaskId(item.id);
-                                    setEditingTaskText(item.text);
-                                  }}
-                                  className="text-gray-400 hover:text-white font-mono text-[10px] transition-colors cursor-pointer"
-                                  title="Rename subtask"
-                                >
-                                  ✏️
-                                </button>
-                              )}
-
-                              {/* ⏰ Checklist Alarm Toggle Button */}
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  await triggerHaptic();
-                                  if (checklistItemAlarmEditingId === item.id) {
-                                    setChecklistItemAlarmEditingId(null);
-                                  } else {
-                                    setChecklistItemAlarmEditingId(item.id);
-                                  }
-                                }}
-                                className={`font-mono text-[10px] transition-colors cursor-pointer ${
-                                  item.dueDate ? 'text-[var(--color-accent,#DF5504)] font-black' : 'text-gray-400 hover:text-white'
-                                }`}
-                                title={item.dueDate ? "Change checklist alarm" : "Schedule checklist alarm"}
-                              >
-                                {item.dueDate ? '⏰' : '🔔'}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  await triggerHaptic();
-                                  if (item.dueDate) {
-                                    await cancelChecklistItemAlarm(item);
-                                  }
-                                  const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                    if (idx === 0) {
-                                      return {
-                                        ...cl,
-                                        items: cl.items.filter(it => it.id !== item.id)
-                                      };
-                                    }
-                                    return cl;
-                                  }) || [];
-                                  setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                }}
-                                className="text-red-500 hover:text-red-400 font-bold transition-colors cursor-pointer"
-                                title="Delete subtask"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Render Scheduled Alarm Text Badge */}
-                          {item.dueDate && (
-                            <div className="flex items-center justify-between text-[9px] text-[var(--color-accent,#DF5504)] font-bold pl-5 font-mono select-none">
-                              <span className="flex items-center gap-1">
-                                ⏰ Alarm: {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  await triggerHaptic();
-                                  await cancelChecklistItemAlarm(item);
-                                  const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                    if (idx === 0) {
-                                      return {
-                                        ...cl,
-                                        items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: undefined } : it)
-                                      };
-                                    }
-                                    return cl;
-                                  }) || [];
-                                  setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                  showToast("🗑️ Checklist alarm removed!");
-                                }}
-                                className="text-gray-500 hover:text-white font-black pl-2 border-none bg-transparent cursor-pointer"
-                                title="Remove alarm"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          )}
-
-                          {/* 📅 Inline Checklist Item Datetime Picker Drawer */}
-                          {checklistItemAlarmEditingId === item.id && (
-                            <div className="pl-5 mt-1 pb-1 flex flex-col gap-1.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-1.5 animate-fadeIn text-left">
-                              <span className="text-[8px] uppercase tracking-wider text-gray-500 font-bold">Configure Sub-Task Alarm</span>
-                              <div className="flex items-center gap-1.5 w-full">
-                                <input
-                                  type="datetime-local"
-                                  value={formatTimestampToDatetimeLocal(item.dueDate)}
-                                  onChange={async (e) => {
-                                    const parsed = e.target.value ? Date.parse(e.target.value) : null;
-                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                      if (idx === 0) {
-                                        return {
-                                          ...cl,
-                                          items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: parsed } : it)
-                                        };
-                                      }
-                                      return cl;
-                                    }) || [];
-                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                  }}
-                                  className="flex-grow bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-1.5 py-1 text-[9px] text-white rounded font-mono focus:border-[var(--color-accent,#DF5504)]"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await triggerHaptic();
-                                    if (item.dueDate) {
-                                      await scheduleChecklistItemAlarm(selectedCardForEdit.title, item);
-                                      showToast("⏰ Sub-task alarm scheduled!");
-                                    }
-                                    setChecklistItemAlarmEditingId(null);
-                                  }}
-                                  className="px-2 py-1 bento-btn text-white text-[9px] font-bold uppercase rounded cursor-pointer"
-                                >
-                                  Save
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Inline Task Creator Row (Dynamic '+' Row) */}
-                    <div className="flex items-center gap-2 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/20 transition-all mt-1">
+                    {/* Inline Task Creator Row (Dynamic '+' Row) - Now positioned at the very top */}
+                    <div className="flex items-center gap-2 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/20 transition-all mb-1.5">
                       <span className="text-[12px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
                       <input 
                         type="text"
@@ -2167,6 +1960,230 @@ export default function App() {
                         className="bg-transparent text-white border-none focus:outline-none placeholder-gray-500 text-[11px] font-mono flex-grow"
                       />
                     </div>
+
+                    {/* Render active tasks - Sorted so incomplete/active tasks come first */}
+                    {(() => {
+                      const sortedChecklistItems = selectedCardForEdit.checklists?.[0]?.items 
+                        ? [...selectedCardForEdit.checklists[0].items].sort((a, b) => (a.isChecked ? 1 : 0) - (b.isChecked ? 1 : 0))
+                        : [];
+                      
+                      return sortedChecklistItems.map(item => {
+                        const isEditing = editingTaskId === item.id;
+                        return (
+                          <div key={item.id} className="flex flex-col gap-1.5 bg-black/20 hover:bg-black/35 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px]">
+                            <div className="flex justify-between items-center gap-2">
+                              {isEditing ? (
+                                /* Inline Edit Input Field */
+                                <div className="flex items-center gap-1.5 flex-grow">
+                                  <span className="text-gray-500">✏️</span>
+                                  <input 
+                                    type="text"
+                                    value={editingTaskText}
+                                    onChange={(e) => setEditingTaskText(e.target.value)}
+                                    onKeyDown={async (e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (editingTaskText.trim()) {
+                                          await triggerHaptic();
+                                          const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                            if (idx === 0) {
+                                              return {
+                                                ...cl,
+                                                items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
+                                              };
+                                            }
+                                            return cl;
+                                          }) || [];
+                                          setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                          setEditingTaskId(null);
+                                        }
+                                      } else if (e.key === 'Escape') {
+                                        setEditingTaskId(null);
+                                      }
+                                    }}
+                                    onBlur={async () => {
+                                      if (editingTaskText.trim()) {
+                                        const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                          if (idx === 0) {
+                                            return {
+                                              ...cl,
+                                              items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
+                                            };
+                                          }
+                                          return cl;
+                                        }) || [];
+                                        setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                      }
+                                      setEditingTaskId(null);
+                                    }}
+                                    className="bg-black/40 border border-[var(--color-accent,#DF5504)] px-1.5 py-0.5 text-[11px] text-white rounded font-mono flex-grow focus:outline-none"
+                                    autoFocus
+                                  />
+                                </div>
+                              ) : (
+                                /* Read-only Checklist Row */
+                                <label className="flex items-center gap-2 cursor-pointer flex-grow select-none overflow-hidden">
+                                  <input 
+                                    type="checkbox"
+                                    checked={item.isChecked}
+                                    onChange={async () => {
+                                      await triggerHaptic();
+                                      const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                        if (idx === 0) {
+                                          return {
+                                            ...cl,
+                                            items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
+                                          };
+                                        }
+                                        return cl;
+                                      }) || [];
+                                      setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                    }}
+                                    className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <span className={`text-white transition-all truncate ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
+                                    {item.text}
+                                  </span>
+                                </label>
+                              )}
+                              
+                              {/* Row Actions Drawer */}
+                              <div className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0">
+                                {!isEditing && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await triggerHaptic();
+                                      setEditingTaskId(item.id);
+                                      setEditingTaskText(item.text);
+                                    }}
+                                    className="text-gray-400 hover:text-white font-mono text-[10px] transition-colors cursor-pointer"
+                                    title="Rename subtask"
+                                  >
+                                    ✏️
+                                  </button>
+                                )}
+
+                                {/* ⏰ Checklist Alarm Toggle Button */}
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    if (checklistItemAlarmEditingId === item.id) {
+                                      setChecklistItemAlarmEditingId(null);
+                                    } else {
+                                      setChecklistItemAlarmEditingId(item.id);
+                                    }
+                                  }}
+                                  className={`font-mono text-[10px] transition-colors cursor-pointer ${
+                                    item.dueDate ? 'text-[var(--color-accent,#DF5504)] font-black' : 'text-gray-400 hover:text-white'
+                                  }`}
+                                  title={item.dueDate ? "Change checklist alarm" : "Schedule checklist alarm"}
+                                >
+                                  {item.dueDate ? '⏰' : '🔔'}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    if (item.dueDate) {
+                                      await cancelChecklistItemAlarm(item);
+                                    }
+                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                      if (idx === 0) {
+                                        return {
+                                          ...cl,
+                                          items: cl.items.filter(it => it.id !== item.id)
+                                        };
+                                      }
+                                      return cl;
+                                    }) || [];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                  }}
+                                  className="text-red-500 hover:text-red-400 font-bold transition-colors cursor-pointer"
+                                  title="Delete subtask"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Render Scheduled Alarm Text Badge */}
+                            {item.dueDate && (
+                              <div className="flex items-center justify-between text-[9px] text-[var(--color-accent,#DF5504)] font-bold pl-5 font-mono select-none">
+                                <span className="flex items-center gap-1">
+                                  ⏰ Alarm: {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    await cancelChecklistItemAlarm(item);
+                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                      if (idx === 0) {
+                                        return {
+                                          ...cl,
+                                          items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: undefined } : it)
+                                        };
+                                      }
+                                      return cl;
+                                    }) || [];
+                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                    showToast("🗑️ Checklist alarm removed!");
+                                  }}
+                                  className="text-gray-500 hover:text-white font-black pl-2 border-none bg-transparent cursor-pointer"
+                                  title="Remove alarm"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+
+                            {/* 📅 Inline Checklist Item Datetime Picker Drawer */}
+                            {checklistItemAlarmEditingId === item.id && (
+                              <div className="pl-5 mt-1 pb-1 flex flex-col gap-1.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-1.5 animate-fadeIn text-left">
+                                <span className="text-[8px] uppercase tracking-wider text-gray-500 font-bold">Configure Sub-Task Alarm</span>
+                                <div className="flex items-center gap-1.5 w-full">
+                                  <input
+                                    type="datetime-local"
+                                    value={formatTimestampToDatetimeLocal(item.dueDate)}
+                                    onChange={async (e) => {
+                                      const parsed = e.target.value ? Date.parse(e.target.value) : null;
+                                      const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                        if (idx === 0) {
+                                          return {
+                                            ...cl,
+                                            items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: parsed } : it)
+                                          };
+                                        }
+                                        return cl;
+                                      }) || [];
+                                      setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                                    }}
+                                    className="flex-grow bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-1.5 py-1 text-[9px] text-white rounded font-mono focus:border-[var(--color-accent,#DF5504)]"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await triggerHaptic();
+                                      if (item.dueDate) {
+                                        await scheduleChecklistItemAlarm(selectedCardForEdit.title, item);
+                                        showToast("⏰ Sub-task alarm scheduled!");
+                                      }
+                                      setChecklistItemAlarmEditingId(null);
+                                    }}
+                                    className="px-2 py-1 bento-btn text-white text-[9px] font-bold uppercase rounded cursor-pointer"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               </div>
