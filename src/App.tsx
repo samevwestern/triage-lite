@@ -2268,18 +2268,30 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">List</label>
-                  <select
-                    value={selectedCardForEdit.listId}
-                    onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, listId: e.target.value })}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded h-[38px] cursor-pointer"
-                  >
-                    {lists.map(l => (
-                      <option key={l.id} value={l.id} className="text-white bg-[#282828] font-bold font-mono">
-                        {l.name.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">List Column</label>
+                  <div className="flex flex-wrap gap-1.5 p-1 bg-black/25 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded min-h-[38px] items-center">
+                    {lists.map((l) => {
+                      const isActive = selectedCardForEdit.listId === l.id;
+                      return (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setSelectedCardForEdit({ ...selectedCardForEdit, listId: l.id });
+                          }}
+                          className={`flex-grow h-7 px-2.5 rounded text-[9px] font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none outline-none ${
+                            isActive
+                              ? 'bg-[var(--color-accent,#DF5504)] text-white shadow-[1px_1px_2px_0px_rgba(0,0,0,0.3)] hover:opacity-95'
+                              : 'bg-[var(--color-dark-bg,#282828)] text-gray-400 hover:text-white hover:bg-black/30'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full transition-transform duration-300 ${isActive ? 'bg-white scale-125' : 'bg-gray-600'}`} />
+                          <span>{l.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
