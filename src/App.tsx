@@ -752,6 +752,59 @@ export default function App() {
     });
   };
 
+  const handleMovePosition = async (cardId: string, direction: 'up' | 'down') => {
+    await triggerHaptic();
+    setCards(prevCards => {
+      const targetCard = prevCards.find(c => c.id === cardId);
+      if (!targetCard) return prevCards;
+
+      const listId = targetCard.listId;
+      const listCards = prevCards.filter(c => c.listId === listId);
+      const cardIdxInList = listCards.findIndex(c => c.id === cardId);
+
+      if (direction === 'up' && cardIdxInList === 0) return prevCards;
+      if (direction === 'down' && cardIdxInList === listCards.length - 1) return prevCards;
+
+      const swapWithIdx = direction === 'up' ? cardIdxInList - 1 : cardIdxInList + 1;
+      const swapWithCard = listCards[swapWithIdx];
+
+      const targetAbsIdx = prevCards.findIndex(c => c.id === cardId);
+      const swapWithAbsIdx = prevCards.findIndex(c => c.id === swapWithCard.id);
+
+      const updated = [...prevCards];
+      const temp = updated[targetAbsIdx];
+      updated[targetAbsIdx] = updated[swapWithAbsIdx];
+      updated[swapWithAbsIdx] = temp;
+
+      syncData(`factory_app_${config.id}_cards`, updated);
+      return updated;
+    });
+  };
+
+  const handleReorderCard = async (draggedId: string, targetId: string) => {
+    await triggerHaptic();
+    setCards(prevCards => {
+      const draggedCard = prevCards.find(c => c.id === draggedId);
+      const targetCard = prevCards.find(c => c.id === targetId);
+      if (!draggedCard || !targetCard) return prevCards;
+
+      const updatedDragged = { 
+        ...draggedCard, 
+        listId: targetCard.listId,
+        completedAt: targetCard.listId === 'done' ? Date.now() : null
+      };
+
+      const withoutDragged = prevCards.filter(c => c.id !== draggedId);
+      const targetIndex = withoutDragged.findIndex(c => c.id === targetId);
+
+      const reordered = [...withoutDragged];
+      reordered.splice(targetIndex, 0, updatedDragged);
+
+      syncData(`factory_app_${config.id}_cards`, reordered);
+      return reordered;
+    });
+  };
+
   const handleToggleChecklistItem = async (cardId: string, checklistId: string, itemId: string) => {
     await triggerHaptic();
     setCards(prevCards => {
@@ -1183,6 +1236,17 @@ export default function App() {
                         e.dataTransfer.setData('text/plain', card.id);
                         e.dataTransfer.effectAllowed = 'move';
                       }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const draggedId = e.dataTransfer.getData('text/plain');
+                        if (draggedId && draggedId !== card.id) {
+                          handleReorderCard(draggedId, card.id);
+                        }
+                      }}
                       onClick={() => setSelectedCardForEdit(card)}
                       className="p-3 bento-box bento-box-interactive border-2 border-[#4C4C4C] flex flex-col justify-between cursor-move hover:border-[var(--color-accent,#DF5504)] transition-colors active:opacity-50"
                     >
@@ -1282,23 +1346,45 @@ export default function App() {
                           onDragStart={(e) => e.stopPropagation()}
                         >
                           <select
-                            value={card.listId}
+                            value=""
                             onChange={async (e) => {
-                              console.log('Moving card', card.id, 'to list', e.target.value);
-                              await triggerHaptic();
-                              handleMoveCard(card.id, e.target.value);
+                              const val = e.target.value;
+                              if (val === 'move-up') {
+                                await handleMovePosition(card.id, 'up');
+                              } else if (val === 'move-down') {
+                                await handleMovePosition(card.id, 'down');
+                              } else if (val) {
+                                console.log('Moving card', card.id, 'to list', val);
+                                await triggerHaptic();
+                                handleMoveCard(card.id, val);
+                              }
                             }}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            className="text-[10px] bento-btn bg-[var(--color-accent,#DF5504)] text-white px-2 py-1 font-bold uppercase rounded cursor-pointer border-2 border-[#E96213] shadow-[2px_2px_0px_0px_rgba(223,85,4,0.3)] hover:translate-y-[-0.5px] active:translate-y-[0.5px] transition-transform select-none outline-none font-sans appearance-none pr-5 relative"
+                            style={{
+                              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 10 6'><path fill='white' d='M0 0l5 5 5-5z'/></svg>")`,
+                              backgroundRepeat: 'no-repeat',
+                              backgroundPosition: 'right 6px center',
+                              backgroundSize: '8px 5px'
+                            }}
                           >
+                            <option value="" disabled hidden>
+                              Move ▼
+                            </option>
+                            <option value="move-up" className="text-white bg-[#282828] font-bold font-mono text-[10px]">
+                              ▲ MOVE UP
+                            </option>
+                            <option value="move-down" className="text-white bg-[#282828] font-bold font-mono text-[10px]">
+                              ▼ MOVE DOWN
+                            </option>
+                            <option value="" disabled className="text-gray-500 bg-[#282828] font-bold font-mono text-[10px]">
+                              ──────────────
+                            </option>
                             {lists.map(l => (
-                              <option key={l.id} value={l.id}>
-                                {l.name}
+                              <option key={l.id} value={l.id} className="text-white bg-[#282828] font-bold font-mono text-[10px]">
+                                TO: {l.name.toUpperCase()}
                               </option>
                             ))}
                           </select>
-                          <button className="text-[10px] bento-btn bg-[var(--color-accent,#DF5504)] text-white px-2 py-1 font-bold uppercase flex items-center gap-1">
-                            Move ▼
-                          </button>
                         </div>
                       </div>
                     </div>
