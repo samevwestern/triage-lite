@@ -2035,7 +2035,7 @@ export default function App() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">List Column</label>
+                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">List</label>
                   <select
                     value={selectedCardForEdit.listId}
                     onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, listId: e.target.value })}
