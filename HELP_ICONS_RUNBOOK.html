@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Triage Lite - Help Icons & Code-Level Runbook</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Outfit:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* Premium CSS variables & Custom Color System */
+    :root {
+      --color-accent: #DF5504;
+      --color-accent-hover: #F26715;
+      --color-bg: #0C0C0E;
+      --color-surface: #131316;
+      --color-surface-hover: #1B1B1F;
+      --color-border: #24242A;
+      --color-text-primary: #F4F4F6;
+      --color-text-secondary: #9A9AA6;
+      --font-sans: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Reset & Base Styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--color-bg);
+      color: var(--color-text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* Custom Webkit Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--color-bg);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-accent);
+    }
+
+    /* Top Hero Header */
+    header {
+      background: linear-gradient(180deg, #101014 0%, var(--color-bg) 100%);
+      border-bottom: 1px solid var(--color-border);
+      padding: 3rem 2rem 2.5rem 2rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(223, 85, 4, 0.08);
+      border: 1px solid rgba(223, 85, 4, 0.2);
+      padding: 0.4rem 1rem;
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      margin-bottom: 1.25rem;
+      letter-spacing: 0.08em;
+    }
+
+    h1 {
+      font-size: 2.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #FFFFFF 0%, #A2A2AE 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-desc {
+      font-size: 1rem;
+      color: var(--color-text-secondary);
+      max-width: 650px;
+      margin: 0 auto;
+      font-weight: 400;
+    }
+
+    /* Cohesive Translator Section */
+    .translation-bar {
+      max-width: 1200px;
+      margin: 2rem auto 0 auto;
+      padding: 0 1.5rem;
+      width: 100%;
+    }
+
+    .translation-box {
+      background: rgba(223, 85, 4, 0.03);
+      border: 1px solid rgba(223, 85, 4, 0.15);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .translation-box-title {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--color-accent);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .translation-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .translation-item {
+      background: #101013;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--color-border);
+      font-size: 0.85rem;
+    }
+
+    .translation-item strong {
+      color: var(--color-accent);
+      font-family: var(--font-mono);
+    }
+
+    /* Main Interface Grid */
+    .app-container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 2rem;
+      width: 100%;
+      flex-grow: 1;
+    }
+
+    @media (max-width: 950px) {
+      .app-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+    }
+
+    /* Left Sidebar Navigation (Unified & Cleaned) */
+    aside {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      position: sticky;
+      top: 1.5rem;
+      height: fit-content;
+    }
+
+    .search-container {
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem 0.75rem 2.25rem;
+      color: var(--color-text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 600;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .search-input:focus {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 12px rgba(223, 85, 4, 0.15);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      pointer-events: none;
+    }
+
+    .sidebar-list {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: var(--color-text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      width: 100%;
+      transition: var(--transition);
+    }
+
+    .sidebar-item:hover {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--color-text-primary);
+    }
+
+    .sidebar-item.active {
+      background: rgba(223, 85, 4, 0.08);
+      color: var(--color-text-primary);
+      border-left: 2.5px solid var(--color-accent);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      padding-left: calc(0.85rem - 2.5px);
+    }
+
+    /* Card stream layout */
+    main {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .help-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .help-card:hover {
+      border-color: rgba(223, 85, 4, 0.25);
+    }
+
+    .card-header {
+      background: linear-gradient(90deg, #17171C 0%, #101013 100%);
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: -0.01em;
+    }
+
+    .code-variable {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      background: rgba(0, 0, 0, 0.4);
+      color: var(--color-accent);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid rgba(223, 85, 4, 0.15);
+    }
+
+    .card-location {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-accent);
+      margin-bottom: 0.5rem;
+    }
+
+    .card-content-block {
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.01);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    /* Bullet List Item styling */
+    .bullet-list {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .bullet-item {
+      display: flex;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .bullet-marker {
+      font-size: 1rem;
+      user-select: none;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .bullet-text {
+      font-size: 0.88rem;
+      color: var(--color-text-secondary);
+    }
+
+    .bullet-text strong {
+      color: var(--color-text-primary);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+    }
+
+    .bullet-text .code-ref {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--color-accent);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(223, 85, 4, 0.1);
+      padding: 0.05rem 0.35rem;
+      border-radius: 3px;
+      margin-left: 0.25rem;
+    }
+
+    /* Relevance styling */
+    .relevance-box {
+      border-left: 2.5px solid var(--color-accent);
+      background: rgba(223, 85, 4, 0.01);
+      padding: 0.9rem 1.15rem;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.88rem;
+      color: var(--color-text-secondary);
+    }
+
+    .relevance-box p strong {
+      color: var(--color-text-primary);
+      font-weight: 700;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--color-border);
+      background: #08080A;
+      padding: 1.5rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      font-family: var(--font-mono);
+      margin-top: auto;
+    }
+
+    footer span {
+      color: var(--color-accent);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Hero Header -->
+  <header>
+    <div class="header-badge">📖 Onboarding Runbook</div>
+    <h1>Triage Lite</h1>
+    <div class="header-desc">
+      A comprehensive deep-dive linking all twelve help and runbook guides directly to active code-level events, variables, and SQL pipelines.
+    </div>
+  </header>
+
+  <!-- Cohesive Translator section -->
+  <div class="translation-bar">
+    <div class="translation-box">
+      <div class="translation-box-title">
+        <span>💡</span> Terminology Translator (Real-World Analogies)
+      </div>
+      <div class="translation-grid">
+        <div class="translation-item">
+          <strong>Kanban Columns</strong> ➡️ Interactive lists (To Do, Doing, Done lists)
+        </div>
+        <div class="translation-item">
+          <strong>Cards</strong> ➡️ Task Widgets (representing individual focus items)
+        </div>
+        <div class="translation-item">
+          <strong>Pomodoro</strong> ➡️ Focus study clocks & timed break stopwatches
+        </div>
+        <div class="translation-item">
+          <strong>Haptics</strong> ➡️ Physical vibrations and responsive screen buzzes
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Multi-Column Frame -->
+  <div class="app-container">
+    
+    <!-- Unified Sidebar Navigation -->
+    <aside>
+      <div class="search-container">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          id="search-box" 
+          class="search-input" 
+          placeholder="Search help topics & functions..." 
+          onkeyup="filterHelpCards()"
+        >
+      </div>
+
+      <div class="sidebar-list" id="sidebar-list">
+        <button class="sidebar-item active" onclick="scrollToCard('settings-runbook')">⚙️ Settings Menu</button>
+        <button class="sidebar-item" onclick="scrollToCard('dashboard-runbook')">❓ Board Columns</button>
+        <button class="sidebar-item" onclick="scrollToCard('card-runbook')">📋 Card Details</button>
+        <button class="sidebar-item" onclick="scrollToCard('alarms-runbook')">⏰ Alarms & Alerts</button>
+        <button class="sidebar-item" onclick="scrollToCard('alerts-studio')">🔔 Global Alert Studio</button>
+        <button class="sidebar-item" onclick="scrollToCard('docs-runbook')">📁 Shared Documents</button>
+        <button class="sidebar-item" onclick="scrollToCard('receipts-link')">🧾 Receipts Association</button>
+        <button class="sidebar-item" onclick="scrollToCard('study-logs')">ℹ️ Study Focus Logs</button>
+        <button class="sidebar-item" onclick="scrollToCard('journal-runbook')">🎙️ Verbal Diary Log</button>
+        <button class="sidebar-item" onclick="scrollToCard('expense-claims')">🧾 Expense Receipts</button>
+        <button class="sidebar-item" onclick="scrollToCard('pomodoro-stopwatch')">🍅 Focus Stopwatches</button>
+        <button class="sidebar-item" onclick="scrollToCard('label-runbook')">🏷️ Board Categories</button>
+      </div>
+    </aside>
+
+    <!-- Main Content Stream -->
+    <main id="help-cards-stream">
+      
+      <!-- Card 1 -->
+      <section class="help-card" id="settings-runbook">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">⚙️ Settings Menu Runbook</span>
+            <span class="code-variable">isMenuHelpOpen</span>
+          </div>
+          <span class="card-location">Header Settings Overlay</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">💾</span>
+                  <div class="bullet-text">
+                    <strong>Export Data Backup</strong>
+                    <span class="code-ref">handleExportCSV()</span>
+                    <p>Allows you to back up your local database sandbox at any time. It downloads an Excel-compatible CSV containing all card columns, priority values, time trackers, description parameters, and checklist logs.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🍏</span>
+                  <div class="bullet-text">
+                    <strong>Apple iCloud Synchronization</strong>
+                    <span class="code-ref">syncData()</span>
+                    <p>Connects your active triage boards across all registered iOS and macOS devices. It synchronizes checklist states, focus sessions, priority levels, and custom labels dynamically through Apple CloudKit channels.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🏷️</span>
+                  <div class="bullet-text">
+                    <strong>Board Label Studio</strong>
+                    <span class="code-ref">saveLabels()</span>
+                    <p>Your central classifications workshop. Define customizable classification labels, assign custom hex code styling, or rename category tags to immediately assign priorities and categorize card widgets.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">⚡</span>
+                  <div class="bullet-text">
+                    <strong>Feature Diagnostics</strong>
+                    <span class="code-ref">triggerHaptic()</span>
+                    <p>Runs localized client feature sweeps. Instantly tests hardware-level compatibility including Capacitive Haptics, LocalStorage read/writes, Web Audio synthesizers, and system Calendar notification schedulers.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Explains exactly what each background setting does. Clarifies how backups work, where lists are synced, and helps verify phone components before setting reminders.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 2 -->
+      <section class="help-card" id="dashboard-runbook">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">❓ Board Columns Quick Runbook</span>
+            <span class="code-variable">isDashboardHelpOpen</span>
+          </div>
+          <span class="card-location">Main Kanban Board</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">🎛️</span>
+                  <div class="bullet-text">
+                    <strong>Board Columns (Lists)</strong>
+                    <span class="code-ref">lists state</span>
+                    <p>Your work is split into three lists: <strong>TO DO</strong> (pending actions), <strong>DOING</strong> (active focus), and <strong>DONE</strong> (completed items). The count shows the active cards in each.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📱</span>
+                  <div class="bullet-text">
+                    <strong>Mobile Column Navigation</strong>
+                    <span class="code-ref">swipe event listeners</span>
+                    <p>On mobile, swipe left or right on the screen to slide between columns, or tap the pagination dots at the top of the board to jump directly to a list.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📄</span>
+                  <div class="bullet-text">
+                    <strong>Card Interaction</strong>
+                    <span class="code-ref">setSelectedCardForEdit()</span>
+                    <p>Tap any card's frame to open the Card Details modal. Tap the orange <strong>+</strong> icon in the header bar of any column to create a brand new task card.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🔄</span>
+                  <div class="bullet-text">
+                    <strong>Moving Cards</strong>
+                    <span class="code-ref">handleReorderCard()</span>
+                    <p>Tap the orange <strong>MOVE ▾</strong> button on the card face to immediately open list-shifting options. On desktop, click and drag cards directly to any list column.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Serves as the primary navigation guide. Translates column gestures, pagination dots, column-specific cards creation, and list-movers into standard steps.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 3 -->
+      <section class="help-card" id="card-runbook">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">📋 Card Edit Suite Runbook</span>
+            <span class="code-variable">isCardHelpOpen</span>
+          </div>
+          <span class="card-location">Card Editor Modal</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">🏷️</span>
+                  <div class="bullet-text">
+                    <strong>Label Manager</strong>
+                    <span class="code-ref">card.labelIds</span>
+                    <p>Assign visual highlight colors to categorize and organize task cards on your lists.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📝</span>
+                  <div class="bullet-text">
+                    <strong>Task Summary (Validation)</strong>
+                    <span class="code-ref">empty validation checks</span>
+                    <p>Write detailed descriptions. Emptied description saves are blocked to prevent losing card context, showing a haptic alert overlay.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">⏱️</span>
+                  <div class="bullet-text">
+                    <strong>Pomodoro Timer</strong>
+                    <span class="code-ref">card.studySessions</span>
+                    <p>Focus study clocks and stopwatch sessions mapped straight into the active card database.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📚</span>
+                  <div class="bullet-text">
+                    <strong>Research Citations</strong>
+                    <span class="code-ref">inclusive validations</span>
+                    <p>Add reference lists. Links and titles require each other; you cannot save an empty reference parameter.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Breaks down validation rules inside the editor modal, detailing why an empty description gets blocked and how citations require both name and URL.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 4 -->
+      <section class="help-card" id="alarms-runbook">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">⏰ Alarm Notifications Guide</span>
+            <span class="code-variable">isAlertsHelpOpen</span>
+          </div>
+          <span class="card-location">Card Alarm Tray</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">📌</span>
+                  <div class="bullet-text">
+                    <strong>Due Date Trigger</strong>
+                    <span class="code-ref">card.dueDate</span>
+                    <p>Alarms are anchored on your task's Due Date & Time. You must assign a due date first before alarms can be selected.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🔔</span>
+                  <div class="bullet-text">
+                    <strong>Capacitor Local Push Alerts</strong>
+                    <span class="code-ref">LocalNotifications.schedule()</span>
+                    <p>Schedules native notifications. Alarms will ring and buzz even when your phone is locked or the app is closed.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">⏳</span>
+                  <div class="bullet-text">
+                    <strong>Reminder Lead Time</strong>
+                    <span class="code-ref">lead-time offsets</span>
+                    <p>Choose intervals like 15 minutes or 1 day before to schedule early reminders.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Instructs the user how to configure phone reminder alarms, reminding them that a due date is required before notification options open up.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 5 -->
+      <section class="help-card" id="alerts-studio">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">🔔 Alert Studio Runbook</span>
+            <span class="code-variable">isAlertStudioHelpOpen</span>
+          </div>
+          <span class="card-location">Global Alert Studio</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">⏰</span>
+                  <div class="bullet-text"><strong>Due Date</strong>: Core milestone deadlines.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📱</span>
+                  <div class="bullet-text"><strong>In-App Toast</strong>: Real-time active alerts while using the web app.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🔔</span>
+                  <div class="bullet-text"><strong>System Lock-Screen</strong>: Schedules native push reminders.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📅</span>
+                  <div class="bullet-text"><strong>Calendar Sync</strong> <span class="code-ref">createEvent()</span>: Integrates cards with native iOS/macOS calendars.</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Explains alarm routing channels, ensuring users understand how tasks get pushed as calendar files, phone notifications, or email drafts.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 6 -->
+      <section class="help-card" id="docs-runbook">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">📁 Document & Resource Guide</span>
+            <span class="code-variable">isDocsHelpOpen</span>
+          </div>
+          <span class="card-location">Card Documents Section</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">🏆</span>
+                  <div class="bullet-text">
+                    <strong>Submission Portal</strong>
+                    <span class="code-ref">handleFileUpload()</span>
+                    <p>Attach delivery assets (PDFs, Word documents). File size is capped at 1.5MB to maintain performance.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📚</span>
+                  <div class="bullet-text">
+                    <strong>Bibliography CSV Export</strong>
+                    <span class="code-ref">citations CSV download</span>
+                    <p>Click export to download all citations linked to this card as a spreadsheet document.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Guides document attachments. Explains how users upload delivery assets, link Google Drive folders, and export bibliographic summaries.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 7 -->
+      <section class="help-card" id="receipts-link">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">🧾 Receipts Association Guide</span>
+            <span class="code-variable">isReceiptsLinkHelpOpen</span>
+          </div>
+          <span class="card-location">Card Receipts Integration</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">•</span>
+                  <div class="bullet-text"><strong>Link Expenses</strong>: Map captured expense claims and receipts directly to cards to tally up total budgets.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">•</span>
+                  <div class="bullet-text"><strong>SQLite Persistence</strong>: Mappings sync directly to local database tables so your connections are saved securely.</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Explains that business expense receipt records and images can be linked directly to task cards to maintain accurate project cost ledgers.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 8 -->
+      <section class="help-card" id="study-logs">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">ℹ️ Study Focus Logs Guide</span>
+            <span class="code-variable">isLogHelpOpen</span>
+          </div>
+          <span class="card-location">Focus Time Logs Panel</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">⏱️</span>
+                  <div class="bullet-text"><strong>Focus Sorting</strong>: Lists study sessions from most focused to least focused based on accumulated stopwatch hours.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🗹</span>
+                  <div class="bullet-text">
+                    <strong>Checkboxes (Recalculator)</strong>
+                    <span class="code-ref">uncheckedLogCardIds</span>
+                    <p>Tick/untick checklist boxes next to task timers to instantly re-calculate total focus hours in real time.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📥</span>
+                  <div class="bullet-text">
+                    <strong>CSV Export</strong>
+                    <span class="code-ref">triage_focus_session_logs_*.csv</span>
+                    <p>Downloads focus logs for all checked items directly into a formatted spreadsheet.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Guides timesheet logs, explaining how ticking checkboxes dynamically re-calculates total hours and downloads spreadsheet timesheets.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 9 -->
+      <section class="help-card" id="journal-runbook">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">🎙️ Daily Journal Quick Help Guide</span>
+            <span class="code-variable">showDiaryHelp</span>
+          </div>
+          <span class="card-location">Daily Journal Reflection Modal</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">🎙️</span>
+                  <div class="bullet-text">
+                    <strong>Dictate Note</strong>
+                    <span class="code-ref">startDictation()</span>
+                    <p>Tap the red microphone button to start recording. Spoken audio is immediately transcribed to text.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">📤</span>
+                  <div class="bullet-text">
+                    <strong>Card Dispatching</strong>
+                    <span class="code-ref">dispatchLogToCard()</span>
+                    <p>Select a card from the dropdown to automatically attach that recorded entry to your card description timeline.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Guides voice reflections, explaining how spoken thoughts convert to diary logs and dispatch straight into task cards.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 10 -->
+      <section class="help-card" id="expense-claims">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">🧾 Business Receipts Help Guide</span>
+            <span class="code-variable">showReceiptsHelp</span>
+          </div>
+          <span class="card-location">Business Receipts Portal</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">📸</span>
+                  <div class="bullet-text">
+                    <strong>Photo Snap (Camera)</strong>
+                    <span class="code-ref">Camera.getPhoto()</span>
+                    <p>Tap 'Snap Receipt Photo' to toggle your device camera and capture purchase receipt snaps instantly.</p>
+                  </div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">💰</span>
+                  <div class="bullet-text"><strong>Claim Costs</strong>: Fill out vendor name and numerical costs to record your financial claim ledger.</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Details capturing work expenses: snapping photos of receipts, logging vendor costs, and emailing reports.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 11 -->
+      <section class="help-card" id="pomodoro-stopwatch">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">💡 Standalone Pomodoro Runbook</span>
+            <span class="code-variable">showTimerHelp</span>
+          </div>
+          <span class="card-location">Focus Timer Tab</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">🍅</span>
+                  <div class="bullet-text"><strong>Work Session</strong>: Focus intensely for 25 minutes with distraction blocking.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">☕</span>
+                  <div class="bullet-text"><strong>Short/Long Breaks</strong>: Rest with timed 5-minute or 15-minute breaks.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🔔</span>
+                  <div class="bullet-text"><strong>Native Notifications</strong>: Rings and vibrates your phone when study intervals finish.</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Reassures users that this general clock runs independently of card timers to alternate focus/break patterns.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 12 -->
+      <section class="help-card" id="label-runbook">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-title">💡 Board Classification Runbook</span>
+            <span class="code-variable">showLabelHelp</span>
+          </div>
+          <span class="card-location">Label Studio Modal</span>
+        </div>
+        <div class="card-body">
+          <div>
+            <div class="section-label">Popup Content / Guides</div>
+            <div class="card-content-block">
+              <ul class="bullet-list">
+                <li class="bullet-item">
+                  <span class="bullet-marker">🏷️</span>
+                  <div class="bullet-text"><strong>Categories</strong>: Create visual categories like `URGENT` or `PERSONAL` to sort tasks.</div>
+                </li>
+                <li class="bullet-item">
+                  <span class="bullet-marker">🎨</span>
+                  <div class="bullet-text"><strong>Palettes</strong> <span class="code-ref">saveLabels()</span>: Assign color highlights to make categories stand out on cards.</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="relevance-box">
+            <p><strong>Functional Relevance</strong>: Guides category settings. Explains how custom colors map to active lists to label cards visually.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Bottom Page Footer -->
+  <footer>
+    Triage Lite Documentation Portal • Updated on <span>2026-07-17</span> • Accurate & Active
+  </footer>
+
+  <!-- Interactive Search & Scrolling JS -->
+  <script>
+    function scrollToCard(cardId) {
+      const element = document.getElementById(cardId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        const items = document.querySelectorAll('.sidebar-item');
+        items.forEach(item => item.classList.remove('active'));
+        
+        const btn = Array.from(items).find(item => item.getAttribute('onclick').includes(cardId));
+        if (btn) btn.classList.add('active');
+        
+        element.style.borderColor = 'var(--color-accent)';
+        element.style.boxShadow = '0 0 16px rgba(223, 85, 4, 0.25)';
+        setTimeout(() => {
+          element.style.borderColor = '';
+          element.style.boxShadow = '';
+        }, 1200);
+      }
+    }
+
+    function filterHelpCards() {
+      const query = document.getElementById('search-box').value.toLowerCase();
+      const cards = document.querySelectorAll('.help-card');
+      const sidebarItems = document.querySelectorAll('.sidebar-item');
+
+      cards.forEach(card => {
+        const text = card.innerText.toLowerCase();
+        const cardId = card.id;
+        const matchingSidebarItem = Array.from(sidebarItems).find(item => item.getAttribute('onclick').includes(cardId));
+
+        if (text.includes(query)) {
+          card.style.display = 'flex';
+          if (matchingSidebarItem) matchingSidebarItem.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+          if (matchingSidebarItem) matchingSidebarItem.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

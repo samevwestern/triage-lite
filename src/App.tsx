@@ -5,6 +5,7 @@ import { CapacitorCalendar } from '@ebarooni/capacitor-calendar';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Camera, CameraResultType } from '@capacitor/camera';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
+import { Ocr } from '@capacitor-community/image-to-text';
 
 
 export interface ChecklistItem {
@@ -220,8 +221,16 @@ export default function App() {
               timestamp: Date.now(),
               text: transcript.trim()
             };
-            setVoiceLogs(prev => [newLog, ...prev]);
+            const updatedLogs = [newLog, ...voiceLogs];
+            await saveVoiceLogs(updatedLogs);
             showToast("🎙️ Captured On-Device iOS Voice Reflection!");
+
+            // Auto dispatch on creation if selected
+            const creationSelect = document.getElementById('creation-auto-dispatch-select') as HTMLSelectElement;
+            const targetCardId = creationSelect?.value;
+            if (targetCardId) {
+              await dispatchLogToCard(newLog.id, targetCardId);
+            }
           }
         }
       } catch (error) {
@@ -249,7 +258,7 @@ export default function App() {
           setIsRecording(true);
         };
 
-        recognition.onresult = (event: any) => {
+        recognition.onresult = async (event: any) => {
           const transcript = event.results[0][0].transcript;
           if (transcript && transcript.trim() !== '') {
             const newLog = {
@@ -257,8 +266,16 @@ export default function App() {
               timestamp: Date.now(),
               text: transcript.trim()
             };
-            setVoiceLogs(prev => [newLog, ...prev]);
+            const updatedLogs = [newLog, ...voiceLogs];
+            await saveVoiceLogs(updatedLogs);
             showToast("🎙️ Captured Voice Reflection!");
+
+            // Auto dispatch on creation if selected
+            const creationSelect = document.getElementById('creation-auto-dispatch-select') as HTMLSelectElement;
+            const targetCardId = creationSelect?.value;
+            if (targetCardId) {
+              await dispatchLogToCard(newLog.id, targetCardId);
+            }
           }
         };
 
@@ -300,11 +317,11 @@ export default function App() {
     setIsRecording(false);
   };
 
-  const dispatchLogToCard = (logId: string, cardId: string) => {
+  const dispatchLogToCard = async (logId: string, cardId: string) => {
     const log = voiceLogs.find(l => l.id === logId);
     if (!log) return;
 
-    setCards(prevCards => prevCards.map(card => {
+    const updatedCards = cards.map(card => {
       if (card.id === cardId) {
         const timeStr = new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
         const annotation = `🎙️ [Voice Log - ${timeStr}] ${log.text}`;
@@ -314,10 +331,12 @@ export default function App() {
         };
       }
       return card;
-    }));
+    });
+    await saveCards(updatedCards);
 
     // Mark as assigned/dispatched
-    setVoiceLogs(prev => prev.map(l => l.id === logId ? { ...l, assignedCardId: cardId } : l));
+    const updatedLogs = voiceLogs.map(l => l.id === logId ? { ...l, assignedCardId: cardId } : l);
+    await saveVoiceLogs(updatedLogs);
     showToast("📤 Dispatched Voice Log to Card!");
   };
 
@@ -516,7 +535,12 @@ export default function App() {
     merchant: string;
     amount: number;
     notes?: string;
+    isEmailed?: boolean;
+    emailedAt?: number;
+    emailedTo?: string;
+    cardId?: string;
   }[]>([]);
+  const [employerEmail, setEmployerEmail] = useState('');
   const [isCapturingReceipt, setIsCapturingReceipt] = useState(false);
   const [showReceiptsHelp, setShowReceiptsHelp] = useState(false);
   const [showCalendarHelp, setShowCalendarHelp] = useState(false);
@@ -526,6 +550,10 @@ export default function App() {
   const [isAlertStudioHelpOpen, setIsAlertStudioHelpOpen] = useState(false);
   const [isDocsHelpOpen, setIsDocsHelpOpen] = useState(false);
   const [isDocStudioOpen, setIsDocStudioOpen] = useState(false);
+  const [isReceiptStudioOpen, setIsReceiptStudioOpen] = useState(false);
+  const [isReceiptsLinkHelpOpen, setIsReceiptsLinkHelpOpen] = useState(false);
+  const [openAssignDropdownId, setOpenAssignDropdownId] = useState<string | null>(null);
+  const [selectedCalendarItemIds, setSelectedCalendarItemIds] = useState<string[]>([]);
   const [isTimerModalOpen, setIsTimerModalOpen] = useState(false);
   const [showTimerHelp, setShowTimerHelp] = useState(false);
   const [pomodoroTimeLeft, setPomodoroTimeLeft] = useState(25 * 60); // 25 mins
@@ -657,6 +685,18 @@ export default function App() {
         setLists(defaultLists);
         await syncData(storageKeyLists, defaultLists);
       }
+
+      const storageKeyReceipts = `factory_app_${config.id}_receipts`;
+      const savedReceipts = await getStorage(storageKeyReceipts);
+      if (savedReceipts) setReceipts(JSON.parse(savedReceipts));
+
+      const storageKeyVoiceLogs = `factory_app_${config.id}_voice_logs`;
+      const savedVoiceLogs = await getStorage(storageKeyVoiceLogs);
+      if (savedVoiceLogs) setVoiceLogs(JSON.parse(savedVoiceLogs));
+
+      const storageKeyEmployerEmail = `factory_app_${config.id}_employer_email`;
+      const savedEmployerEmail = await getStorage(storageKeyEmployerEmail);
+      if (savedEmployerEmail) setEmployerEmail(savedEmployerEmail);
     };
     loadSavedData();
   }, []);
@@ -670,6 +710,152 @@ export default function App() {
   const saveLists = async (newLists: List[]) => {
     setLists(newLists);
     await syncData(`factory_app_${config.id}_lists`, newLists);
+  };
+
+  const saveReceipts = async (newReceipts: typeof receipts) => {
+    setReceipts(newReceipts);
+    await syncData(`factory_app_${config.id}_receipts`, newReceipts);
+  };
+
+  const saveVoiceLogs = async (newLogs: typeof voiceLogs) => {
+    setVoiceLogs(newLogs);
+    await syncData(`factory_app_${config.id}_voice_logs`, newLogs);
+  };
+
+  // 🧾 INTEGRATED APPLE VISION / SIMULATED OCR PARSER ENGINE
+  const runReceiptOcrAndPopulate = async (imagePath: string, isNativePlatform: boolean, fileName?: string) => {
+    showToast("🤖 Initiating Apple Vision OCR scan...");
+    
+    // Create subtle golden/orange visual scan animations on the form inputs
+    const merchantInput = document.getElementById('receipt-merchant-input') as HTMLInputElement;
+    const amountInput = document.getElementById('receipt-amount-input') as HTMLInputElement;
+    const notesInput = document.getElementById('receipt-notes-input') as HTMLInputElement;
+
+    if (merchantInput) {
+      merchantInput.placeholder = "🤖 Scanning receipt...";
+      merchantInput.style.transition = "all 0.5s ease-in-out";
+      merchantInput.style.borderColor = "var(--color-accent,#DF5504)";
+      merchantInput.style.boxShadow = "0 0 10px var(--color-accent,#DF5504)";
+    }
+    if (amountInput) {
+      amountInput.placeholder = "🤖 Analyzing...";
+      amountInput.style.transition = "all 0.5s ease-in-out";
+      amountInput.style.borderColor = "var(--color-accent,#DF5504)";
+      amountInput.style.boxShadow = "0 0 10px var(--color-accent,#DF5504)";
+    }
+
+    try {
+      let extractedMerchant = "";
+      let extractedAmount = 0.0;
+      let extractedNotes = "";
+
+      if (isNativePlatform) {
+        // NATIVE IOS: Invoke Apple Vision Framework OCR via Capacitor
+        console.log("[Apple Vision OCR] Analyzing image at path: " + imagePath);
+        const data = await Ocr.detectText({ filename: imagePath });
+        
+        if (data && data.textDetections && data.textDetections.length > 0) {
+          // Rule 1: Find largest floating-point decimal (likely the Receipt Total)
+          const allLines = data.textDetections.map(d => d.text.trim());
+          const prices: number[] = [];
+          
+          allLines.forEach(line => {
+            const priceMatches = line.match(/\d+\.\d{2}/g);
+            if (priceMatches) {
+              priceMatches.forEach(p => prices.push(parseFloat(p)));
+            }
+          });
+
+          if (prices.length > 0) {
+            extractedAmount = Math.max(...prices);
+          }
+
+          // Rule 2: Merchant name is usually on the first or second printed line
+          extractedMerchant = allLines[0] || "Office Depot";
+          extractedNotes = "Neural scan of " + (allLines.slice(0, 3).join(", ").substring(0, 40)) + "...";
+        }
+      } else {
+        // WEB/CHROME SIMULATOR: Intelligent Mock Text Extraction after delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const fName = (fileName || "").toLowerCase();
+        if (fName.includes("starbuck")) {
+          extractedMerchant = "Starbucks Coffee #42";
+          extractedAmount = 14.50;
+          extractedNotes = "Client coffee consultation meeting";
+        } else if (fName.includes("uber") || fName.includes("taxi")) {
+          extractedMerchant = "Uber Trip Inc.";
+          extractedAmount = 28.30;
+          extractedNotes = "Airport transit travel fare claim";
+        } else if (fName.includes("amazon") || fName.includes("aws")) {
+          extractedMerchant = "Amazon Web Services";
+          extractedAmount = 99.00;
+          extractedNotes = "Dev server cloud monthly subscription";
+        } else if (fName.includes("apple") || fName.includes("mac")) {
+          extractedMerchant = "Apple Store Sydney";
+          extractedAmount = 149.00;
+          extractedNotes = "USB-C adapter cables and accessories";
+        } else {
+          // Default fallbacks with high-fidelity values
+          const merchants = ["Staples Corp", "Office Depot", "Chevron Gas", "FedEx Office", "Zoom Video Corp"];
+          const notesList = ["Office stationeries and documents copy", "Photocopier printing papers", "Travel fleet gasoline fuel fill", "Express client documents mail delivery", "Team communication online monthly subscription"];
+          const randIdx = Math.floor(Math.random() * merchants.length);
+          extractedMerchant = merchants[randIdx];
+          extractedAmount = parseFloat((Math.random() * 80 + 15).toFixed(2));
+          extractedNotes = notesList[randIdx];
+        }
+      }
+
+      // 4. Auto-populate inputs while keeping them 100% editable
+      if (merchantInput) {
+        merchantInput.value = extractedMerchant;
+        merchantInput.placeholder = "e.g. Starbucks";
+        merchantInput.style.borderColor = "#22c55e"; // Success green border
+        merchantInput.style.boxShadow = "0 0 10px #22c55e";
+        merchantInput.style.backgroundColor = "rgba(34, 197, 94, 0.05)";
+      }
+      if (amountInput) {
+        amountInput.value = extractedAmount > 0 ? extractedAmount.toFixed(2) : "";
+        amountInput.placeholder = "0.00";
+        amountInput.style.borderColor = "#22c55e";
+        amountInput.style.boxShadow = "0 0 10px #22c55e";
+        amountInput.style.backgroundColor = "rgba(34, 197, 94, 0.05)";
+      }
+      if (notesInput && extractedNotes) {
+        notesInput.value = extractedNotes;
+        notesInput.style.borderColor = "#22c55e";
+        notesInput.style.boxShadow = "0 0 10px #22c55e";
+        notesInput.style.backgroundColor = "rgba(34, 197, 94, 0.05)";
+      }
+
+      showToast(`🤖 Apple Vision extracted: ${extractedMerchant} ($${extractedAmount.toFixed(2)})! Feel free to edit values.`);
+
+      // 5. Setup clear trigger on first interaction
+      const clearGlow = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        target.style.borderColor = "";
+        target.style.boxShadow = "";
+        target.style.backgroundColor = "";
+      };
+
+      merchantInput?.addEventListener('input', clearGlow, { once: true });
+      amountInput?.addEventListener('input', clearGlow, { once: true });
+      notesInput?.addEventListener('input', clearGlow, { once: true });
+
+    } catch (ocrErr) {
+      console.error("[Ocr Error]", ocrErr);
+      showToast("⚠️ Neural text recognition scan was cancelled or skipped.");
+      if (merchantInput) {
+        merchantInput.placeholder = "e.g. Starbucks";
+        merchantInput.style.borderColor = "";
+        merchantInput.style.boxShadow = "";
+      }
+      if (amountInput) {
+        amountInput.placeholder = "0.00";
+        amountInput.style.borderColor = "";
+        amountInput.style.boxShadow = "";
+      }
+    }
   };
 
 
@@ -1116,7 +1302,7 @@ export default function App() {
                     <span className="select-none text-base">💾</span>
                     <div>
                       <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Export Data Backup</strong>
-                      Allows you to back up your local database sandbox at any time. It downloads an Excel-compatible CSV containing all card columns, priority values, time trackers, description parameters, and checklist logs.
+                      Save your work to a safe backup file on your computer. Downloads an Excel-compatible spreadsheet showing all of your active task card lists, timesheet focus hours, and checklist progress notes.
                     </div>
                   </div>
                   
@@ -1124,7 +1310,7 @@ export default function App() {
                     <span className="select-none text-base">🍏</span>
                     <div>
                       <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Apple iCloud Synchronization</strong>
-                      Connects your active triage boards across all registered iOS and macOS devices. It synchronizes checklist states, focus sessions, priority levels, and custom labels dynamically through Apple CloudKit channels.
+                      Keep your boards perfectly synced across your iPhone, iPad, and Mac. Dynamically saves and matches your lists, checklists, categories, and focus timer logs across all of your Apple devices.
                     </div>
                   </div>
                   
@@ -1132,7 +1318,7 @@ export default function App() {
                     <span className="select-none text-base">🏷️</span>
                     <div>
                       <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Board Label Studio</strong>
-                      Your central classifications workshop. Define customizable classification labels, assign custom hex code styling, or rename category tags to immediately assign priorities and categorize card widgets.
+                      Your custom category tag workshop. Create custom labels, choose neon highlight colors, or rename existing categories to instantly prioritize and color-code your cards.
                     </div>
                   </div>
                   
@@ -1140,7 +1326,7 @@ export default function App() {
                     <span className="select-none text-base">⚡</span>
                     <div>
                       <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Feature Diagnostics</strong>
-                      Runs localized client feature sweeps. Instantly tests hardware-level compatibility including Capacitive Haptics, LocalStorage read/writes, Web Audio synthesizers, and system Calendar notification schedulers.
+                      System compatibility test sweeps. Quickly verifies your device compatibility with core features, including tap vibrations, microphone recordings, in-app sounds, local notifications, and system calendar alarms.
                     </div>
                   </div>
                 </div>
@@ -1877,7 +2063,7 @@ export default function App() {
 
       {/* GLOBAL BRUTALIST LABEL STUDIO MODAL */}
       {isGlobalLabelModalOpen && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-[150] animate-fadeIn">
           <div className="w-full max-w-md bento-box p-6 text-white flex flex-col gap-5">
             {/* Header */}
             <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
@@ -1916,14 +2102,14 @@ export default function App() {
             {/* ℹ️ Sliding Label Runbook Info Panel */}
             {showLabelHelp && (
               <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded-lg flex flex-col gap-2 max-h-[30vh] overflow-y-auto animate-fadeIn text-[10px] text-gray-300 font-mono">
-                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Board Classification Runbook</span>
+                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Custom Category Tags Guide</span>
                 <p className="leading-relaxed font-bold text-gray-400">
-                  Board labels allow you to categorize and instantly filter task cards on your Kanban list columns:
+                  Category tags allow you to label, color-code, and filter task cards across your interactive lists:
                 </p>
                 <ul className="list-disc pl-4 flex flex-col gap-1 leading-relaxed text-gray-400">
-                  <li><span className="text-white">🏷️ Categories</span>: Create tags like `URGENT`, `WEEKLY`, or `PERSONAL` to isolate tasks.</li>
-                  <li><span className="text-white">🎨 Palettes</span>: Assign highly distinct neon, primary, or monochrome colors for visual cues.</li>
-                  <li><span className="text-white">✨ Assignment</span>: Choose labels inside any card detailed edit panel to flag active categories.</li>
+                  <li><span className="text-white">🏷️ Custom Tags</span>: Create custom categories like `URGENT`, `WEEKLY`, or `PERSONAL` to sort and manage tasks easily.</li>
+                  <li><span className="text-white">🎨 Color Highlights</span>: Assign clear, glowing colors to category tags so they stand out visually on your board.</li>
+                  <li><span className="text-white">✨ Link to Tasks</span>: Simply check the category boxes inside any card detailed editor to apply the colors instantly.</li>
                 </ul>
               </div>
             )}
@@ -2152,27 +2338,27 @@ export default function App() {
                   <div className="flex flex-col gap-1.5 text-gray-300">
                     <div className="flex gap-2 items-start">
                       <span className="select-none">🏷️</span>
-                      <span><strong className="text-white">LABEL MANAGER</strong>: Classify card targets with neon tags from the board's Custom Label Studio.</span>
+                      <span><strong className="text-white">LABEL MANAGER</strong>: Assign custom category tags to color-code your cards and organize your board visually.</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">📝</span>
-                      <span><strong className="text-white">TASK SUMMARY</strong>: Write main titles and context summaries. (Empty descriptions block edits with a toast alarm).</span>
+                      <span><strong className="text-white">TASK SUMMARY</strong>: Write the task name and details. Deleting descriptions completely is blocked to protect your task context.</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">⏱️</span>
-                      <span><strong className="text-white">POMODORO TIMER</strong>: Track study hours and count seconds.</span>
+                      <span><strong className="text-white">STUDY TIMER</strong>: Start a focused study stopwatch to track exactly how many hours and seconds you focus on this task.</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">📅</span>
-                      <span><strong className="text-white">DEADLINE & TIME</strong>: Target milestones with clear uppercase deadline limits.</span>
+                      <span><strong className="text-white">DUE DATE & TIME</strong>: Set a clear target milestone deadline, which acts as the anchor point for all reminder alerts.</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">📚</span>
-                      <span><strong className="text-white">RESEARCH CITATIONS</strong>: Log academic bibliography sources. (URLs and descriptions require each other).</span>
+                      <span><strong className="text-white">RESEARCH CITATIONS</strong>: Log academic resources or bibliography details. Links and reference titles require each other.</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">🌐</span>
-                      <span><strong className="text-white">CLOUD DRIVES</strong>: Connect iCloud/OneDrive/GDrive directories with full validation checks.</span>
+                      <span><strong className="text-white">CLOUD STORAGE LINKS</strong>: Paste external folder links from Google Drive, Apple iCloud, or OneDrive for instant access.</span>
                     </div>
                   </div>
                 </div>
@@ -2682,19 +2868,19 @@ export default function App() {
                   <div className="flex flex-col gap-1.5 text-gray-300">
                     <div className="flex gap-2 items-start">
                       <span className="select-none">📌</span>
-                      <span><strong className="text-white">DUE DATE TRIGGER</strong>: Notifications are calculated and anchored directly based on your configured Due Date & Time. You must assign a Due Date first to unlock alert options.</span>
+                      <span><strong className="text-white">DUE DATE ANCHOR</strong>: All reminders are calculated directly from your task's Due Date & Time. You must assign a Due Date first before you can schedule reminder alerts.</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">🔔</span>
-                      <span><strong className="text-white">CAPACITOR LOCAL PUSH ALERTS</strong>: Uses native device push notification schedulers so that tactile alerts fire even when your screen is locked or the app is closed.</span>
+                      <span><strong className="text-white">LOCK-SCREEN ALARMS</strong>: Uses your phone's built-in alert manager so that notifications pop up and play sound even when your screen is locked or the app is closed.</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">⏳</span>
-                      <span><strong className="text-white">CHOOSE REMINDER LEAD TIME</strong>: Configure the system to notify you exactly at the due time, 5 mins before, 15 mins before, 1 hour before, or 1 day before.</span>
+                      <span><strong className="text-white">REMINDER LEAD TIME</strong>: Choose how early you want to be alerted (e.g. exactly on time, 5 or 15 minutes early, 1 hour early, or 1 day early).</span>
                     </div>
                     <div className="flex gap-2 items-start">
                       <span className="select-none">⚡</span>
-                      <span><strong className="text-white">HAPTIC CONFIRMATIONS</strong>: Tactile haptic hums confirm successful notification scheduling on compatible physical iPhone & mobile devices.</span>
+                      <span><strong className="text-white">TACTILE BUZZES</strong>: Your phone will vibrate briefly with a gentle hum to confirm when a reminder is successfully scheduled.</span>
                     </div>
                   </div>
                 </div>
@@ -2844,19 +3030,19 @@ export default function App() {
                     <div className="flex flex-col gap-1.5 text-gray-300">
                       <div className="flex gap-2 items-start">
                         <span className="select-none">🏆</span>
-                        <span><strong className="text-white">CENTRAL SUBMISSION PORTAL</strong>: Upload your final DOCX, slides, or PDF delivery bundle. Max file size is 1.5MB.</span>
+                        <span><strong className="text-white">CENTRAL SUBMISSION PORTAL</strong>: Upload final PDF, Word, or presentation slides for this task (size limit of 1.5MB to keep things running fast).</span>
                       </div>
                       <div className="flex gap-2 items-start">
                         <span className="select-none">🖇️</span>
-                        <span><strong className="text-white">SUPPORTING FILE VAULT</strong>: Attach supplementary project files, design specs, images, or assets.</span>
+                        <span><strong className="text-white">SUPPORTING FILE VAULT</strong>: Attach helper project files, images, or reference sheets directly to the task.</span>
                       </div>
                       <div className="flex gap-2 items-start">
                         <span className="select-none">📚</span>
-                        <span><strong className="text-white">BIBLIOGRAPHY & CITATIONS</strong>: Search academic databases (Scholar, PubMed, Wiki) and compile citation reference files.</span>
+                        <span><strong className="text-white">BIBLIOGRAPHY & CITATIONS</strong>: Search academic databases and compile an interactive citations list for quick research lookups.</span>
                       </div>
                       <div className="flex gap-2 items-start">
                         <span className="select-none">🌐</span>
-                        <span><strong className="text-white">CLOUD & DRIVES LINKS</strong>: Connect external shared cloud storage directories from Google Drive, iCloud, or OneDrive.</span>
+                        <span><strong className="text-white">CLOUD & DRIVES LINKS</strong>: Paste folder links from Google Drive, Apple iCloud, or Microsoft OneDrive to access shared folders instantly.</span>
                       </div>
                     </div>
                   </div>
@@ -3336,6 +3522,125 @@ export default function App() {
                 </div>
               )}
               </div>
+
+              {/* 🧾 ASSOCIATED BUSINESS CLAIMS & RECEIPTS STUDIO */}
+              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
+                <div className="flex gap-2 items-center w-full mb-2.5">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsReceiptsLinkHelpOpen(!isReceiptsLinkHelpOpen);
+                    }}
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
+                    title="Receipts Linking Guide"
+                  >
+                    <span className="text-red-500 font-extrabold text-base">?</span>
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsReceiptStudioOpen(!isReceiptStudioOpen);
+                    }}
+                    className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
+                  >
+                    <span>Business Claims & Receipts ({receipts.filter(r => r.cardId === selectedCardForEdit.id).length})</span>
+                    <span className="text-[10px] ml-1 transition-transform" style={{ transform: isReceiptStudioOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+                  </button>
+                </div>
+
+                {isReceiptsLinkHelpOpen && (
+                  <div className="mt-2.5 mb-2.5 p-3.5 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
+                    <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1 w-full">
+                      <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">🧾 Receipts Association Guide</span>
+                      <button type="button" onClick={() => setIsReceiptsLinkHelpOpen(false)} className="text-[8px] text-gray-400 hover:text-white uppercase font-black bg-transparent border-none">✕ Close</button>
+                    </div>
+                    <ul className="list-none flex flex-col gap-1 text-gray-300">
+                      <li>• Link captured business expense claims and snapped photos directly to this task to tally up total budgets.</li>
+                      <li>• Link or detach expenses at any time; your mappings are saved securely in your local database.</li>
+                    </ul>
+                  </div>
+                )}
+
+                {isReceiptStudioOpen && (
+                  <div className="flex flex-col gap-3 mt-1.5 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 animate-fadeIn text-left font-mono">
+                    {/* Link dropdown */}
+                    <div className="flex gap-2 items-center">
+                      <select
+                        id="card-receipt-link-select"
+                        className="flex-grow bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-1.5 text-[10px] font-bold cursor-pointer"
+                      >
+                        <option value="">-- Link an Existing Claim --</option>
+                        {receipts.filter(r => r.cardId !== selectedCardForEdit.id).map(r => (
+                          <option key={r.id} value={r.id}>
+                            [{new Date(r.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}] {r.merchant} - ${r.amount.toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          const selectEl = document.getElementById('card-receipt-link-select') as HTMLSelectElement;
+                          const selectedReceiptId = selectEl?.value;
+                          if (selectedReceiptId) {
+                            const updated = receipts.map(r => r.id === selectedReceiptId ? { ...r, cardId: selectedCardForEdit.id } : r);
+                            await saveReceipts(updated);
+                            showToast("🔗 Linked receipt to this card!");
+                            selectEl.value = "";
+                          } else {
+                            showToast("⚠️ Please select a receipt claim to link!");
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 border border-black shadow-[2px_2px_0px_0px_#000] text-white font-mono text-[9px] font-bold uppercase rounded flex items-center justify-center cursor-pointer active:translate-y-0.5"
+                      >
+                        Link Claim
+                      </button>
+                    </div>
+
+                    {/* Associated Receipts List */}
+                    <div className="flex flex-col gap-2 mt-1">
+                      {receipts.filter(r => r.cardId === selectedCardForEdit.id).length === 0 ? (
+                        <div className="text-center py-4 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/30 rounded">
+                          <span className="text-[10px] text-gray-500 italic block">No receipts linked to this card.</span>
+                        </div>
+                      ) : (
+                        receipts.filter(r => r.cardId === selectedCardForEdit.id).map(log => {
+                          const dateStr = new Date(log.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                          return (
+                            <div key={log.id} className="p-2 bg-black/20 rounded border border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex items-center gap-3">
+                              <div className="w-10 h-10 rounded overflow-hidden border border-[var(--color-dark-tertiary,#3D3D3D)]/30 bg-black flex-shrink-0">
+                                <img src={log.imageUrl} alt="" className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex-grow min-w-0 flex flex-col gap-0.5">
+                                <div className="flex justify-between items-center gap-1">
+                                  <span className="font-bold text-white text-[10px] truncate">{log.merchant}</span>
+                                  <span className="font-extrabold text-[var(--color-accent,#DF5504)] text-[10px]">${log.amount.toFixed(2)}</span>
+                                </div>
+                                <span className="text-[8px] text-gray-500 font-bold uppercase">📅 {dateStr}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  const updated = receipts.map(r => r.id === log.id ? { ...r, cardId: undefined } : r);
+                                  await saveReceipts(updated);
+                                  showToast(`🗑️ Unlinked receipt from card`);
+                                }}
+                                className="px-2 py-1 bg-red-950/20 hover:bg-red-900/40 text-red-400 font-bold border border-red-900/30 rounded text-[8px] uppercase transition-colors"
+                              >
+                                Unlink
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Actions */}
@@ -3444,19 +3749,19 @@ export default function App() {
                 </div>
                 <div className="flex flex-col gap-2 font-sans">
                   <p>
-                    ⏱️ <strong className="text-white font-mono">Active Focus Sorting:</strong> Lists active study targets with logged study times, sorted descending from most focused to least focused.
+                    ⏱️ <strong className="text-white font-mono">Active Focus Ranking:</strong> Displays your tasks ranked from most-focused to least-focused based on active stopwatch hours.
                   </p>
                   <p>
-                    🗹 <strong className="text-white font-mono">Active Target Checkboxes:</strong> Check/uncheck targets to dynamically include or exclude their focus sessions from the <strong>Total Study Duration</strong> calculation instantly.
+                    🗹 <strong className="text-white font-mono">Selectable Focus Recalculator:</strong> Check or uncheck tasks to instantly update your grand total study duration in real time.
                   </p>
                   <p>
-                    📥 <strong className="text-white font-mono">CSV Spreadsheet Export:</strong> Generates and downloads an Excel-compatible CSV file compiling <strong>only your checked</strong> target focus sessions.
+                    📥 <strong className="text-white font-mono">Spreadsheet CSV Export:</strong> Creates and downloads an Excel-compatible spreadsheet file compiling only your checked tasks.
                   </p>
                   <p>
-                    ✉️ <strong className="text-white font-mono">Email & Clipboard Backup:</strong> Triggers your default system mail client prefilled with a structured summary, while **automatically copying** the full report text directly to your macOS clipboard! If no native client opens, simply press **Cmd+V (Paste)** anywhere to paste your full pre-formatted text report!
+                    ✉️ <strong className="text-white font-mono">Email & Clipboard Backup:</strong> Automatically copies your full timesheet report to your device's clipboard and opens a pre-filled email draft to easily share your logs. If your mail app doesn't open, just paste (Cmd+V) anywhere!
                   </p>
                   <p>
-                    🗑️ <strong className="text-white font-mono">Resetting Times:</strong> Tap any card's trash icon to reset its specific focused timer back to zero.
+                    🗑️ <strong className="text-white font-mono">Resetting Study Clocks:</strong> Tap any card's trash can icon to reset its logged focus timer back to zero.
                   </p>
                 </div>
               </div>
@@ -3655,7 +3960,7 @@ export default function App() {
                           
                           csvRows.push([
                             "",
-                            `  ├─ Session #${sIdx + 1}`,
+                            `  Session #${sIdx + 1}`,
                             "",
                             String(session.duration),
                             "",
@@ -3830,23 +4135,23 @@ export default function App() {
                 <div className="flex flex-col gap-1.5 text-gray-300">
                   <div className="flex gap-2 items-start">
                     <span className="select-none">⏰</span>
-                    <span><strong className="text-white">DUE DATE</strong>: Set the main target milestone date and time for the card. Required to trigger automated schedules.</span>
+                    <span><strong className="text-white">DUE DATE</strong>: Set the main target deadline for the card, which is required before scheduling alerts.</span>
                   </div>
                   <div className="flex gap-2 items-start">
                     <span className="select-none">📱</span>
-                    <span><strong className="text-white">IN-APP TOAST</strong>: Displays rich local overlays in real-time while using the web application.</span>
+                    <span><strong className="text-white">ON-SCREEN BANNER</strong>: Displays a helpful alert banner inside the app in real time while you are actively working.</span>
                   </div>
                   <div className="flex gap-2 items-start">
                     <span className="select-none">🔔</span>
-                    <span><strong className="text-white">SYSTEM LOCK-SCREEN</strong>: Schedules native push alerts using mobile background notification dispatchers.</span>
+                    <span><strong className="text-white">SYSTEM LOCK-SCREEN</strong>: Sends an alarm to your phone's main lock screen, which will pop up even if the app is closed.</span>
                   </div>
                   <div className="flex gap-2 items-start">
                     <span className="select-none">📅</span>
-                    <span><strong className="text-white">CALENDAR SYNC</strong>: Pushes tasks directly into local calendar applications as alarms.</span>
+                    <span><strong className="text-white">CALENDAR SYNC</strong>: Automatically adds this task as an event in your phone or computer's native Calendar app.</span>
                   </div>
                   <div className="flex gap-2 items-start">
                     <span className="select-none">📧</span>
-                    <span><strong className="text-white">EMAIL COMPOSER</strong>: Opens the local mail composer pre-filled with specific card details and deadlines.</span>
+                    <span><strong className="text-white">EMAIL COMPOSER</strong>: Automatically opens your default email client with a pre-formatted message detailing the task.</span>
                   </div>
                 </div>
               </div>
@@ -3857,19 +4162,91 @@ export default function App() {
             </div>
 
             {/* Primary Date Configuration */}
-            <div className="p-3.5 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2">
+            <div className="p-3.5 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2 text-left">
               <label className="block text-[10px] font-mono font-bold uppercase text-gray-400 tracking-wider">
                 ⏰ Deadline & Time
               </label>
-              <input 
-                type="datetime-local"
-                value={formatTimestampToDatetimeLocal(selectedCardForEdit.dueDate)}
-                onChange={(e) => {
-                  const parsed = e.target.value ? Date.parse(e.target.value) : null;
-                  setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: parsed });
-                }}
-                className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded focus:border-[var(--color-accent,#DF5504)] transition-colors"
-              />
+              <div className="flex gap-2 w-full">
+                <input 
+                  type="datetime-local"
+                  id="main-card-due-date-input"
+                  value={formatTimestampToDatetimeLocal(selectedCardForEdit.dueDate)}
+                  onChange={(e) => {
+                    const parsed = e.target.value ? Date.parse(e.target.value) : null;
+                    setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: parsed });
+                  }}
+                  className="flex-grow bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white rounded focus:border-[var(--color-accent,#DF5504)] transition-colors min-w-0"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    const el = document.getElementById('main-card-due-date-input');
+                    if (el) (el as HTMLInputElement).blur();
+                  }}
+                  className="px-3 bg-black hover:bg-black/80 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:text-white font-black uppercase rounded text-[9px] transition-colors cursor-pointer flex-shrink-0"
+                  title="Close Calendar Popup"
+                >
+                  Dismiss
+                </button>
+              </div>
+
+              {/* Quick Preset Bento Buttons */}
+              <div className="grid grid-cols-4 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    const now = new Date();
+                    setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: now.getTime() });
+                    showToast("📅 Deadline set to Today!");
+                  }}
+                  className="py-1.5 bg-black/40 hover:bg-[var(--color-accent,#DF5504)] text-white font-bold uppercase rounded text-[8px] border border-[var(--color-dark-tertiary,#3D3D3D)] transition-colors cursor-pointer text-center"
+                >
+                  📅 Today
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: tomorrow.getTime() });
+                    showToast("📅 Deadline set to Tomorrow!");
+                  }}
+                  className="py-1.5 bg-black/40 hover:bg-[var(--color-accent,#DF5504)] text-white font-bold uppercase rounded text-[8px] border border-[var(--color-dark-tertiary,#3D3D3D)] transition-colors cursor-pointer text-center"
+                >
+                  🌅 Tomorrow
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    const plusHour = new Date(Date.now() + 60 * 60 * 1000);
+                    setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: plusHour.getTime() });
+                    showToast("⚡ Deadline set to +1 Hour!");
+                  }}
+                  className="py-1.5 bg-black/40 hover:bg-[var(--color-accent,#DF5504)] text-white font-bold uppercase rounded text-[8px] border border-[var(--color-dark-tertiary,#3D3D3D)] transition-colors cursor-pointer text-center"
+                >
+                  ⚡ +1 Hour
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: null });
+                    showToast("🗑️ Deadline cleared!");
+                  }}
+                  className="py-1.5 bg-red-950/20 hover:bg-red-900/60 text-red-400 font-bold uppercase rounded text-[8px] border border-red-900/30 transition-colors cursor-pointer text-center"
+                >
+                  🗑️ Clear
+                </button>
+              </div>
+
+              <span className="text-[7.5px] text-gray-500 font-bold uppercase tracking-wide mt-1 block">
+                💡 Browser popups require clicking outside to dismiss. Use bento presets above to set and close instantly!
+              </span>
+
               {!selectedCardForEdit.dueDate && (
                 <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold uppercase tracking-wider mt-0.5">
                   ⚠️ Configure a Deadline above to enable automated alarm schedules.
@@ -4053,27 +4430,27 @@ export default function App() {
                 <ul className="list-none flex flex-col gap-1.5 text-[9px] text-gray-300 font-bold uppercase tracking-wide">
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📅 Range Select</strong>: Toggle between single-day <strong>TODAY</strong> queries or 7, 30, and 90-day upcoming schedules.</span>
+                    <span><strong>📅 Timeline Filter</strong>: Select whether to show task schedules for <strong>TODAY</strong> or view upcoming timelines over the next 7, 30, or 90 days.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📅 Start Date Picker</strong>: Choose a custom date from the HTML5 calendar to query any starting day.</span>
+                    <span><strong>📅 Custom Start Date</strong>: Click the date field to select any custom day of the year as the baseline starting point for your schedule.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📌 Triage Filters</strong>: Select 'Triage Only' to isolate and display only high-priority mobile board tasks.</span>
+                    <span><strong>📌 Priority Tasks</strong>: Tick 'High Priority' to filter and isolate only your critical list items on the calendar.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📔 Diary Logs</strong>: Select 'Diary' to project your verbal recordings directly onto your timeline schedule.</span>
+                    <span><strong>📔 Voice Journal Timeline</strong>: Select the 'Diary' filter tab to display your time-stamped spoken notes mapped out by day.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>🧾 Receipts Feed</strong>: Select 'Receipts' to view date-locked business claims with photo previews.</span>
+                    <span><strong>🧾 Expense Receipts</strong>: Select the 'Receipts' filter tab to view mapped-out business claims with image previews.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📧 Email Claim</strong>: In receipts view, tap 'Email Employer' in the footer to compile and submit claims!</span>
+                    <span><strong>📧 Share Reports</strong>: In the Receipts view, check multiple claims and tap 'Email Employer' in the top bar to instantly compile and send an itemized spreadsheet expense claim.</span>
                   </li>
                 </ul>
               </div>
@@ -4139,6 +4516,7 @@ export default function App() {
                     onClick={async () => {
                       await triggerHaptic();
                       setCalendarFilterType('all');
+                      setSelectedCalendarItemIds([]);
                     }}
                     className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
                       calendarFilterType === 'all'
@@ -4152,6 +4530,7 @@ export default function App() {
                     onClick={async () => {
                       await triggerHaptic();
                       setCalendarFilterType('triage');
+                      setSelectedCalendarItemIds([]);
                     }}
                     className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
                       calendarFilterType === 'triage'
@@ -4165,6 +4544,7 @@ export default function App() {
                     onClick={async () => {
                       await triggerHaptic();
                       setCalendarFilterType('diary');
+                      setSelectedCalendarItemIds([]);
                     }}
                     className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
                       calendarFilterType === 'diary'
@@ -4178,6 +4558,7 @@ export default function App() {
                     onClick={async () => {
                       await triggerHaptic();
                       setCalendarFilterType('receipts');
+                      setSelectedCalendarItemIds([]);
                     }}
                     className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
                       calendarFilterType === 'receipts'
@@ -4219,6 +4600,7 @@ export default function App() {
                     filtered = voiceLogs
                       .filter(l => l.timestamp >= startTime && l.timestamp <= endTime)
                       .map(l => ({
+                        id: l.id,
                         title: l.text,
                         startDate: l.timestamp,
                         endDate: l.timestamp,
@@ -4235,13 +4617,15 @@ export default function App() {
                     filtered = receipts
                       .filter(r => r.timestamp >= startTime && r.timestamp <= endTime)
                       .map(r => ({
+                        id: r.id,
                         title: `Claim filed for: ${r.merchant}`,
                         startDate: r.timestamp,
                         endDate: r.timestamp,
                         location: r.notes ? `Purpose: "${r.notes}"` : undefined,
                         amount: r.amount,
                         imageUrl: r.imageUrl,
-                        isReceiptLog: true
+                        isReceiptLog: true,
+                        cardId: r.cardId
                       }));
                   } else {
                     filtered = calendarEvents.filter((evt) => {
@@ -4264,6 +4648,138 @@ export default function App() {
 
                   return (
                     <div className="flex flex-col gap-3.5 py-2">
+                      {/* Batch Actions Header Bar */}
+                      {selectedCalendarItemIds.length > 0 && (
+                        <div className="mb-2 p-2.5 bg-black/40 border border-[var(--color-accent,#DF5504)]/30 rounded flex flex-col gap-2 text-left animate-slideDown flex-shrink-0 font-mono">
+                          <div className="flex justify-between items-center pb-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+                            <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider flex items-center gap-1.5">
+                              <span>⚡</span> Batch Operations ({selectedCalendarItemIds.length} Selected)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCalendarItemIds([])}
+                              className="text-[8px] text-gray-400 hover:text-white uppercase font-black cursor-pointer bg-transparent border-0 outline-none"
+                            >
+                              Clear Select
+                            </button>
+                          </div>
+
+                          {calendarFilterType === 'receipts' && (
+                            <div className="flex flex-col gap-2">
+                              {/* Action buttons */}
+                              <div className="flex gap-2 flex-wrap items-center">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    if (!employerEmail) {
+                                      showToast("⚠️ Please specify an Employer's Email first in settings or the Receipts form!");
+                                      return;
+                                    }
+                                    const selectedReceipts = receipts.filter(r => selectedCalendarItemIds.includes(r.id));
+                                    if (selectedReceipts.length === 0) return;
+
+                                    let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                                    report += `BATCH CLAIM REPORT: ${selectedReceipts.length} SELECTED CLAIMS\n`;
+                                    report += `TOTAL RECLAIMABLE AMOUNT: $${selectedReceipts.reduce((acc, r) => acc + r.amount, 0).toFixed(2)}\n\n`;
+                                    report += `ITEMIZED BUSINESS CLAIMS LIST:\n`;
+                                    report += `----------------------------------------\n`;
+
+                                    selectedReceipts.forEach((claim, idx) => {
+                                      const cTime = new Date(claim.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                                      const cDate = new Date(claim.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                                      report += `${idx + 1}. [${cDate} at ${cTime}] Claim Merchant: ${claim.merchant}\n`;
+                                      report += `   Amount: $${claim.amount.toFixed(2)}\n`;
+                                      if (claim.notes) report += `   Purpose: "${claim.notes}"\n`;
+                                      const linkedCard = cards.find(c => c.id === claim.cardId);
+                                      if (linkedCard) report += `   Assigned Card: ${linkedCard.title}\n`;
+                                      report += `----------------------------------------\n`;
+                                    });
+
+                                    report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipts are on file.`;
+
+                                    const subject = encodeURIComponent(`Triage Expense Claims: ${selectedReceipts.length} Selected Items`);
+                                    const body = encodeURIComponent(report);
+                                    window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
+                                    showToast("📧 Opening Mail client with compiled claims...");
+                                  }}
+                                  className="px-2.5 py-1 text-[9px] uppercase font-black rounded bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 border border-black shadow-[1.5px_1.5px_0px_0px_#000] text-white cursor-pointer active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000]"
+                                >
+                                  📧 Email Selected
+                                </button>
+
+                                <div className="flex items-center gap-1.5">
+                                  <select
+                                    onChange={async (e) => {
+                                      const targetCardId = e.target.value || undefined;
+                                      await triggerHaptic();
+                                      const updatedReceipts = receipts.map(r => 
+                                        selectedCalendarItemIds.includes(r.id) ? { ...r, cardId: targetCardId } : r
+                                      );
+                                      await saveReceipts(updatedReceipts);
+                                      showToast(`🔗 Linked ${selectedCalendarItemIds.length} receipts to card!`);
+                                      setSelectedCalendarItemIds([]);
+                                      e.target.value = '';
+                                    }}
+                                    className="bg-black border border-gray-700 text-white text-[9px] font-bold rounded p-1 outline-none font-mono cursor-pointer"
+                                  >
+                                    <option value="">-- Assign Selected to Card --</option>
+                                    {cards.map(c => (
+                                      <option key={c.id} value={c.id}>{c.title}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {calendarFilterType === 'diary' && (
+                            <div className="flex flex-col gap-2 text-left">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <select
+                                  onChange={async (e) => {
+                                    const targetCardId = e.target.value;
+                                    if (!targetCardId) return;
+                                    await triggerHaptic();
+
+                                    const selectedLogs = voiceLogs.filter(l => selectedCalendarItemIds.includes(l.id));
+                                    
+                                    const updatedCards = cards.map(card => {
+                                      if (card.id === targetCardId) {
+                                        let desc = card.description || '';
+                                        selectedLogs.forEach(log => {
+                                          const timeStr = new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                                          const annotation = `🎙️ [Voice Log - ${timeStr}] ${log.text}`;
+                                          desc = desc ? `${desc}\n\n${annotation}` : annotation;
+                                        });
+                                        return { ...card, description: desc };
+                                      }
+                                      return card;
+                                    });
+                                    await saveCards(updatedCards);
+
+                                    const updatedLogs = voiceLogs.map(l => 
+                                      selectedCalendarItemIds.includes(l.id) ? { ...l, assignedCardId: targetCardId } : l
+                                    );
+                                    await saveVoiceLogs(updatedLogs);
+
+                                    showToast(`📤 Dispatched ${selectedCalendarItemIds.length} notes to Card!`);
+                                    setSelectedCalendarItemIds([]);
+                                    e.target.value = '';
+                                  }}
+                                  className="bg-black border border-gray-700 text-white text-[9px] font-bold rounded p-1 outline-none font-mono cursor-pointer"
+                                >
+                                  <option value="">-- Assign Selected to Card --</option>
+                                  {cards.map(c => (
+                                    <option key={c.id} value={c.id}>{c.title}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {filtered.map((evt, idx) => {
                         const isTriageEvent = evt.title && evt.title.includes('📌 [Triage Lite]');
                         const isDiaryLog = !!evt.isDiaryLog;
@@ -4284,14 +4800,31 @@ export default function App() {
                                 : 'border-[var(--color-dark-tertiary,#3D3D3D)]/50 hover:border-gray-500'
                             }`}
                           >
-                            {/* Event Timeline Date/Time */}
+                            {/* Event Timeline Date/Time with Select Checkbox */}
                             <div className="flex justify-between items-center mb-1.5 pb-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/20">
-                              <span className={`text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
-                                isDiaryLog ? 'text-amber-500' : 'text-[var(--color-accent,#DF5504)]'
-                              }`}>
-                                <span>{isDiaryLog ? '📔' : isReceiptLog ? '🧾' : '📅'}</span>
-                                {start ? start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date Unknown'}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                {(isReceiptLog || isDiaryLog) && (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedCalendarItemIds.includes(evt.id)}
+                                    onChange={async (e) => {
+                                      await triggerHaptic();
+                                      if (e.target.checked) {
+                                        setSelectedCalendarItemIds(prev => [...prev, evt.id]);
+                                      } else {
+                                        setSelectedCalendarItemIds(prev => prev.filter(id => id !== evt.id));
+                                      }
+                                    }}
+                                    className="w-3.5 h-3.5 accent-[var(--color-accent,#DF5504)] cursor-pointer rounded bg-black border border-gray-700"
+                                  />
+                                )}
+                                <span className={`text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                                  isDiaryLog ? 'text-amber-500' : 'text-[var(--color-accent,#DF5504)]'
+                                }`}>
+                                  <span>{isDiaryLog ? '📔' : isReceiptLog ? '🧾' : '📅'}</span>
+                                  {start ? start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date Unknown'}
+                                </span>
+                              </div>
                               <span className="text-[8px] text-gray-500 uppercase font-bold tracking-widest">
                                 {start ? start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
                                 {end && !isDiaryLog && !isReceiptLog ? ` - ${end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : ''}
@@ -4320,8 +4853,136 @@ export default function App() {
                                     <span className="truncate">{evt.location}</span>
                                   </div>
                                 )}
+
+                                {isReceiptLog && evt.cardId && (
+                                  (() => {
+                                    const linked = cards.find(c => c.id === evt.cardId);
+                                    if (linked) {
+                                      return (
+                                        <div className="text-[9px] text-[var(--color-accent,#DF5504)] mt-1 flex items-center gap-1 font-bold font-mono">
+                                          <span>📋</span>
+                                          <span className="truncate">Assigned Card: {linked.title}</span>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()
+                                )}
+
+                                {isDiaryLog && evt.assignedCardId && (
+                                  (() => {
+                                    const linked = cards.find(c => c.id === evt.assignedCardId);
+                                    if (linked) {
+                                      return (
+                                        <div className="text-[9px] text-amber-500 mt-1 flex items-center gap-1 font-bold font-mono">
+                                          <span>📥</span>
+                                          <span className="truncate">Sent to Card: {linked.title}</span>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()
+                                )}
                               </div>
                             </div>
+
+                            {/* Inline Actions (Fallback) for Receipts and Diary items */}
+                            {(isReceiptLog || isDiaryLog) && (
+                              <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/20 flex flex-col gap-2">
+                                <div className="flex gap-2 justify-end">
+                                  {/* Quick Assign Card Button */}
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await triggerHaptic();
+                                      setOpenAssignDropdownId(openAssignDropdownId === evt.id ? null : evt.id);
+                                    }}
+                                    className="px-2.5 py-1 text-[8px] sm:text-[9px] uppercase font-bold font-mono rounded bg-black/40 border border-gray-600 hover:border-white text-gray-300 transition-colors flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <span>📋</span> Assign Card
+                                  </button>
+
+                                  {/* Individual Email Claim Button (Receipts only) */}
+                                  {isReceiptLog && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        await triggerHaptic();
+                                        if (!employerEmail) {
+                                          showToast("⚠️ Please specify an Employer's Email first in settings or the Receipts form!");
+                                          return;
+                                        }
+                                        const cTime = start ? start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
+                                        const cDate = start ? start.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                                        
+                                        let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                                        report += `INDIVIDUAL CLAIM DETAIL:\n`;
+                                        report += `----------------------------------------\n`;
+                                        if (cDate) report += `Date: ${cDate} (${cTime})\n`;
+                                        report += `Merchant: ${evt.title.replace('Claim filed for: ', '')}\n`;
+                                        report += `Amount: $${evt.amount !== undefined ? evt.amount.toFixed(2) : '0.00'}\n`;
+                                        if (evt.location) report += `Purpose: "${evt.location}"\n`;
+                                        
+                                        const linkedCard = cards.find(c => c.id === evt.cardId);
+                                        if (linkedCard) {
+                                          report += `Assigned Kanban Card: ${linkedCard.title}\n`;
+                                        }
+                                        report += `----------------------------------------\n`;
+                                        report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipt is on file.`;
+
+                                        const subject = encodeURIComponent(`Triage Expense Claim: ${evt.title.replace('Claim filed for: ', '')} ($${evt.amount !== undefined ? evt.amount.toFixed(2) : '0.00'})`);
+                                        const body = encodeURIComponent(report);
+                                        window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
+                                        showToast("📧 Opening Mail client for this claim...");
+                                      }}
+                                      className="px-2.5 py-1 text-[8px] sm:text-[9px] uppercase font-bold font-mono rounded bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 border border-black shadow-[1.5px_1.5px_0px_0px_#000] text-white transition-colors flex items-center gap-1 cursor-pointer active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000]"
+                                    >
+                                      <span>📧</span> Email Employer
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Inline Dropdown for selection of cards */}
+                                {openAssignDropdownId === evt.id && (
+                                  <div className="flex gap-2 items-center bg-black/30 p-1.5 rounded border border-[var(--color-dark-tertiary,#3D3D3D)]/40 animate-slideDown">
+                                    <select
+                                      value={(isReceiptLog ? evt.cardId : evt.assignedCardId) || ''}
+                                      onChange={async (e) => {
+                                        const updatedVal = e.target.value || undefined;
+                                        await triggerHaptic();
+                                        if (isReceiptLog) {
+                                          const updatedReceipts = receipts.map(r => r.id === evt.id ? { ...r, cardId: updatedVal } : r);
+                                          await saveReceipts(updatedReceipts);
+                                          showToast(updatedVal ? "🔗 Receipt linked to card!" : "🗑️ Receipt unassigned!");
+                                        } else {
+                                          if (updatedVal) {
+                                            await dispatchLogToCard(evt.id, updatedVal);
+                                          } else {
+                                            const updatedLogs = voiceLogs.map(l => l.id === evt.id ? { ...l, assignedCardId: undefined } : l);
+                                            await saveVoiceLogs(updatedLogs);
+                                            showToast("🗑️ Note unassigned!");
+                                          }
+                                        }
+                                        setOpenAssignDropdownId(null);
+                                      }}
+                                      className="flex-grow bg-black border border-gray-700 text-white text-[9px] font-bold rounded p-1 outline-none font-mono cursor-pointer"
+                                    >
+                                      <option value="">-- No Linked Card --</option>
+                                      {cards.map(c => (
+                                        <option key={c.id} value={c.id}>{c.title}</option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => setOpenAssignDropdownId(null)}
+                                      className="px-2 py-1 text-[8px] bg-gray-800 hover:bg-gray-700 text-white rounded font-bold"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -4372,8 +5033,23 @@ export default function App() {
 
                           const subject = encodeURIComponent(`Triage Expense Claims: ${formattedDate}`);
                           const body = encodeURIComponent(report);
-                          window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+                          window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
                           showToast("📧 Compiling and opening Mail client...");
+
+                          // Track metadata: Mark compiled receipt claims as emailed with timestamps
+                          const emailedIds = filteredClaims.map(fc => fc.id);
+                          const updatedReceipts = receipts.map(r => {
+                            if (emailedIds.includes(r.id)) {
+                              return {
+                                ...r,
+                                isEmailed: true,
+                                emailedAt: Date.now(),
+                                emailedTo: employerEmail || 'Specified Recipient'
+                              };
+                            }
+                            return r;
+                          });
+                          await saveReceipts(updatedReceipts);
                         }}
                         className="px-3 py-2 bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 border border-black shadow-[2px_2px_0px_0px_#000] text-white font-mono text-[9px] uppercase font-bold rounded flex items-center gap-1.5 cursor-pointer active:translate-y-0.5 active:shadow-[0px_0px_0px_0px_#000] transition-all"
                       >
@@ -4445,23 +5121,23 @@ export default function App() {
                 <ul className="list-none flex flex-col gap-1.5 text-[9px] text-gray-300 font-bold uppercase tracking-wide">
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📸 Photo Snap</strong>: Tap 'Snap Receipt Photo' to toggle the device camera or capture an image instantly.</span>
+                    <span><strong>📸 Snap Photo</strong>: Tap 'Snap Receipt Photo' to open your device's camera and photograph your purchase slip instantly.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>🔒 Tamper-Proof</strong>: Recording automatically logs the exact, verified date & time of the expenditure claim.</span>
+                    <span><strong>🔒 Audit Timeline</strong>: Logs the exact date and time of the receipt to keep your financial logs highly accurate.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>💰 Claim Costs</strong>: Type in the Merchant name and Dollar Amount to record your financial claim.</span>
+                    <span><strong>💰 Record Costs</strong>: Type in the merchant name and total dollar amount to claim your expense.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📅 Timeline Mapping</strong>: Open the Calendar modal and select the 'Receipts' filter to project all your claims.</span>
+                    <span><strong>📅 Calendar Timeline</strong>: Choose the 'Receipts' tab on your Calendar to see all your business claims and photo previews mapped out by date.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📧 Email Claim</strong>: In the Calendar receipts view, tap 'Email Employer' to compile and submit claim logs!</span>
+                    <span><strong>📧 Send Expense Claims</strong>: Type in your employer's email to instantly compile a formatted expense report in your mail app.</span>
                   </li>
                 </ul>
               </div>
@@ -4488,6 +5164,7 @@ export default function App() {
                     const indicator = document.getElementById('temp-receipt-photo-src') as HTMLInputElement;
                     if (indicator) indicator.value = base64Url;
                     showToast("📸 Receipt photo loaded successfully");
+                    runReceiptOcrAndPopulate(base64Url, false, file.name);
                   };
                   reader.readAsDataURL(file);
                 }
@@ -4504,11 +5181,13 @@ export default function App() {
                 const amountInput = document.getElementById('receipt-amount-input') as HTMLInputElement;
                 const notesInput = document.getElementById('receipt-notes-input') as HTMLInputElement;
                 const photoSrcInput = document.getElementById('temp-receipt-photo-src') as HTMLInputElement;
+                const cardSelect = document.getElementById('receipt-card-select') as HTMLSelectElement;
 
                 const merchant = merchantInput?.value.trim() || '';
                 const amount = parseFloat(amountInput?.value || '0');
                 const notes = notesInput?.value.trim() || '';
                 const imageUrl = photoSrcInput?.value || '';
+                const cardId = cardSelect?.value || undefined;
 
                 if (!merchant) {
                   showToast("⚠️ Please enter a Merchant name!");
@@ -4529,10 +5208,11 @@ export default function App() {
                   imageUrl,
                   merchant,
                   amount,
-                  notes: notes || undefined
+                  notes: notes || undefined,
+                  cardId
                 };
-
-                setReceipts((prev) => [newReceipt, ...prev]);
+                
+                await saveReceipts([newReceipt, ...receipts]);
                 showToast(`🧾 Logged $${amount.toFixed(2)} claim for ${merchant}!`);
 
                 // Reset inputs
@@ -4586,6 +5266,7 @@ export default function App() {
                           const indicator = document.getElementById('temp-receipt-photo-src') as HTMLInputElement;
                           if (indicator) indicator.value = base64Url;
                           showToast("📸 Receipt photo captured!");
+                          runReceiptOcrAndPopulate(image.path || image.webPath, isNative, image.path || "");
                         }
                       } catch (err) {
                         console.log("Capacitor camera failed or cancelled, trying hybrid file trigger", err);
@@ -4642,16 +5323,58 @@ export default function App() {
                 />
               </div>
 
+              {/* Link Card association */}
+              <div className="flex flex-col gap-1">
+                <label htmlFor="receipt-card-select" className="text-[9px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📋</span> Link to Board Card (Optional)
+                </label>
+                <select
+                  id="receipt-card-select"
+                  className="bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-2 text-[10px] font-bold cursor-pointer"
+                >
+                  <option value="">-- No Card (General Claim) --</option>
+                  {cards.map(c => (
+                    <option key={c.id} value={c.id}>{c.title || 'Untitled'}</option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 type="submit"
+                onClick={() => {
+                  // Explicitly clear card dropdown on submit click if inputs reset
+                  setTimeout(() => {
+                    const sel = document.getElementById('receipt-card-select') as HTMLSelectElement;
+                    if (sel) sel.value = '';
+                  }, 50);
+                }}
                 className="py-2.5 bg-black border-2 border-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)] text-white hover:text-white font-black uppercase rounded text-[10px] transition-all cursor-pointer shadow-[4px_4px_0px_0px_#000] active:translate-y-0.5 active:shadow-[2px_2px_0px_0px_#000] mt-1"
               >
                 💾 Record Expenditure Claim
               </button>
             </form>
 
+            {/* Employer Recipient Pre-fill Configuration */}
+            <div className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-3 rounded flex flex-col gap-1.5 flex-shrink-0 text-left">
+              <label htmlFor="employer-email-prefill" className="text-[9px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <span>📧</span> Employer's Email (Pre-fill Recipient)
+              </label>
+              <input
+                type="email"
+                id="employer-email-prefill"
+                value={employerEmail}
+                onChange={async (e) => {
+                  setEmployerEmail(e.target.value);
+                  await setStorage(`factory_app_${config.id}_employer_email`, e.target.value);
+                }}
+                placeholder="employer@company.com"
+                className="bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-2 text-[10px] font-bold"
+              />
+              <span className="text-[8px] text-gray-500 uppercase tracking-widest font-black">Pre-fills the recipient address when compiling & emailing claim reports</span>
+            </div>
+
             {/* Scrollable Claims Feed */}
-            <div className="flex-grow overflow-y-auto pr-1">
+            <div className="flex-grow overflow-y-auto pr-1 text-left">
               <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black block mb-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1">Logged Receipts Feed</span>
 
               {receipts.length === 0 ? (
@@ -4690,14 +5413,34 @@ export default function App() {
                               "{log.notes}"
                             </p>
                           )}
+                          {log.isEmailed && (
+                            <div className="mt-1 flex items-center gap-1.5 text-[8px] text-green-400 font-bold uppercase tracking-wider bg-green-950/30 p-1 border border-green-900/30 rounded w-fit">
+                              <span>✔️ Emailed to {log.emailedTo} on {new Date(log.emailedAt!).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                            </div>
+                          )}
+                          {log.cardId && (
+                            (() => {
+                              const linked = cards.find(c => c.id === log.cardId);
+                              if (linked) {
+                                return (
+                                  <span className="mt-1 inline-flex items-center gap-1 text-[8px] text-[var(--color-accent,#DF5504)] font-mono font-bold uppercase tracking-wider bg-[var(--color-accent,#DF5504)]/10 px-1.5 py-0.5 border border-[var(--color-accent,#DF5504)]/20 rounded w-fit">
+                                    📋 Assigned Card: {linked.title}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()
+                          )}
                         </div>
 
                         {/* Quick Delete claim */}
                         <button
                           onClick={async () => {
                             await triggerHaptic();
-                            setReceipts((prev) => prev.filter(r => r.id !== log.id));
-                            showToast(`🧾 Claim for ${log.merchant} removed`);
+                            if (confirm(`Are you sure you want to permanently delete this receipt claim for ${log.merchant}? This will completely remove the image reference and claim database record.`)) {
+                              await saveReceipts(receipts.filter(r => r.id !== log.id));
+                              showToast(`🗑️ Claim for ${log.merchant} permanently deleted`);
+                            }
                           }}
                           className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-950 border border-red-800 text-red-400 flex items-center justify-center font-bold text-[8px] hover:bg-red-900 hover:text-white transition-colors cursor-pointer"
                         >
@@ -4711,14 +5454,70 @@ export default function App() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+            <div className="flex justify-between items-center mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 flex-shrink-0">
+              {receipts.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    if (!employerEmail) {
+                      showToast("⚠️ Please specify an Employer's Email first!");
+                      document.getElementById('employer-email-prefill')?.focus();
+                      return;
+                    }
+
+                    // Assemble ASCII business claim table for all receipts
+                    let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                    report += `TOTAL RECLAIMABLE AMOUNT: $${receipts.reduce((acc, r) => acc + r.amount, 0).toFixed(2)}\n\n`;
+                    report += `ITEMIZED BUSINESS CLAIMS LIST:\n`;
+                    report += `----------------------------------------\n`;
+
+                    receipts.forEach((claim, idx) => {
+                      const cTime = new Date(claim.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                      const cDate = new Date(claim.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                      report += `${idx + 1}. [${cDate} at ${cTime}] Claim Merchant: ${claim.merchant}\n`;
+                      report += `   Amount: $${claim.amount.toFixed(2)}\n`;
+                      if (claim.notes) report += `   Purpose: "${claim.notes}"\n`;
+                      if (claim.isEmailed) report += `   Status: PREVIOUSLY SENT to ${claim.emailedTo}\n`;
+                      report += `----------------------------------------\n`;
+                    });
+
+                    report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipts are on file.`;
+
+                    const subject = encodeURIComponent(`Triage Expense Claims: Summary Report`);
+                    const body = encodeURIComponent(report);
+                    window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
+                    showToast("📧 Compiling and opening Mail client...");
+
+                    // Track metadata: Mark compiled receipt claims as emailed with timestamps
+                    const emailedIds = receipts.map(fc => fc.id);
+                    const updatedReceipts = receipts.map(r => {
+                      if (emailedIds.includes(r.id)) {
+                        return {
+                          ...r,
+                          isEmailed: true,
+                          emailedAt: Date.now(),
+                          emailedTo: employerEmail || 'Specified Recipient'
+                        };
+                      }
+                      return r;
+                    });
+                    await saveReceipts(updatedReceipts);
+                  }}
+                  className="px-3 py-2 bg-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/90 border border-black shadow-[2px_2px_0px_0px_#000] text-white font-mono text-[9px] uppercase font-bold rounded flex items-center gap-1.5 cursor-pointer active:translate-y-0.5 active:shadow-[2px_2px_0px_0px_#000] transition-all"
+                >
+                  📧 Email Claims Report
+                </button>
+              ) : (
+                <div />
+              )}
               <button
                 type="button"
                 onClick={async () => {
                   await triggerHaptic();
                   setIsReceiptsOpen(false);
                 }}
-                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded"
+                className="px-4 py-2 bg-black border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold rounded ml-auto"
               >
                 Done
               </button>
@@ -4803,7 +5602,7 @@ export default function App() {
                   <div className="flex flex-col gap-0.5">
                     <span className="font-black text-white uppercase tracking-wide">Timers & Checklist Indicators</span>
                     <ul className="list-disc pl-4 flex flex-col gap-0.5 text-gray-400 mt-1 font-bold">
-                      <li><strong className="text-white">Spent Timer (e.g. 15m spent)</strong>: Displays total time spent on this card, updated by active Pomodoro study sessions.</li>
+                      <li><strong className="text-white">Spent Timer (e.g. 15m spent)</strong>: Displays total time spent on this card, updated by active focused study sessions.</li>
                       <li><strong className="text-white">Task Progress</strong>: Shows percentage progress and next pending sub-checklist items directly on the card face.</li>
                     </ul>
                   </div>
@@ -4819,7 +5618,7 @@ export default function App() {
                       <li><strong className="text-white">📅 Calendar</strong>: Toggle the native agenda timetable overlay.</li>
                       <li><strong className="text-white">📔 Verbal Journal</strong>: Launch speech recording entries.</li>
                       <li><strong className="text-white">🧾 Receipts</strong>: Log claims and upload expense captures.</li>
-                      <li><strong className="text-white">🍅 Pomodoro</strong>: Launch study timers mapped to iOS Focus Modes.</li>
+                      <li><strong className="text-white">🍅 Focus Timer</strong>: Launch study timers mapped to iOS Focus Modes.</li>
                     </ul>
                   </div>
                 </div>
@@ -4886,18 +5685,33 @@ export default function App() {
               <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-4 rounded-lg flex flex-col gap-2 max-h-[40vh] overflow-y-auto animate-fadeIn flex-shrink-0">
                 <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Quick Help Guide</span>
                 <ul className="list-disc pl-4 text-[10px] text-gray-300 flex flex-col gap-1.5 leading-relaxed font-bold">
-                  <li><span className="text-white">🎙️ Dictate Note</span>: Tap the red microphone button to start recording your thoughts. Speak clearly to transcribe your speech.</li>
-                  <li><span className="text-white">🕒 Auto Timestamps</span>: Your recorded reflections are automatically date-and-time stamped to construct a chronological work timeline.</li>
-                  <li><span className="text-white">📤 Card Dispatching</span>: Use the orange dispatch dropdown menu to instantly attach/prepend any note to your active task cards grouped by columns.</li>
+                  <li><span className="text-white">🎙️ Voice Transcription</span>: Tap the red microphone button to speak your thoughts. The app instantly transcribes your spoken words into a typed text log.</li>
+                  <li><span className="text-white">🕒 Time-stamped Diary</span>: Every entry is automatically date-and-time stamped to build a clear, chronological history of your workday.</li>
+                  <li><span className="text-white">📤 Link to Tasks</span>: Use the dropdown on any note to attach that reflection directly to any task card description list.</li>
                 </ul>
               </div>
             )}
 
-            {/* Microphone Dictation Action Panel */}
             <div className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-4 rounded flex flex-col items-center gap-3 flex-shrink-0">
               <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Daily Journal Log</span>
+
+              {/* Auto-Dispatch on Creation Dropdown */}
+              <div className="flex flex-col gap-1 w-full text-left">
+                <label htmlFor="creation-auto-dispatch-select" className="text-[9px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5 self-start">
+                  <span>📋</span> Auto-Dispatch to Card (Optional)
+                </label>
+                <select
+                  id="creation-auto-dispatch-select"
+                  className="bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white hover:border-gray-500 focus:border-[var(--color-accent,#DF5504)] outline-none rounded p-2 text-[10px] font-bold cursor-pointer font-mono"
+                >
+                  <option value="">-- No Auto-Dispatch (Unassigned Note) --</option>
+                  {cards.map(c => (
+                    <option key={c.id} value={c.id}>{c.title || 'Untitled Card'}</option>
+                  ))}
+                </select>
+              </div>
               
-              <div className="flex flex-col items-center gap-2 w-full">
+              <div className="flex flex-col items-center gap-2 w-full mt-1">
                 <button
                   onClick={async () => {
                     await triggerHaptic();
@@ -4940,9 +5754,17 @@ export default function App() {
                           timestamp: Date.now(),
                           text: typedDiaryText.trim()
                         };
-                        setVoiceLogs(prev => [newLog, ...prev]);
+                        const updatedLogs = [newLog, ...voiceLogs];
+                        await saveVoiceLogs(updatedLogs);
                         setTypedDiaryText('');
                         showToast("✍️ Added Typed Daily Reflection!");
+
+                        // Auto dispatch on creation if selected
+                        const creationSelect = document.getElementById('creation-auto-dispatch-select') as HTMLSelectElement;
+                        const targetCardId = creationSelect?.value;
+                        if (targetCardId) {
+                          await dispatchLogToCard(newLog.id, targetCardId);
+                        }
                       }
                     }}
                     className="flex-grow bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-3 py-1.5 text-xs text-white rounded font-mono focus:border-[var(--color-accent,#DF5504)] focus:outline-none"
@@ -4957,9 +5779,17 @@ export default function App() {
                           timestamp: Date.now(),
                           text: typedDiaryText.trim()
                         };
-                        setVoiceLogs(prev => [newLog, ...prev]);
+                        const updatedLogs = [newLog, ...voiceLogs];
+                        await saveVoiceLogs(updatedLogs);
                         setTypedDiaryText('');
                         showToast("✍️ Added Typed Daily Reflection!");
+
+                        // Auto dispatch on creation if selected
+                        const creationSelect = document.getElementById('creation-auto-dispatch-select') as HTMLSelectElement;
+                        const targetCardId = creationSelect?.value;
+                        if (targetCardId) {
+                          await dispatchLogToCard(newLog.id, targetCardId);
+                        }
                       }
                     }}
                     className="px-3 py-1.5 bento-btn text-white text-[10px] font-black uppercase rounded cursor-pointer transition-all flex items-center justify-center gap-1"
@@ -5128,15 +5958,15 @@ export default function App() {
             {/* ℹ️ Sliding Help Guide Box */}
             {showTimerHelp && (
               <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded-lg flex flex-col gap-2 max-h-[30vh] overflow-y-auto animate-fadeIn flex-shrink-0 text-[10px] text-gray-300">
-                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Standalone Pomodoro Runbook</span>
+                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Standalone Focus Stopwatch</span>
                 <p className="leading-relaxed font-bold">
-                  This study session timer is completely separate from individual card timers and runs as its own high-precision stopwatch:
+                  This timer helps you alternate active work focus periods and refreshing breaks separate from individual task timers:
                 </p>
                 <ul className="list-disc pl-4 flex flex-col gap-1 leading-relaxed font-bold">
-                  <li><span className="text-white">🍅 Work Session</span>: Focus intensely for 25 minutes.</li>
-                  <li><span className="text-white">☕ Short Break</span>: Rest your eyes and relax for 5 minutes.</li>
-                  <li><span className="text-white">🛌 Long Break</span>: Unwind or reset with a longer 15-minute break.</li>
-                  <li><span className="text-white">🔔 Native Notifications</span>: Will fire push notifications and physical device vibrations when the timer completes.</li>
+                  <li><span className="text-white">⏱️ Active Work Focus</span>: Work with zero distraction for 25 minutes.</li>
+                  <li><span className="text-white">☕ Rest Break</span>: Unwind and relax your mind for 5 minutes.</li>
+                  <li><span className="text-white">🛌 Reset Break</span>: Take a longer 15-minute break to recharge.</li>
+                  <li><span className="text-white">🔔 Sound & Vibrate Alerts</span>: Plays an alarm and vibrates your phone when the focus or break session finishes.</li>
                 </ul>
               </div>
             )}
