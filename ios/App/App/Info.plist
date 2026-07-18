@@ -49,5 +49,11 @@
 	<string>Triage Lite requires speech recognition access to transcribe verbal diary entries and daily journal logs locally on your device.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Triage Lite requires microphone access to capture your speech for transcribing verbal reflections.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Triage Lite requires camera access to snap photos of business receipts and log expense claims securely on your device.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Triage Lite requires photo library access to import and associate business receipt screenshots from your camera roll.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Triage Lite requires permission to save newly snapped receipt photographs directly into your photo library.</string>
 </dict>
 </plist>

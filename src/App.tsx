@@ -125,7 +125,10 @@ export default function App() {
     if (!card.dueDate) return;
     try {
       const permission = await CapacitorCalendar.requestWriteOnlyCalendarAccess();
-      if (permission.result !== 'granted') return;
+      if (permission.result !== 'granted') {
+        showToast("⚠️ Calendar write permission denied! Please enable in Settings.");
+        return;
+      }
 
       const startDate = new Date(card.dueDate);
       const endDate = new Date(card.dueDate + 60 * 60 * 1000); // 1 hour duration
@@ -195,7 +198,7 @@ export default function App() {
       try {
         const permission = await SpeechRecognition.requestPermissions();
         if (permission.speechRecognition !== 'granted') {
-          showToast("⚠️ Permission denied for speech recognition!");
+          showToast("⚠️ Speech Recognition denied! Please enable Speech Recognition inside iPhone Settings.");
           return;
         }
 
@@ -281,7 +284,11 @@ export default function App() {
 
         recognition.onerror = (e: any) => {
           console.error("[WebSpeech] Recognition error", e);
-          showToast("⚠️ Speech recognition failed!");
+          if (e?.error === 'not-allowed') {
+            showToast("⚠️ Microphone permission denied! Enable microphone access in browser settings.");
+          } else {
+            showToast("⚠️ Speech recognition failed!");
+          }
         };
 
         recognition.onend = () => {
@@ -344,7 +351,10 @@ export default function App() {
     if (!card.dueDate) return;
     try {
       const perm = await LocalNotifications.requestPermissions();
-      if (perm.display !== 'granted') return;
+      if (perm.display !== 'granted') {
+        showToast("⚠️ Alarms disabled! Grant Notification permissions in iPhone Settings.");
+        return;
+      }
 
       // Extract numerical ID from string, fallback to timestamp
       const numericId = parseInt(card.id.replace(/\D/g, '')) || Date.now();
@@ -372,7 +382,10 @@ export default function App() {
     if (!item.dueDate) return;
     try {
       const perm = await LocalNotifications.requestPermissions();
-      if (perm.display !== 'granted') return;
+      if (perm.display !== 'granted') {
+        showToast("⚠️ Checklist alarms disabled! Grant Notification permissions in iPhone Settings.");
+        return;
+      }
 
       // Extract a unique numeric id from the item id, or use random fallback
       const numericId = parseInt(item.id.replace(/\D/g, '')) || Math.floor(Math.random() * 1000000) + 1000000;
@@ -415,6 +428,117 @@ export default function App() {
   }, []);
 
   // Application State
+  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'es' | 'fr' | 'de'>(() => {
+    return (localStorage.getItem('triage_language') as 'en' | 'es' | 'fr' | 'de') || 'en';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('triage_language', currentLanguage);
+  }, [currentLanguage]);
+
+  const translations = {
+    en: {
+      menuTitle: "Triage Board Menu",
+      close: "Close",
+      runbookTitle: "Triage Settings Runbook",
+      exportBackup: "Export Data Backup",
+      exportBackupDesc: "Download offline work as standard Excel-compatible CSV database.",
+      icloudSync: "Apple iCloud Synchronization",
+      icloudSyncDesc: "Check connection, link Enterprise SQL database, or sync devices.",
+      labelStudio: "Board Label Studio",
+      labelStudioDesc: "Create classification tags, change label text name, or preset colors.",
+      diagnostics: "Native Feature Diagnostics",
+      diagnosticsDesc: "Inspect active runtime platform, local storage, calendar state, and audio API.",
+      langSelection: "Language Selection",
+      langSelectionDesc: "Select your preferred language for the user interface.",
+      backToDashboard: "Back To Dashboard",
+      exportTitle: "Export Data Backup",
+      exportTitleDesc: "Save your work to a safe backup file on your computer. Downloads an Excel-compatible spreadsheet showing all of your active task card lists, timesheet focus hours, and checklist progress notes.",
+      icloudSyncTitle: "Apple iCloud Synchronization",
+      icloudSyncTitleDesc: "Keep your boards perfectly synced across your iPhone, iPad, and Mac. Dynamically saves and matches your lists, checklists, categories, and focus timer logs across all of your Apple devices.",
+      labelStudioTitle: "Board Label Studio",
+      labelStudioTitleDesc: "Your custom category tag workshop. Create custom labels, choose neon highlight colors, or rename existing categories to instantly prioritize and color-code your cards.",
+      diagnosticsTitle: "Feature Diagnostics",
+      diagnosticsTitleDesc: "System compatibility test sweeps. Quickly verifies your device compatibility with core features, including tap vibrations, microphone recordings, in-app sounds, local notifications, and system calendar alarms.",
+    },
+    es: {
+      menuTitle: "Menú de Triage",
+      close: "Cerrar",
+      runbookTitle: "Guía de Configuración",
+      exportBackup: "Copia de Seguridad",
+      exportBackupDesc: "Descargue el trabajo sin conexión como base de datos CSV compatible con Excel.",
+      icloudSync: "Sincronización con Apple iCloud",
+      icloudSyncDesc: "Verifique la conexión, enlace la base de datos SQL o sincronice dispositivos.",
+      labelStudio: "Estudio de Etiquetas",
+      labelStudioDesc: "Cree etiquetas de clasificación, cambie de nombre o preestablezca colores.",
+      diagnostics: "Diagnósticos de Funciones Nativas",
+      diagnosticsDesc: "Inspeccione la plataforma, el almacenamiento, el calendario y la API de audio.",
+      langSelection: "Selección de Idioma",
+      langSelectionDesc: "Seleccione su idioma preferido para la interfaz de usuario.",
+      backToDashboard: "Volver al Tablero",
+      exportTitle: "Copia de Seguridad de Datos",
+      exportTitleDesc: "Guarde su trabajo en un archivo de copia de seguridad seguro en su computadora. Descarga una hoja de cálculo compatible con Excel que muestra todas sus listas de tarjetas de tareas activas, horas de enfoque de hojas de tiempo y notas de progreso de listas de verificación.",
+      icloudSyncTitle: "Sincronización con Apple iCloud",
+      icloudSyncTitleDesc: "Mantenga sus tableros perfectamente sincronizados en su iPhone, iPad y Mac. Guarda y hace coincidir dinámicamente sus registros en todos sus dispositivos Apple.",
+      labelStudioTitle: "Estudio de Etiquetas de Tablero",
+      labelStudioTitleDesc: "Su taller de etiquetas de categorías personalizadas. Cree etiquetas personalizadas, elija colores de resaltado de neón o cambie el nombre de las categorías.",
+      diagnosticsTitle: "Diagnóstico de Funciones",
+      diagnosticsTitleDesc: "Barridos de prueba de compatibilidad del sistema. Verifica rápidamente la compatibilidad de su dispositivo con las funciones principales.",
+    },
+    fr: {
+      menuTitle: "Menu de Triage",
+      close: "Fermer",
+      runbookTitle: "Guide de Configuration",
+      exportBackup: "Sauvegarde des Données",
+      exportBackupDesc: "Téléchargez votre travail hors ligne sous forme de base de données CSV.",
+      icloudSync: "Synchronisation Apple iCloud",
+      icloudSyncDesc: "Vérifiez la connexion, liez la base de données SQL ou synchronisez.",
+      labelStudio: "Studio d'Étiquettes",
+      labelStudioDesc: "Créez des étiquettes, modifiez le nom ou prédéfinissez des couleurs.",
+      diagnostics: "Diagnostics des Fonctions",
+      diagnosticsDesc: "Inspectez la plateforme active, le stockage local et l'état de l'API audio.",
+      langSelection: "Sélection de la Langue",
+      langSelectionDesc: "Sélectionnez votre langue préférée pour l'interface.",
+      backToDashboard: "Retour au Tableau",
+      exportTitle: "Sauvegarde des Données",
+      exportTitleDesc: "Enregistrez votre travail dans un fichier de sauvegarde sécurisé sur votre ordinateur. Télécharge un tableur compatible avec Excel.",
+      icloudSyncTitle: "Synchronisation Apple iCloud",
+      icloudSyncTitleDesc: "Gardez vos tableaux parfaitement synchronisés sur votre iPhone, iPad et Mac.",
+      labelStudioTitle: "Studio d'Étiquettes de Tableau",
+      labelStudioTitleDesc: "Votre atelier de balises de catégories personnalisées. Créez des étiquettes personnalisées.",
+      diagnosticsTitle: "Diagnostics des Fonctionnalités",
+      diagnosticsTitleDesc: "Balayages de tests de compatibilité système. Vérifie rapidement la compatibilité de votre appareil.",
+    },
+    de: {
+      menuTitle: "Triage-Board-Menü",
+      close: "Schließen",
+      runbookTitle: "Konfigurationshandbuch",
+      exportBackup: "Datenexport-Backup",
+      exportBackupDesc: "Offline-Arbeiten als standardmäßige Excel-kompatible CSV-Datenbank herunterladen.",
+      icloudSync: "Apple iCloud-Synchronisierung",
+      icloudSyncDesc: "Verbindung prüfen, SQL-Datenbank verknüpfen oder Geräte synchronisieren.",
+      labelStudio: "Board-Label-Studio",
+      labelStudioDesc: "Klassifizierungs-Tags erstellen, Label-Textnamen ändern oder Farben voreinstellen.",
+      diagnostics: "Native Feature-Diagnose",
+      diagnosticsDesc: "Aktive Plattform, lokalen Speicher, Kalenderstatus und Audio-API prüfen.",
+      langSelection: "Sprachauswahl",
+      langSelectionDesc: "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.",
+      backToDashboard: "Zurück zum Dashboard",
+      exportTitle: "Datenexport-Backup",
+      exportTitleDesc: "Speichern Sie Ihre Arbeit in einer sicheren Backup-Datei auf Ihrem Computer. Lädt eine Excel-kompatible Tabelle herunter.",
+      icloudSyncTitle: "Apple iCloud-Synchronisierung",
+      icloudSyncTitleDesc: "Halten Sie Ihre Boards auf Ihrem iPhone, iPad und Mac perfekt synchronisiert.",
+      labelStudioTitle: "Board-Label-Studio",
+      labelStudioTitleDesc: "Ihr Workshop für benutzerdefinierte Kategorie-Tags. Erstellen Sie benutzerdefinierte Labels.",
+      diagnosticsTitle: "Feature-Diagnose",
+      diagnosticsTitleDesc: "Systemkompatibilitätsprüfungen. Überprüft schnell die Kompatibilität Ihres Geräts.",
+    }
+  };
+
+  const t = (key: keyof typeof translations['en']) => {
+    return translations[currentLanguage][key] || translations['en'][key];
+  };
+
   const [lists, setLists] = useState<List[]>([]);
 
   const [cards, setCards] = useState<Card[]>([
@@ -494,7 +618,6 @@ export default function App() {
   const [isSessionLogOpen, setIsSessionLogOpen] = useState(false);
   const [uncheckedLogCardIds, setUncheckedLogCardIds] = useState<string[]>([]);
   const [isLogHelpOpen, setIsLogHelpOpen] = useState(false);
-  const [isMenuHelpOpen, setIsMenuHelpOpen] = useState(false);
   const [isCardSessionLogExpanded, setIsCardSessionLogExpanded] = useState(false);
   const [currentSessionStartTime, setCurrentSessionStartTime] = useState<number | null>(null);
   const [currentSessionDuration, setCurrentSessionDuration] = useState<number>(0);
@@ -552,6 +675,10 @@ export default function App() {
   const [isDocStudioOpen, setIsDocStudioOpen] = useState(false);
   const [isReceiptStudioOpen, setIsReceiptStudioOpen] = useState(false);
   const [isReceiptsLinkHelpOpen, setIsReceiptsLinkHelpOpen] = useState(false);
+  const [isReceiptVerificationHelpOpen, setIsReceiptVerificationHelpOpen] = useState(false);
+  const [showBackupHelp, setShowBackupHelp] = useState(false);
+  const [showSyncHelp, setShowSyncHelp] = useState(false);
+  const [showDiagnosticsHelp, setShowDiagnosticsHelp] = useState(false);
   const [openAssignDropdownId, setOpenAssignDropdownId] = useState<string | null>(null);
   const [selectedCalendarItemIds, setSelectedCalendarItemIds] = useState<string[]>([]);
   const [isTimerModalOpen, setIsTimerModalOpen] = useState(false);
@@ -611,7 +738,7 @@ export default function App() {
   const [activeColumnIndex, setActiveColumnIndex] = useState(0);
 
   // Dedicated Menu View State
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeMenuModal, setActiveMenuModal] = useState<'backup' | 'sync' | 'diagnostics' | null>(null);
 
   // Dedicated Global Label Manager Modal State
@@ -1113,12 +1240,67 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[var(--color-dark-bg,#282828)] flex items-center justify-center p-4 font-mono text-center">
         <div className="bento-box border-2 border-[var(--color-accent,#DF5504)] p-8 max-w-md">
-          <h2 className="text-2xl font-black text-white uppercase mb-4 tracking-wider">Triage Lite Premium</h2>
+          <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-3 mb-4 w-full">
+            <h2 className="text-xl font-black text-white uppercase tracking-wider">MTRAx lt</h2>
+            <button
+              type="button"
+              onClick={async () => {
+                await triggerHaptic();
+                setIsReceiptVerificationHelpOpen(!isReceiptVerificationHelpOpen);
+              }}
+              className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                isReceiptVerificationHelpOpen
+                  ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                  : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+              }`}
+              title="Receipt Sandbox Guide"
+            >
+              ❓
+            </button>
+          </div>
+
+          {isReceiptVerificationHelpOpen && (
+            <div className="mb-4 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+              <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                <span>🛡️ Sandbox Receipt Runbook</span>
+                <button
+                  type="button"
+                  onClick={() => setIsReceiptVerificationHelpOpen(false)}
+                  className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                >
+                  Hide ×
+                </button>
+              </div>
+              
+              <div className="flex flex-col gap-2 font-sans text-xs">
+                <p>
+                  🔒 <strong className="text-white font-mono">STANDALONE PRIVACY:</strong> MTRAx lt is offline-first. Your tasks, diary, and receipts are stored safely in a secure local database on your device.
+                </p>
+                <p>
+                  💰 <strong className="text-white font-mono">LIFETIME ACCESS:</strong> A single App Store purchase unlocks all features forever, with no recurring subscription models or tracker telemetry.
+                </p>
+                <p>
+                  🚀 <strong className="text-white font-mono">DEVELOPER BYPASS:</strong> Tap the simulate link at the bottom of the screen to quickly bypass receipt validation and test features locally.
+                </p>
+              </div>
+            </div>
+          )}
+
           <p className="text-[#8892b0] text-xs mb-6 leading-relaxed">
-            No valid App Store receipt found. Triage Lite is a premium standalone application with no free tier. Please purchase the app to securely sync your data.
+            No valid App Store receipt found. MTRAx lt is a premium standalone application with no free tier. Please purchase the app to securely sync your data.
           </p>
           <button className="w-full py-4 bento-btn text-white font-black uppercase text-sm">
             Purchase for $9.99
+          </button>
+
+          <button 
+            onClick={async () => {
+              await triggerHaptic();
+              alert("Sign Up for Premium coming soon! Thank you for your interest!");
+            }}
+            className="w-full mt-3 py-4 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-black uppercase text-sm rounded-md tracking-wider transition-all active:translate-y-0.5 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            💎 Sign Up for Premium
           </button>
           <button 
             onClick={() => {
@@ -1137,309 +1319,333 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col justify-between ios-safe-top ios-safe-bottom bg-[var(--color-dark-bg,#282828)] px-4 py-6 select-none">
       
-      {/* HEADER SECTION */}
-      <header className="flex flex-col gap-3.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6">
-        {/* Row 1: App Title & Tools Deck aligned side-by-side, plus the Runbook Help icon on the far right */}
-        <div className="flex justify-between items-center w-full">
-          <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto no-scrollbar">
-            <h1 className="text-xl sm:text-2xl font-black uppercase text-white tracking-wider flex-shrink-0">
-              {config.name}
-            </h1>
+      {/* COLLAPSIBLE LEFT UNIFIED SIDEBAR (DRAWER) */}
+      <div 
+        className={`fixed top-0 left-0 h-full w-72 bg-[var(--color-dark-bg,#282828)] border-r border-[var(--color-dark-tertiary,#3D3D3D)] shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col justify-between p-5 overflow-y-auto no-scrollbar ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col gap-5">
+          {/* Sidebar Header */}
+          <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
+            <span className="font-black text-xs text-white uppercase tracking-wider flex items-center gap-1.5 font-mono">
+              ☰ {config.name} Menu
+            </span>
+            <button 
+              onClick={async () => {
+                await triggerHaptic();
+                setIsSidebarOpen(false);
+              }}
+              className="text-xs uppercase font-mono font-bold text-gray-400 hover:text-white cursor-pointer"
+            >
+              ✕ {t('close')}
+            </button>
+          </div>
 
-            {/* Global Action Icons Deck (Sitting directly to the right of the Triage Lite label) */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsCalendarAgendaOpen(true);
-                  await fetchUpcomingCalendarEvents(calendarRangeDays);
-                }}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-                title="Calendar Agenda"
-              >
-                📅
-              </button>
+          {/* Section 1: Settings & Sync */}
+          <div className="flex flex-col gap-2 font-mono">
+            <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider mb-0.5">
+              ⚙️ {t('menuTitle')}
+            </span>
+            
+            {/* Row 1: Export Data */}
+            <button 
+              onClick={async () => {
+                await triggerHaptic();
+                setActiveMenuModal('backup');
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
+                  💾 {t('exportBackup')}
+                </span>
+                <span className="text-[9px] text-gray-400">
+                  {t('exportBackupDesc')}
+                </span>
+              </div>
+              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
+            </button>
 
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsDiaryOpen(true);
-                }}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-                title="Verbal Diary"
-              >
-                📔
-              </button>
+            {/* Row 2: iCloud Sync */}
+            <button 
+              onClick={async () => {
+                await triggerHaptic();
+                setActiveMenuModal('sync');
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
+                  🍏 {t('icloudSync')}
+                </span>
+                <span className="text-[9px] text-gray-400">
+                  {t('icloudSyncDesc')}
+                </span>
+              </div>
+              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
+            </button>
 
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsReceiptsOpen(true);
-                }}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-                title="Business Receipts"
-              >
-                🧾
-              </button>
+            {/* Row 3: Label Studio */}
+            <button 
+              onClick={async () => {
+                await triggerHaptic();
+                setEditingLabelId(null);
+                setLabelFormText('');
+                setLabelFormColor('#DF5504');
+                setIsGlobalLabelModalOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
+                  🏷 {t('labelStudio')}
+                </span>
+                <span className="text-[9px] text-gray-400">
+                  {t('labelStudioDesc')}
+                </span>
+              </div>
+              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
+            </button>
 
-              <button
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsTimerModalOpen(true);
-                }}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-                title="Pomodoro Study Timer"
-              >
-                🍅
-              </button>
+            {/* Row 4: Diagnostics */}
+            <button 
+              onClick={async () => {
+                await triggerHaptic();
+                setActiveMenuModal('diagnostics');
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
+                  ⚡ {t('diagnostics')}
+                </span>
+                <span className="text-[9px] text-gray-400">
+                  {t('diagnosticsDesc')}
+                </span>
+              </div>
+              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
+            </button>
 
-              <button
-                onClick={async () => {
+            {/* Row 5: Language Selection */}
+            <div className="w-full p-2.5 bento-box bg-black/40 flex justify-between items-center text-left">
+              <div className="flex flex-col gap-0.5 pr-2">
+                <span className="font-bold text-[11px] text-white">
+                  🌐 {t('langSelection')}
+                </span>
+                <span className="text-[9px] text-gray-400">
+                  {t('langSelectionDesc')}
+                </span>
+              </div>
+              <select
+                value={currentLanguage}
+                onChange={async (e) => {
                   await triggerHaptic();
-                  setIsSessionLogOpen(true);
+                  setCurrentLanguage(e.target.value as any);
                 }}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors"
-                title="Session Time Logs"
+                className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] rounded text-[10px] text-white p-1 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
               >
-                📊
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  await triggerHaptic();
-                  document.getElementById('global-file-picker')?.click();
-                }}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-xs sm:text-sm font-black transition-colors cursor-pointer"
-                title="Open File Picker"
-              >
-                📂
-              </button>
+                <option value="en">🇺🇸 English</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="fr">🇫🇷 Français</option>
+                <option value="de">🇩🇪 Deutsch</option>
+              </select>
             </div>
           </div>
 
+          {/* Section 2: Interactive Quick Tools */}
+          <div className="flex flex-col gap-2 font-mono">
+            <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider mb-0.5">
+              🛠️ Quick Tools
+            </span>
+            
+            {/* Button 1: Calendar */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsCalendarAgendaOpen(true);
+                await fetchUpcomingCalendarEvents(calendarRangeDays);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">📅</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Calendar Agenda</span>
+                <span className="text-[9px] text-gray-400">View upcoming times.</span>
+              </div>
+            </button>
+
+            {/* Button 2: Verbal Diary */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsDiaryOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">📔</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Verbal Diary</span>
+                <span className="text-[9px] text-gray-400">Record audio notes.</span>
+              </div>
+            </button>
+
+            {/* Button 3: Receipts */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsReceiptsOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">🧾</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Business Receipts</span>
+                <span className="text-[9px] text-gray-400">Manage tax expenses.</span>
+              </div>
+            </button>
+
+            {/* Button 4: Pomodoro */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsTimerModalOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">🍅</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Study Pomodoro</span>
+                <span className="text-[9px] text-gray-400">Start focus cycles.</span>
+              </div>
+            </button>
+
+            {/* Button 5: Time Logs */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsSessionLogOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">📊</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Session Time Logs</span>
+                <span className="text-[9px] text-gray-400">Check study logs.</span>
+              </div>
+            </button>
+
+            {/* Button 6: File Picker */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                document.getElementById('global-file-picker')?.click();
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">📂</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Open File Picker</span>
+                <span className="text-[9px] text-gray-400">Import attachments.</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Section 3: Premium Access */}
+          <div className="flex flex-col gap-2 font-mono">
+            <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider mb-0.5">
+              💎 Premium Access
+            </span>
+            
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                alert("Sign Up for Premium coming soon! Thank you for your interest!");
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-3 rounded-md border border-amber-500/40 bg-gradient-to-br from-amber-950/30 to-black/50 hover:from-amber-950/50 hover:to-amber-900/30 text-left transition-all active:translate-y-0.5 group cursor-pointer flex flex-col gap-1 shadow-[0_0_15px_rgba(245,158,11,0.05)] hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-amber-400 group-hover:text-amber-300 transition-colors uppercase tracking-wider">
+                  Sign Up for Premium
+                </span>
+                <span className="text-amber-500 group-hover:text-amber-300 text-[10px] pl-1 transition-colors">❯</span>
+              </div>
+              <span className="text-[9px] text-gray-400 leading-normal">
+                Unlock multi-device cloud backup and unlimited workspace extensions.
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 flex flex-col gap-2 font-mono text-[9px] text-gray-400 text-center">
+          <span>{config.name} v1.0.0</span>
+          <span>MDEx Workspace App Factory</span>
+        </div>
+      </div>
+
+      {/* Sidebar Backdrop overlay when open */}
+      {isSidebarOpen && (
+        <div 
+          onClick={async () => {
+            await triggerHaptic();
+            setIsSidebarOpen(false);
+          }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 animate-fadeIn"
+        />
+      )}
+      
+      {/* HEADER SECTION */}
+      <header className="flex items-center justify-between border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6">
+        <div className="flex items-center gap-3">
+          {/* Suited Minimalist Hamburger Menu Button */}
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsSidebarOpen(!isSidebarOpen);
+            }}
+            className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
+            title="Open Menu"
+          >
+            ☰
+          </button>
+
+          {/* Minimalist Dashboard Help/Runbook icon */}
           <button
             onClick={async () => {
               await triggerHaptic();
               setIsDashboardHelpOpen(true);
             }}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-[10px] font-black transition-colors cursor-pointer flex-shrink-0"
+            className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
             title="Dashboard Runbook"
           >
             ❓
           </button>
-        </div>
 
-        {/* Row 2: Menu Toggle (Placed directly under the Triage Lite label on the left side) */}
-        <div className="flex justify-start w-full">
-          <button 
-            onClick={async () => {
-              await triggerHaptic();
-              setIsMenuOpen(!isMenuOpen);
-            }}
-            className="text-[9px] sm:text-[10px] leading-none px-2 py-1.5 sm:px-2.5 bento-btn text-white uppercase font-black rounded-sm tracking-wide flex items-center gap-1 cursor-pointer"
-          >
-            {isMenuOpen ? '✕ Close' : '☰ Menu'}
-          </button>
+          <h1 className="text-xl sm:text-2xl font-black uppercase text-white tracking-wider pl-1">
+            {config.name}
+          </h1>
         </div>
       </header>
-
-      {/* MAIN VIEWPORT SWITCHER */}
-      {isMenuOpen ? (
-        <div className="flex-grow flex flex-col justify-start animate-fadeIn gap-6">
-          {/* MENU PAGE */}
-          <div className="bento-box p-6 flex flex-col gap-6 text-white max-w-2xl mx-auto w-full">
-            <div className="border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
-                  Triage Board Menu
-                </h2>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await triggerHaptic();
-                    setIsMenuHelpOpen(prev => !prev);
-                  }}
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center font-bold text-[10px] transition-colors cursor-pointer ${
-                    isMenuHelpOpen
-                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
-                      : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
-                  }`}
-                  title="Triage Settings Runbook"
-                >
-                  ❓
-                </button>
-              </div>
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsMenuOpen(false);
-                }}
-                className="text-xs uppercase font-mono font-bold text-gray-400 hover:text-white cursor-pointer"
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            {/* Expandable Menu Help Info Block */}
-            {isMenuHelpOpen && (
-              <div className="p-4 bento-box border-l-4 border-l-[#003B5C] bg-gradient-to-r from-blue-950/40 to-black/30 font-mono text-[10px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
-                <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
-                  <span className="font-black uppercase tracking-wider text-[#00A3E0] text-[10px] flex items-center gap-1.5">
-                    <span>⚙️</span> Triage Settings Runbook
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsMenuHelpOpen(false)}
-                    className="text-[9px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
-                  >
-                    ✕ Close
-                  </button>
-                </div>
-                
-                <div className="flex flex-col gap-2.5 text-gray-300 mt-1">
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none text-base">💾</span>
-                    <div>
-                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Export Data Backup</strong>
-                      Save your work to a safe backup file on your computer. Downloads an Excel-compatible spreadsheet showing all of your active task card lists, timesheet focus hours, and checklist progress notes.
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none text-base">🍏</span>
-                    <div>
-                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Apple iCloud Synchronization</strong>
-                      Keep your boards perfectly synced across your iPhone, iPad, and Mac. Dynamically saves and matches your lists, checklists, categories, and focus timer logs across all of your Apple devices.
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none text-base">🏷️</span>
-                    <div>
-                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Board Label Studio</strong>
-                      Your custom category tag workshop. Create custom labels, choose neon highlight colors, or rename existing categories to instantly prioritize and color-code your cards.
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none text-base">⚡</span>
-                    <div>
-                      <strong className="text-white font-bold block uppercase tracking-wide text-[9px] text-[#00A3E0] mb-0.5">Feature Diagnostics</strong>
-                      System compatibility test sweeps. Quickly verifies your device compatibility with core features, including tap vibrations, microphone recordings, in-app sounds, local notifications, and system calendar alarms.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Menu Settings Index List */}
-            <div className="flex flex-col gap-3 font-mono text-xs">
-              
-              {/* Row 1: Export Data */}
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setActiveMenuModal('backup');
-                }}
-                className="w-full p-4 bento-box bg-[var(--color-dark-bg,#282828)]/50 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group"
-              >
-                <div className="flex flex-col gap-1 pr-4">
-                  <span className="font-black text-xs text-white uppercase tracking-wider group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                    💾 Export Data Backup
-                  </span>
-                  <span className="text-[10px] text-gray-400 leading-relaxed">
-                    Download offline work as standard Excel-compatible CSV database.
-                  </span>
-                </div>
-                <span className="text-gray-400 group-hover:text-white font-black text-sm pl-2 transition-colors">❯</span>
-              </button>
-
-              {/* Row 2: iCloud Sync */}
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setActiveMenuModal('sync');
-                }}
-                className="w-full p-4 bento-box bg-[var(--color-dark-bg,#282828)]/50 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group"
-              >
-                <div className="flex flex-col gap-1 pr-4">
-                  <span className="font-black text-xs text-white uppercase tracking-wider group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                    🍏 Apple iCloud Synchronization
-                  </span>
-                  <span className="text-[10px] text-gray-400 leading-relaxed">
-                    Check connection, link Enterprise SQL database, or sync devices.
-                  </span>
-                </div>
-                <span className="text-gray-400 group-hover:text-white font-black text-sm pl-2 transition-colors">❯</span>
-              </button>
-
-              {/* Row 3: Label Studio */}
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setEditingLabelId(null);
-                  setLabelFormText('');
-                  setLabelFormColor('#DF5504');
-                  setIsGlobalLabelModalOpen(true);
-                }}
-                className="w-full p-4 bento-box bg-[var(--color-dark-bg,#282828)]/50 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group"
-              >
-                <div className="flex flex-col gap-1 pr-4">
-                  <span className="font-black text-xs text-white uppercase tracking-wider group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                    🏷 Board Label Studio
-                  </span>
-                  <span className="text-[10px] text-gray-400 leading-relaxed">
-                    Create classification tags, change label text name, or preset colors.
-                  </span>
-                </div>
-                <span className="text-gray-400 group-hover:text-white font-black text-sm pl-2 transition-colors">❯</span>
-              </button>
-
-              {/* Row 4: Diagnostics */}
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setActiveMenuModal('diagnostics');
-                }}
-                className="w-full p-4 bento-box bg-[var(--color-dark-bg,#282828)]/50 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group"
-              >
-                <div className="flex flex-col gap-1 pr-4">
-                  <span className="font-black text-xs text-white uppercase tracking-wider group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                    ⚡ Native Feature Diagnostics
-                  </span>
-                  <span className="text-[10px] text-gray-400 leading-relaxed">
-                    Inspect active runtime platform, local storage, calendar state, and audio API.
-                  </span>
-                </div>
-                <span className="text-gray-400 group-hover:text-white font-black text-sm pl-2 transition-colors">❯</span>
-              </button>
-
-            </div>
-
-            {/* Close back action */}
-            <div className="mt-4 border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 flex justify-end">
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsMenuOpen(false);
-                }}
-                className="px-6 py-2 bento-btn text-white font-black text-xs uppercase"
-              >
-                Back To Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
         <div className="grid grid-cols-1 gap-6 flex-grow items-start">
         
         {/* COL 1 & 2: THE BRUTAL KANBAN BOARD */}
         <div className="w-full grid grid-cols-1 gap-4">
           
           {/* UNIVERSAL COLUMN NAVIGATION SUBHEADER */}
-          <div className="flex justify-between items-center p-2.5 bento-box mb-4 font-mono text-xs gap-3 w-full">
-            <div className="flex items-center gap-2">
+          <div className="flex justify-start items-center p-2.5 bento-box mb-4 font-mono text-xs gap-4 w-full">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button 
                 onClick={async () => {
                   await triggerHaptic();
@@ -1461,7 +1667,7 @@ export default function App() {
                   };
                   setSelectedCardForEdit(newCard);
                 }}
-                className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black transition-all"
+                className="w-8 h-8 rounded-full bento-btn text-white flex items-center justify-center text-lg font-black transition-all cursor-pointer"
                 title="Quick-Add Card"
               >
                 ＋
@@ -1493,7 +1699,7 @@ export default function App() {
                   />
                   <button 
                     type="submit" 
-                    className="w-5 h-5 rounded-full bg-[var(--color-accent,#DF5504)] text-white font-bold flex items-center justify-center text-[10px] uppercase hover:opacity-90 active:scale-95 transition-all"
+                    className="w-5 h-5 rounded-full bg-[var(--color-accent,#DF5504)] text-white font-bold flex items-center justify-center text-[10px] uppercase hover:opacity-90 active:scale-95 transition-all cursor-pointer"
                   >
                     ✓
                   </button>
@@ -1503,7 +1709,7 @@ export default function App() {
                       setNewListVal('');
                       setIsAddingList(false);
                     }}
-                    className="w-5 h-5 rounded-full bg-transparent hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-xs font-mono transition-colors"
+                    className="w-5 h-5 rounded-full bg-transparent hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-xs font-mono transition-colors cursor-pointer"
                   >
                     ×
                   </button>
@@ -1514,7 +1720,7 @@ export default function App() {
                     await triggerHaptic();
                     setIsAddingList(true);
                   }}
-                  className="h-8 px-2.5 rounded-full bento-btn text-white flex items-center justify-center gap-1 text-[11px] font-bold uppercase transition-all"
+                  className="h-8 px-2.5 rounded-full bento-btn text-white flex items-center justify-center gap-1 text-[11px] font-bold uppercase transition-all cursor-pointer"
                   title="Add Custom List"
                 >
                   📋＋
@@ -1522,8 +1728,8 @@ export default function App() {
               )}
             </div>
 
-            {/* Custom Interactive Swipe Pagination Dots & Column Indicators */}
-            <div className="flex items-center gap-2 pr-1.5">
+            {/* Custom Interactive Swipe Pagination Dots & Column Indicators Aligned on Left */}
+            <div className="flex items-center gap-3.5">
               <div className="flex items-center gap-1.5">
                 {lists.map((list, idx) => (
                   <button 
@@ -1534,7 +1740,7 @@ export default function App() {
                       // Smooth scroll container to focus column if in horizontal layout
                       const container = document.getElementById('board-columns-container');
                       if (container) {
-                        const isMobile = window.innerWidth < 640; // Tailwind 'sm' threshold
+                        const isMobile = window.innerWidth < 640;
                         if (isMobile) {
                           const colWidth = container.clientWidth * 0.9;
                           container.scrollTo({ left: idx * colWidth, behavior: 'smooth' });
@@ -1546,7 +1752,7 @@ export default function App() {
                   />
                 ))}
               </div>
-              <span className="text-[10px] font-black text-white uppercase tracking-wider pl-1 font-mono">
+              <span className="text-[10px] font-black text-white uppercase tracking-wider pl-0.5 font-mono">
                 {lists[activeColumnIndex]?.name}
               </span>
             </div>
@@ -1812,8 +2018,6 @@ export default function App() {
 
       </div>
 
-      )}
-
       {/* FOOTER NOTCH GAP */}
       <footer className="text-center font-mono text-[9px] text-gray-600 border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-6 pt-4">
         {config.name} &bull; MDEx Workspace App Factory Engine &bull; Standard Multi-tenant Hybrid Sandbox
@@ -1909,20 +2113,65 @@ export default function App() {
       {activeMenuModal === 'backup' && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="w-full max-w-md bento-box p-6 text-white flex flex-col gap-4 font-mono text-xs">
-            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
-              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-1.5">
                 💾 Export Data Backup
               </h3>
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setActiveMenuModal(null);
-                }}
-                className="text-gray-400 hover:text-white font-black text-lg"
-              >
-                &times;
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowBackupHelp(!showBackupHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showBackupHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                  }`}
+                  title="Export Backup Guide"
+                >
+                  ❓
+                </button>
+                <button 
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setActiveMenuModal(null);
+                    setShowBackupHelp(false);
+                  }}
+                  className="text-gray-400 hover:text-white font-black text-lg transition-colors cursor-pointer bg-transparent border-none"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
+
+            {showBackupHelp && (
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>💾 Export Backup Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowBackupHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    📊 <strong className="text-white font-mono">EXCEL COMPATIBILITY:</strong> Export tasks, descriptions, checklist entries, and session time tracking into standard spreadsheet CSV formats.
+                  </p>
+                  <p>
+                    💾 <strong className="text-white font-mono">LOCAL DATA COPIES:</strong> Instantly compile and download exact snapshots of card databases straight onto your computer storage.
+                  </p>
+                  <p>
+                    ⚠️ <strong className="text-white font-mono">DATABASE RESET:</strong> Securely wipe active local boards and checklists clean to start fresh on a new blank workspace at any time.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <p className="text-gray-300 leading-relaxed text-[11px]">
               Save your offline guest sandbox work as a standardized, Excel-compatible CSV database. This allows you to back up and view all card parameters locally at any time.
@@ -1959,20 +2208,65 @@ export default function App() {
       {activeMenuModal === 'sync' && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="w-full max-w-md bento-box p-6 text-white flex flex-col gap-4 font-mono text-xs">
-            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
-              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-1.5">
                 ☁️ Synchronization Console
               </h3>
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setActiveMenuModal(null);
-                }}
-                className="text-gray-400 hover:text-white font-black text-lg"
-              >
-                &times;
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowSyncHelp(!showSyncHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showSyncHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                  }`}
+                  title="Cloud Sync Guide"
+                >
+                  ❓
+                </button>
+                <button 
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setActiveMenuModal(null);
+                    setShowSyncHelp(false);
+                  }}
+                  className="text-gray-400 hover:text-white font-black text-lg transition-colors cursor-pointer bg-transparent border-none"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
+
+            {showSyncHelp && (
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>☁️ Cloud Synchronization Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSyncHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    🍏 <strong className="text-white font-mono">ICLOUD BACKUP:</strong> Automate data backup by uploading workspaces and focus logs securely to your personal iCloud account.
+                  </p>
+                  <p>
+                    💻 <strong className="text-white font-mono">MULTI-DEVICE SYNC:</strong> Sync active boards instantly to seamlessly slide across iPad, iPhone, and Mac platforms.
+                  </p>
+                  <p>
+                    🔒 <strong className="text-white font-mono">ENTERPRISE LINKS:</strong> Easily link secure, enterprise-grade cloud databases to synchronize live tasks across workspace teams.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div>
               <h4 className="font-bold text-white uppercase text-xs mb-2 flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2">
@@ -2020,20 +2314,65 @@ export default function App() {
       {activeMenuModal === 'diagnostics' && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="w-full max-w-md bento-box p-6 text-white flex flex-col gap-4 font-mono text-xs">
-            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
-              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)]">
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-1.5">
                 ⚡ Native Feature Diagnostics
               </h3>
-              <button 
-                onClick={async () => {
-                  await triggerHaptic();
-                  setActiveMenuModal(null);
-                }}
-                className="text-gray-400 hover:text-white font-black text-lg"
-              >
-                &times;
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setShowDiagnosticsHelp(!showDiagnosticsHelp);
+                  }}
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                    showDiagnosticsHelp
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                      : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                  }`}
+                  title="Diagnostics Guide"
+                >
+                  ❓
+                </button>
+                <button 
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setActiveMenuModal(null);
+                    setShowDiagnosticsHelp(false);
+                  }}
+                  className="text-gray-400 hover:text-white font-black text-lg transition-colors cursor-pointer bg-transparent border-none"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
+
+            {showDiagnosticsHelp && (
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>⚡ System Diagnostics Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowDiagnosticsHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    🖥️ <strong className="text-white font-mono">PLATFORM WRAPPING:</strong> Review parameters checking whether the app runs inside a native Apple container or a standard browser.
+                  </p>
+                  <p>
+                    📅 <strong className="text-white font-mono">CALENDAR PIPELINE:</strong> Verify calendar status and sync connectivity to device timetable planners.
+                  </p>
+                  <p>
+                    🔊 <strong className="text-white font-mono">TACTILE CONTROLLER:</strong> Diagnose phone vibration triggers, switching dynamically to Web Audio synthesis fallbacks.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <p className="text-gray-300 leading-relaxed text-[11px]">
               Review system-level parameters checking direct wrapping container environments, database pipelines, hardware haptic engines, and background schedulers.
@@ -2101,16 +2440,29 @@ export default function App() {
 
             {/* ℹ️ Sliding Label Runbook Info Panel */}
             {showLabelHelp && (
-              <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded-lg flex flex-col gap-2 max-h-[30vh] overflow-y-auto animate-fadeIn text-[10px] text-gray-300 font-mono">
-                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Custom Category Tags Guide</span>
-                <p className="leading-relaxed font-bold text-gray-400">
-                  Category tags allow you to label, color-code, and filter task cards across your interactive lists:
-                </p>
-                <ul className="list-disc pl-4 flex flex-col gap-1 leading-relaxed text-gray-400">
-                  <li><span className="text-white">🏷️ Custom Tags</span>: Create custom categories like `URGENT`, `WEEKLY`, or `PERSONAL` to sort and manage tasks easily.</li>
-                  <li><span className="text-white">🎨 Color Highlights</span>: Assign clear, glowing colors to category tags so they stand out visually on your board.</li>
-                  <li><span className="text-white">✨ Link to Tasks</span>: Simply check the category boxes inside any card detailed editor to apply the colors instantly.</li>
-                </ul>
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>🏷️ Category Labels Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowLabelHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    🏷️ <strong className="text-white font-mono">CUSTOM CATEGORIES:</strong> Create descriptors like URGENT, STUDY, or WORK to color-code your Kanban tasks visually.
+                  </p>
+                  <p>
+                    🎨 <strong className="text-white font-mono">GLOW HIGHLIGHTS:</strong> Assign vibrant neon colors to categories so your cards stand out instantly on the list.
+                  </p>
+                  <p>
+                    ✨ <strong className="text-white font-mono">CARD ASSIGNMENT:</strong> Inside any card detailed editor, check the label boxes to apply those highlights instantly.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -2321,45 +2673,37 @@ export default function App() {
 
               {/* Dynamic Interactive Card Help Panel */}
               {isCardHelpOpen && (
-                <div className="mt-2.5 p-3 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 animate-fadeIn text-left">
-                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
-                    <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
-                      📋 Card Edit Suite Runbook
-                    </span>
+                <div className="mt-2.5 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                  <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                    <span>📋 Card Edit Suite Runbook</span>
                     <button
                       type="button"
                       onClick={() => setIsCardHelpOpen(false)}
-                      className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                      className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
                     >
-                      ✕ Close
+                      Hide ×
                     </button>
                   </div>
                   
-                  <div className="flex flex-col gap-1.5 text-gray-300">
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">🏷️</span>
-                      <span><strong className="text-white">LABEL MANAGER</strong>: Assign custom category tags to color-code your cards and organize your board visually.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">📝</span>
-                      <span><strong className="text-white">TASK SUMMARY</strong>: Write the task name and details. Deleting descriptions completely is blocked to protect your task context.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">⏱️</span>
-                      <span><strong className="text-white">STUDY TIMER</strong>: Start a focused study stopwatch to track exactly how many hours and seconds you focus on this task.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">📅</span>
-                      <span><strong className="text-white">DUE DATE & TIME</strong>: Set a clear target milestone deadline, which acts as the anchor point for all reminder alerts.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">📚</span>
-                      <span><strong className="text-white">RESEARCH CITATIONS</strong>: Log academic resources or bibliography details. Links and reference titles require each other.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">🌐</span>
-                      <span><strong className="text-white">CLOUD STORAGE LINKS</strong>: Paste external folder links from Google Drive, Apple iCloud, or OneDrive for instant access.</span>
-                    </div>
+                  <div className="flex flex-col gap-2 font-sans">
+                    <p>
+                      🏷️ <strong className="text-white font-mono">LABEL MANAGER:</strong> Assign custom category tags to color-code your cards and organize your board visually.
+                    </p>
+                    <p>
+                      📝 <strong className="text-white font-mono">TASK SUMMARY:</strong> Write the task name and details. Deleting descriptions completely is blocked to protect your task context.
+                    </p>
+                    <p>
+                      ⏱️ <strong className="text-white font-mono">STUDY TIMER:</strong> Start a focused study stopwatch to track exactly how many hours and seconds you focus on this task.
+                    </p>
+                    <p>
+                      📅 <strong className="text-white font-mono">DUE DATE & TIME:</strong> Set a clear target milestone deadline, which acts as the anchor point for all reminder alerts.
+                    </p>
+                    <p>
+                      📚 <strong className="text-white font-mono">RESEARCH CITATIONS:</strong> Log academic resources or bibliography details. Links and reference titles require each other.
+                    </p>
+                    <p>
+                      🌐 <strong className="text-white font-mono">CLOUD STORAGE LINKS:</strong> Paste external folder links from Google Drive, Apple iCloud, or OneDrive for instant access.
+                    </p>
                   </div>
                 </div>
               )}
@@ -2851,37 +3195,31 @@ export default function App() {
 
               {/* Expandable Notification Help Info Block */}
               {isAlertsHelpOpen && (
-                <div className="mt-2.5 p-3.5 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
-                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
-                    <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
-                      ⏰ Alert Notifications Guide
-                    </span>
+                <div className="mt-2.5 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                  <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                    <span>⏰ Alert Notifications Guide</span>
                     <button
                       type="button"
                       onClick={() => setIsAlertsHelpOpen(false)}
-                      className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                      className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
                     >
-                      ✕ Close
+                      Hide ×
                     </button>
                   </div>
                   
-                  <div className="flex flex-col gap-1.5 text-gray-300">
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">📌</span>
-                      <span><strong className="text-white">DUE DATE ANCHOR</strong>: All reminders are calculated directly from your task's Due Date & Time. You must assign a Due Date first before you can schedule reminder alerts.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">🔔</span>
-                      <span><strong className="text-white">LOCK-SCREEN ALARMS</strong>: Uses your phone's built-in alert manager so that notifications pop up and play sound even when your screen is locked or the app is closed.</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">⏳</span>
-                      <span><strong className="text-white">REMINDER LEAD TIME</strong>: Choose how early you want to be alerted (e.g. exactly on time, 5 or 15 minutes early, 1 hour early, or 1 day early).</span>
-                    </div>
-                    <div className="flex gap-2 items-start">
-                      <span className="select-none">⚡</span>
-                      <span><strong className="text-white">TACTILE BUZZES</strong>: Your phone will vibrate briefly with a gentle hum to confirm when a reminder is successfully scheduled.</span>
-                    </div>
+                  <div className="flex flex-col gap-2 font-sans">
+                    <p>
+                      📌 <strong className="text-white font-mono">DUE DATE ANCHOR:</strong> All reminders are calculated directly from your task's Due Date & Time. You must assign a Due Date first before you can schedule reminder alerts.
+                    </p>
+                    <p>
+                      🔔 <strong className="text-white font-mono">LOCK-SCREEN ALARMS:</strong> Uses your phone's built-in alert manager so that notifications pop up and play sound even when your screen is locked or the app is closed.
+                    </p>
+                    <p>
+                      ⏳ <strong className="text-white font-mono">REMINDER LEAD TIME:</strong> Choose how early you want to be alerted (e.g. exactly on time, 5 or 15 minutes early, 1 hour early, or 1 day early).
+                    </p>
+                    <p>
+                      ⚡ <strong className="text-white font-mono">TACTILE BUZZES:</strong> Your phone will vibrate briefly with a gentle hum to confirm when a reminder is successfully scheduled.
+                    </p>
                   </div>
                 </div>
               )}
@@ -3013,37 +3351,31 @@ export default function App() {
 
                 {/* Expandable Document Help Info Block */}
                 {isDocsHelpOpen && (
-                  <div className="mt-2.5 mb-2.5 p-3.5 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
-                      <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
-                        📁 Document & Resource Guide
-                      </span>
+                  <div className="mt-2.5 mb-2.5 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                    <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                      <span>📁 Document & Resource Guide</span>
                       <button
                         type="button"
                         onClick={() => setIsDocsHelpOpen(false)}
-                        className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
                       >
-                        ✕ Close
+                        Hide ×
                       </button>
                     </div>
                     
-                    <div className="flex flex-col gap-1.5 text-gray-300">
-                      <div className="flex gap-2 items-start">
-                        <span className="select-none">🏆</span>
-                        <span><strong className="text-white">CENTRAL SUBMISSION PORTAL</strong>: Upload final PDF, Word, or presentation slides for this task (size limit of 1.5MB to keep things running fast).</span>
-                      </div>
-                      <div className="flex gap-2 items-start">
-                        <span className="select-none">🖇️</span>
-                        <span><strong className="text-white">SUPPORTING FILE VAULT</strong>: Attach helper project files, images, or reference sheets directly to the task.</span>
-                      </div>
-                      <div className="flex gap-2 items-start">
-                        <span className="select-none">📚</span>
-                        <span><strong className="text-white">BIBLIOGRAPHY & CITATIONS</strong>: Search academic databases and compile an interactive citations list for quick research lookups.</span>
-                      </div>
-                      <div className="flex gap-2 items-start">
-                        <span className="select-none">🌐</span>
-                        <span><strong className="text-white">CLOUD & DRIVES LINKS</strong>: Paste folder links from Google Drive, Apple iCloud, or Microsoft OneDrive to access shared folders instantly.</span>
-                      </div>
+                    <div className="flex flex-col gap-2 font-sans">
+                      <p>
+                        🏆 <strong className="text-white font-mono">CENTRAL SUBMISSION PORTAL:</strong> Upload final PDF, Word, or presentation slides for this task (size limit of 1.5MB to keep things running fast).
+                      </p>
+                      <p>
+                        🖇️ <strong className="text-white font-mono">SUPPORTING FILE VAULT:</strong> Attach helper project files, images, or reference sheets directly to the task.
+                      </p>
+                      <p>
+                        📚 <strong className="text-white font-mono">BIBLIOGRAPHY & CITATIONS:</strong> Search academic databases and compile an interactive citations list for quick research lookups.
+                      </p>
+                      <p>
+                        🌐 <strong className="text-white font-mono">CLOUD & DRIVES LINKS:</strong> Paste folder links from Google Drive, Apple iCloud, or Microsoft OneDrive to access shared folders instantly.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -3552,15 +3884,26 @@ export default function App() {
                 </div>
 
                 {isReceiptsLinkHelpOpen && (
-                  <div className="mt-2.5 mb-2.5 p-3.5 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 text-left animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1 w-full">
-                      <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">🧾 Receipts Association Guide</span>
-                      <button type="button" onClick={() => setIsReceiptsLinkHelpOpen(false)} className="text-[8px] text-gray-400 hover:text-white uppercase font-black bg-transparent border-none">✕ Close</button>
+                  <div className="mt-2.5 mb-2.5 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                    <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                      <span>🧾 Receipts Association Guide</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsReceiptsLinkHelpOpen(false)}
+                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                      >
+                        Hide ×
+                      </button>
                     </div>
-                    <ul className="list-none flex flex-col gap-1 text-gray-300">
-                      <li>• Link captured business expense claims and snapped photos directly to this task to tally up total budgets.</li>
-                      <li>• Link or detach expenses at any time; your mappings are saved securely in your local database.</li>
-                    </ul>
+                    
+                    <div className="flex flex-col gap-2 font-sans">
+                      <p>
+                        📸 <strong className="text-white font-mono">EXPENSE CAPTURE:</strong> Link captured business expense claims and snapped photos directly to this task to tally up total budgets.
+                      </p>
+                      <p>
+                        🔗 <strong className="text-white font-mono">DATABASE ASSOCIATIONS:</strong> Link or detach expenses at any time; your mappings are saved securely in your local database.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -3733,7 +4076,7 @@ export default function App() {
 
             {/* Interactive Help Guide Section */}
             {isLogHelpOpen && (
-              <div className="p-3.5 bg-blue-950/20 border border-blue-900/40 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
                 <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono">
                   <span>ℹ️ HOW LOGS WORK GUIDE</span>
                   <button 
@@ -4118,41 +4461,34 @@ export default function App() {
 
             {/* Dynamic Interactive Alert Studio Help Panel */}
             {isAlertStudioHelpOpen && (
-              <div className="mt-1 p-3 bento-box border-l-4 border-l-[var(--color-accent,#DF5504)] bg-black/40 font-mono text-[9px] leading-relaxed flex flex-col gap-2 animate-fadeIn text-left">
-                <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-1 w-full">
-                  <span className="font-black uppercase tracking-wider text-[var(--color-accent,#DF5504)] text-[9px]">
-                    🔔 Alert Studio Runbook
-                  </span>
+              <div className="mt-1 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>🔔 Alert Studio Runbook</span>
                   <button
                     type="button"
                     onClick={() => setIsAlertStudioHelpOpen(false)}
-                    className="text-[8px] text-gray-400 hover:text-white uppercase font-black border-none bg-transparent cursor-pointer"
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
                   >
-                    ✕ Close
+                    Hide ×
                   </button>
                 </div>
                 
-                <div className="flex flex-col gap-1.5 text-gray-300">
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none">⏰</span>
-                    <span><strong className="text-white">DUE DATE</strong>: Set the main target deadline for the card, which is required before scheduling alerts.</span>
-                  </div>
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none">📱</span>
-                    <span><strong className="text-white">ON-SCREEN BANNER</strong>: Displays a helpful alert banner inside the app in real time while you are actively working.</span>
-                  </div>
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none">🔔</span>
-                    <span><strong className="text-white">SYSTEM LOCK-SCREEN</strong>: Sends an alarm to your phone's main lock screen, which will pop up even if the app is closed.</span>
-                  </div>
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none">📅</span>
-                    <span><strong className="text-white">CALENDAR SYNC</strong>: Automatically adds this task as an event in your phone or computer's native Calendar app.</span>
-                  </div>
-                  <div className="flex gap-2 items-start">
-                    <span className="select-none">📧</span>
-                    <span><strong className="text-white">EMAIL COMPOSER</strong>: Automatically opens your default email client with a pre-formatted message detailing the task.</span>
-                  </div>
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    ⏰ <strong className="text-white font-mono">DUE DATE:</strong> Set the main target deadline for the card, which is required before scheduling alerts.
+                  </p>
+                  <p>
+                    📱 <strong className="text-white font-mono">ON-SCREEN BANNER:</strong> Displays a helpful alert banner inside the app in real time while you are actively working.
+                  </p>
+                  <p>
+                    🔔 <strong className="text-white font-mono">SYSTEM LOCK-SCREEN:</strong> Sends an alarm to your phone's main lock screen, which will pop up even if the app is closed.
+                  </p>
+                  <p>
+                    📅 <strong className="text-white font-mono">CALENDAR SYNC:</strong> Automatically adds this task as an event in your phone or computer's native Calendar app.
+                  </p>
+                  <p>
+                    📧 <strong className="text-white font-mono">EMAIL COMPOSER:</strong> Automatically opens your default email client with a pre-formatted message detailing the task.
+                  </p>
                 </div>
               </div>
             )}
@@ -4423,36 +4759,35 @@ export default function App() {
 
             {/* Toggleable Monospace Calendar Quick Help Panel */}
             {showCalendarHelp && (
-              <div className="bg-black/50 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded flex flex-col gap-2.5 animate-slideDown flex-shrink-0">
-                <div className="flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/30 pb-1.5">
-                  <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider">📅 Calendar Help Guide</span>
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>📅 Calendar Agenda Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCalendarHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
                 </div>
-                <ul className="list-none flex flex-col gap-1.5 text-[9px] text-gray-300 font-bold uppercase tracking-wide">
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📅 Timeline Filter</strong>: Select whether to show task schedules for <strong>TODAY</strong> or view upcoming timelines over the next 7, 30, or 90 days.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📅 Custom Start Date</strong>: Click the date field to select any custom day of the year as the baseline starting point for your schedule.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📌 Priority Tasks</strong>: Tick 'High Priority' to filter and isolate only your critical list items on the calendar.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📔 Voice Journal Timeline</strong>: Select the 'Diary' filter tab to display your time-stamped spoken notes mapped out by day.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>🧾 Expense Receipts</strong>: Select the 'Receipts' filter tab to view mapped-out business claims with image previews.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📧 Share Reports</strong>: In the Receipts view, check multiple claims and tap 'Email Employer' in the top bar to instantly compile and send an itemized spreadsheet expense claim.</span>
-                  </li>
-                </ul>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    📅 <strong className="text-white font-mono">TIMELINE FILTER:</strong> View scheduled tasks filtered specifically for TODAY, or forecast your schedule across 7, 30, or 90 days.
+                  </p>
+                  <p>
+                    📌 <strong className="text-white font-mono">PRIORITY TASKS:</strong> Toggle the high-priority filter checkbox to instantly isolate critical targets on your agenda.
+                  </p>
+                  <p>
+                    📔 <strong className="text-white font-mono">SPOKEN DIARY TIME:</strong> Switch calendar tabs to map your time-stamped verbal diary notes chronologically.
+                  </p>
+                  <p>
+                    🧾 <strong className="text-white font-mono">EXPENSE CLAIMS:</strong> Isolate expense claim receipts and photograph uploads by date of purchase.
+                  </p>
+                  <p>
+                    📧 <strong className="text-white font-mono">SHARE REPORTS:</strong> Select multiple receipts and compile structured spreadsheets directly to your employer's email.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -5114,32 +5449,32 @@ export default function App() {
 
             {/* Toggleable Monospace Quick Help Panel */}
             {showReceiptsHelp && (
-              <div className="bg-black/50 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded flex flex-col gap-2.5 animate-slideDown flex-shrink-0">
-                <div className="flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/30 pb-1.5">
-                  <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider">🧾 Receipts Help Guide</span>
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>🧾 Expense Claims Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowReceiptsHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
                 </div>
-                <ul className="list-none flex flex-col gap-1.5 text-[9px] text-gray-300 font-bold uppercase tracking-wide">
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📸 Snap Photo</strong>: Tap 'Snap Receipt Photo' to open your device's camera and photograph your purchase slip instantly.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>🔒 Audit Timeline</strong>: Logs the exact date and time of the receipt to keep your financial logs highly accurate.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>💰 Record Costs</strong>: Type in the merchant name and total dollar amount to claim your expense.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📅 Calendar Timeline</strong>: Choose the 'Receipts' tab on your Calendar to see all your business claims and photo previews mapped out by date.</span>
-                  </li>
-                  <li className="flex gap-2 items-start">
-                    <span className="text-[var(--color-accent,#DF5504)] flex-shrink-0">•</span>
-                    <span><strong>📧 Send Expense Claims</strong>: Type in your employer's email to instantly compile a formatted expense report in your mail app.</span>
-                  </li>
-                </ul>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    📸 <strong className="text-white font-mono">SNAP PHOTOS:</strong> Click snap to activate your mobile camera and photograph expense receipts instantly.
+                  </p>
+                  <p>
+                    💰 <strong className="text-white font-mono">RECORD CLAIMS:</strong> Log exact costs and merchant names to build a clear timesheet of company-reimbursable claims.
+                  </p>
+                  <p>
+                    📅 <strong className="text-white font-mono">CALENDAR SCHEDULE:</strong> Mapped receipts automatically load by date in your agenda log for rapid lookup.
+                  </p>
+                  <p>
+                    📧 <strong className="text-white font-mono">EMAIL EXPORTS:</strong> Compile multi-receipt lists into structured items ready to email directly to your supervisor.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -5268,8 +5603,14 @@ export default function App() {
                           showToast("📸 Receipt photo captured!");
                           runReceiptOcrAndPopulate(image.path || image.webPath, isNative, image.path || "");
                         }
-                      } catch (err) {
+                      } catch (err: any) {
                         console.log("Capacitor camera failed or cancelled, trying hybrid file trigger", err);
+                        const errMsg = err?.message || "";
+                        if (errMsg.toLowerCase().includes("permission") || errMsg.toLowerCase().includes("denied")) {
+                          showToast("⚠️ Camera permission denied! Please enable Camera in iPhone Settings.");
+                        } else {
+                          showToast("⚠️ Camera access cancelled. Using manual photo picker fallback.");
+                        }
                         // Trigger native device file capture fallback
                         document.getElementById('receipt-file-picker')?.click();
                       } finally {
@@ -5529,10 +5870,10 @@ export default function App() {
       {/* ❓ DASHBOARD HELP OVERLAY MODAL */}
       {isDashboardHelpOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn">
+          <div className="w-full max-w-lg bg-[#080f24] border border-blue-900/50 p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[90vh] overflow-hidden animate-fadeIn">
             {/* Modal Header */}
-            <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
-              <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider flex items-center gap-2">
+            <div className="flex justify-between items-center border-b border-blue-900/30 pb-3 flex-shrink-0">
+              <span className="font-bold text-xs text-blue-400 uppercase tracking-wider flex items-center gap-2">
                 ❓ Dashboard Quick Runbook
               </span>
               <button
@@ -5541,87 +5882,40 @@ export default function App() {
                   await triggerHaptic();
                   setIsDashboardHelpOpen(false);
                 }}
-                className="text-gray-400 hover:text-white font-black text-sm p-1 border-none bg-transparent cursor-pointer"
+                className="text-[10px] text-blue-400 hover:text-white uppercase font-black cursor-pointer bg-transparent border-none"
               >
-                ✕
+                Hide ×
               </button>
             </div>
 
             {/* Modal Scrollable Content */}
-            <div className="overflow-y-auto pr-1 flex flex-col gap-4 leading-relaxed text-gray-300">
-              <div className="border-l-2 border-[var(--color-accent,#DF5504)] pl-3 py-1 bg-black/20 text-[10px]">
+            <div className="overflow-y-auto pr-1 flex flex-col gap-4 leading-relaxed text-blue-300 font-sans text-[11px] text-left">
+              <div className="p-3 bg-blue-950/40 border border-blue-900/30 rounded">
                 <p className="font-bold text-white mb-0.5">BOARD QUICK RUNBOOK</p>
-                <p className="text-gray-400 font-bold">
+                <p className="text-blue-400">
                   A high-level guide to navigating the main board list interface. Detailed card edits are found within the Card's own help icon.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 font-mono text-[10px]">
-                {/* Section 1: Board Structure */}
-                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
-                  <span className="text-sm select-none">🎛️</span>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase tracking-wide">Board Columns (Lists)</span>
-                    <span className="font-bold text-gray-400">Your work is split into three lists: <strong className="text-white">TO DO</strong> (pending actions), <strong className="text-white">DOING</strong> (active focus), and <strong className="text-white">DONE</strong> (completed items). The count shows the active cards in each.</span>
-                  </div>
-                </div>
-
-                {/* Section 2: Mobile Swiping */}
-                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
-                  <span className="text-sm select-none">📱</span>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase tracking-wide">Mobile Column Navigation</span>
-                    <span className="font-bold text-gray-400">On mobile, <strong className="text-white">swipe left or right</strong> on the screen to slide between columns, or tap the pagination dots at the top of the board to jump directly to a list.</span>
-                  </div>
-                </div>
-
-                {/* Section 3: Card Selection & Creation */}
-                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
-                  <span className="text-sm select-none">📄</span>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase tracking-wide">Card Interaction</span>
-                    <ul className="list-disc pl-4 flex flex-col gap-0.5 text-gray-400 mt-1 font-bold">
-                      <li><strong className="text-white">Select a Card</strong>: Tap any card's frame to open the Card Details modal (to edit checklist bullets, set alarms, or attach documents).</li>
-                      <li><strong className="text-white">Create a Card</strong>: Tap the <strong className="text-[var(--color-accent,#DF5504)]">+</strong> icon in the header bar to create a card in the current column.</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Section 4: Changing Lists (Moving Cards) */}
-                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
-                  <span className="text-sm select-none">🔄</span>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase tracking-wide">Moving Cards between columns</span>
-                    <span className="font-bold text-gray-400">Tap the orange <strong className="text-[var(--color-accent,#DF5504)]">MOVE ▾</strong> button in the bottom-right of any card to instantly shift columns. On desktop, click and drag cards directly to any list column.</span>
-                  </div>
-                </div>
-
-                {/* Section 5: Card Progress & Active Timers */}
-                <div className="flex gap-2.5 items-start border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
-                  <span className="text-sm select-none">⏱️</span>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase tracking-wide">Timers & Checklist Indicators</span>
-                    <ul className="list-disc pl-4 flex flex-col gap-0.5 text-gray-400 mt-1 font-bold">
-                      <li><strong className="text-white">Spent Timer (e.g. 15m spent)</strong>: Displays total time spent on this card, updated by active focused study sessions.</li>
-                      <li><strong className="text-white">Task Progress</strong>: Shows percentage progress and next pending sub-checklist items directly on the card face.</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Section 6: Global Feature Icons */}
-                <div className="flex gap-2.5 items-start">
-                  <span className="text-sm select-none">🕹️</span>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-black text-white uppercase tracking-wide">Global Footer Icons</span>
-                    <span className="font-bold text-gray-400">Tapping the icons in the bottom navigation bar launches primary utilities:</span>
-                    <ul className="list-disc pl-4 flex flex-col gap-0.5 text-gray-400 mt-1 font-bold">
-                      <li><strong className="text-white">📅 Calendar</strong>: Toggle the native agenda timetable overlay.</li>
-                      <li><strong className="text-white">📔 Verbal Journal</strong>: Launch speech recording entries.</li>
-                      <li><strong className="text-white">🧾 Receipts</strong>: Log claims and upload expense captures.</li>
-                      <li><strong className="text-white">🍅 Focus Timer</strong>: Launch study timers mapped to iOS Focus Modes.</li>
-                    </ul>
-                  </div>
-                </div>
+              <div className="flex flex-col gap-3">
+                <p>
+                  🎛️ <strong className="text-white font-mono">BOARD COLUMNS (LISTS):</strong> Your work is split into three lists: TO DO (pending actions), DOING (active focus), and DONE (completed items). The count shows the active cards in each.
+                </p>
+                <p>
+                  📱 <strong className="text-white font-mono">MOBILE NAVIGATION:</strong> On mobile, swipe left or right on the screen to slide between columns, or tap the pagination dots at the top of the board to jump directly to a list.
+                </p>
+                <p>
+                  📄 <strong className="text-white font-mono">CARD INTERACTION:</strong> Tap any card's frame to open Card Details (to edit checklist bullets, set alarms, or attach documents). Tap the <strong className="text-[var(--color-accent,#DF5504)]">+</strong> icon in the header bar to create a card in the current column.
+                </p>
+                <p>
+                  🔄 <strong className="text-white font-mono">MOVING CARDS:</strong> Tap the orange <strong className="text-[var(--color-accent,#DF5504)]">MOVE ▾</strong> button in the bottom-right of any card to shift columns. On desktop, click and drag cards directly to any list column.
+                </p>
+                <p>
+                  ⏱️ <strong className="text-white font-mono">TIMERS & INDICATORS:</strong> Spent Timer displays total time spent on this card, updated by active focused study sessions. Task Progress shows percentage progress and next sub-checklist items.
+                </p>
+                <p>
+                  🕹️ <strong className="text-white font-mono">GLOBAL TOOLS:</strong> Launch quick tools such as Calendar (agenda timetables), Verbal Journals (audio diaries), Receipts (business claims), and Pomodoro (study timers) directly from the left sidebar drawer.
+                </p>
               </div>
             </div>
           </div>
@@ -5682,13 +5976,29 @@ export default function App() {
 
             {/* ℹ️ Sliding Help Guide Box */}
             {showDiaryHelp && (
-              <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-4 rounded-lg flex flex-col gap-2 max-h-[40vh] overflow-y-auto animate-fadeIn flex-shrink-0">
-                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Quick Help Guide</span>
-                <ul className="list-disc pl-4 text-[10px] text-gray-300 flex flex-col gap-1.5 leading-relaxed font-bold">
-                  <li><span className="text-white">🎙️ Voice Transcription</span>: Tap the red microphone button to speak your thoughts. The app instantly transcribes your spoken words into a typed text log.</li>
-                  <li><span className="text-white">🕒 Time-stamped Diary</span>: Every entry is automatically date-and-time stamped to build a clear, chronological history of your workday.</li>
-                  <li><span className="text-white">📤 Link to Tasks</span>: Use the dropdown on any note to attach that reflection directly to any task card description list.</li>
-                </ul>
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>📔 Spoken Diary Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowDiaryHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    🎙️ <strong className="text-white font-mono">SPEECH TRANSCRIPTION:</strong> Tap the red microphone button to speak. Your thoughts are transcribed to plain text instantly.
+                  </p>
+                  <p>
+                    🕒 <strong className="text-white font-mono">TIMESTAMPS:</strong> Every spoken reflection is automatically date-and-time stamped to track exact workday records.
+                  </p>
+                  <p>
+                    📤 <strong className="text-white font-mono">TASK DISPATCH:</strong> Connect any spoken note directly to task cards to build out clear sub-checklists and descriptions.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -5957,17 +6267,32 @@ export default function App() {
 
             {/* ℹ️ Sliding Help Guide Box */}
             {showTimerHelp && (
-              <div className="bg-black/80 border border-[var(--color-accent,#DF5504)]/40 p-3.5 rounded-lg flex flex-col gap-2 max-h-[30vh] overflow-y-auto animate-fadeIn flex-shrink-0 text-[10px] text-gray-300">
-                <span className="font-black text-[10px] text-[var(--color-accent,#DF5504)] uppercase tracking-widest">💡 Standalone Focus Stopwatch</span>
-                <p className="leading-relaxed font-bold">
-                  This timer helps you alternate active work focus periods and refreshing breaks separate from individual task timers:
-                </p>
-                <ul className="list-disc pl-4 flex flex-col gap-1 leading-relaxed font-bold">
-                  <li><span className="text-white">⏱️ Active Work Focus</span>: Work with zero distraction for 25 minutes.</li>
-                  <li><span className="text-white">☕ Rest Break</span>: Unwind and relax your mind for 5 minutes.</li>
-                  <li><span className="text-white">🛌 Reset Break</span>: Take a longer 15-minute break to recharge.</li>
-                  <li><span className="text-white">🔔 Sound & Vibrate Alerts</span>: Plays an alarm and vibrates your phone when the focus or break session finishes.</li>
-                </ul>
+              <div className="p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left w-full flex-shrink-0">
+                <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                  <span>🍅 Focus Timer Guide</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowTimerHelp(false)}
+                    className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                  >
+                    Hide ×
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-2 font-sans">
+                  <p>
+                    ⏱️ <strong className="text-white font-mono">ACTIVE WORK FOCUS:</strong> Standard study block with zero interruptions running for 25 minutes of core focus.
+                  </p>
+                  <p>
+                    ☕ <strong className="text-white font-mono">REFRESH BREAK:</strong> Quick 5-minute break to stretch, stand up, and recharge your focus block.
+                  </p>
+                  <p>
+                    🛌 <strong className="text-white font-mono">LONG REST CYCLE:</strong> Take an extended 15-minute break to fully wind down after completing 4 cycles.
+                  </p>
+                  <p>
+                    🔔 <strong className="text-white font-mono">LOCK-SCREEN REMINDERS:</strong> Real-time sounds and vibrations alert you the instant focus or rest targets elapse.
+                  </p>
+                </div>
               </div>
             )}
 
