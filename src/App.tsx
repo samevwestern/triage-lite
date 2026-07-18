@@ -68,6 +68,7 @@ export interface Card {
   notifyLocalPanel?: boolean;
   notifyCalendarAlarm?: boolean;
   notifyEmailReminder?: boolean;
+  isArchived?: boolean;
 }
 
 interface List {
@@ -762,6 +763,10 @@ export default function App() {
   const [isDocsHelpOpen, setIsDocsHelpOpen] = useState(false);
   const [isDocStudioOpen, setIsDocStudioOpen] = useState(false);
   const [isReceiptStudioOpen, setIsReceiptStudioOpen] = useState(false);
+  const [isArchiveStudioOpen, setIsArchiveStudioOpen] = useState(false);
+  const [isArchiveStudioHelpOpen, setIsArchiveStudioHelpOpen] = useState(false);
+  const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
+  const [archiveFilterTab, setArchiveFilterTab] = useState<'all' | 'completed' | 'archived'>('all');
   const [isReceiptsLinkHelpOpen, setIsReceiptsLinkHelpOpen] = useState(false);
   const [showBackupHelp, setShowBackupHelp] = useState(false);
   const [showSyncHelp, setShowSyncHelp] = useState(false);
@@ -1348,11 +1353,11 @@ export default function App() {
   };
 
   const handleExportCSV = () => {
-    const headers = 'Card ID,List,Title,Description,Time Spent (Seconds),Due Date,Completion Date\n';
+    const headers = 'Card ID,List,Title,Description,Time Spent (Seconds),Due Date,Completion Date,Archived\n';
     const rows = cards.map(c => {
       const dueDateStr = c.dueDate ? new Date(c.dueDate).toISOString().split('T')[0] : '';
       const completedAtStr = c.completedAt ? new Date(c.completedAt).toISOString().split('T')[0] : '';
-      return `"${c.id}","${c.listId}","${c.title}","${c.description || ''}",${c.timeSpent || 0},"${dueDateStr}","${completedAtStr}"`;
+      return `"${c.id}","${c.listId}","${c.title}","${c.description || ''}",${c.timeSpent || 0},"${dueDateStr}","${completedAtStr}","${c.isArchived ? 'Yes' : 'No'}"`;
     }).join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -1361,6 +1366,31 @@ export default function App() {
     a.download = `${config.id}_tasks_export.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleArchiveCard = async (cardId: string, archive: boolean) => {
+    await triggerHaptic();
+    const updated = cards.map(c => c.id === cardId ? { ...c, isArchived: archive } : c);
+    await saveCards(updated);
+    showToast(archive ? "📦 Card successfully archived!" : "📥 Card restored to board!");
+  };
+
+  const handleRecallCard = async (cardId: string) => {
+    await triggerHaptic();
+    const updated = cards.map(c => c.id === cardId ? { ...c, listId: 'todo', completedAt: null, isArchived: false } : c);
+    await saveCards(updated);
+    showToast("↩️ Card recalled and moved to To Do!");
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    await triggerHaptic();
+    if (window.confirm("⚠️ Are you sure you want to permanently delete this card? This cannot be undone!")) {
+      const updated = cards.filter(c => c.id !== cardId);
+      await saveCards(updated);
+      showToast("🗑️ Card permanently deleted!");
+      return true;
+    }
+    return false;
   };
 
   // MONETIZATION GUARDS: Wait for receipt check at startup, but don't block layout
@@ -1616,24 +1646,38 @@ export default function App() {
           </h1>
         </div>
 
-        {showLanguageInHeader && (
-          <div className="flex items-center gap-1.5 animate-fadeIn">
-            <span className="text-[10px] font-bold text-gray-400 font-mono hidden sm:inline">🌐 LANGUAGE:</span>
-            <select
-              value={currentLanguage}
-              onChange={async (e) => {
-                await triggerHaptic();
-                setCurrentLanguage(e.target.value as any);
-              }}
-              className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-md text-[10px] text-white py-1.5 px-2 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
-            >
-              <option value="en">🇺🇸 EN</option>
-              <option value="es">🇪🇸 ES</option>
-              <option value="fr">🇫🇷 FR</option>
-              <option value="de">🇩🇪 DE</option>
-            </select>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              await triggerHaptic();
+              setIsArchiveStudioOpen(true);
+            }}
+            className="px-2.5 py-1.5 rounded-md bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] hover:text-[var(--color-accent,#DF5504)] text-white text-[10px] font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer hover:shadow-[0_0_10px_rgba(223,85,4,0.3)] animate-fadeIn"
+            title="Search & Recall Archived Cards"
+          >
+            <span>📦</span>
+            <span className="hidden sm:inline">ARCHIVE STUDIO</span>
+          </button>
+
+          {showLanguageInHeader && (
+            <div className="flex items-center gap-1.5 animate-fadeIn">
+              <span className="text-[10px] font-bold text-gray-400 font-mono hidden md:inline">🌐 LANGUAGE:</span>
+              <select
+                value={currentLanguage}
+                onChange={async (e) => {
+                  await triggerHaptic();
+                  setCurrentLanguage(e.target.value as any);
+                }}
+                className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-md text-[10px] text-white py-1.5 px-2 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
+              >
+                <option value="en" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇺🇸 EN</option>
+                <option value="es" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇪🇸 ES</option>
+                <option value="fr" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇫🇷 FR</option>
+                <option value="de" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇩🇪 DE</option>
+              </select>
+            </div>
+          )}
+        </div>
       </header>
       <main className="flex-grow overflow-y-auto no-scrollbar pr-0.5">
         <div className="grid grid-cols-1 gap-6 items-start">
@@ -1822,12 +1866,12 @@ export default function App() {
                     </button>
                   </div>
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">
-                    # of cards: {cards.filter(c => c.listId === list.id).length}
+                    # of cards: {cards.filter(c => c.listId === list.id && !c.isArchived).length}
                   </span>
                 </div>
 
                 <div className="flex flex-col gap-3 min-h-[200px]">
-                  {cards.filter(c => c.listId === list.id).map(card => (
+                  {cards.filter(c => c.listId === list.id && !c.isArchived).map(card => (
                     <div 
                       key={card.id} 
                       draggable
@@ -2235,10 +2279,10 @@ export default function App() {
                       }}
                       className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded p-2.5 text-xs text-white font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] cursor-pointer animate-none"
                     >
-                      <option value="en">🇺🇸 English (US)</option>
-                      <option value="es">🇪🇸 Español (ES)</option>
-                      <option value="fr">🇫🇷 Français (FR)</option>
-                      <option value="de">🇩🇪 Deutsch (DE)</option>
+                      <option value="en" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇺🇸 English (US)</option>
+                      <option value="es" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇪🇸 Español (ES)</option>
+                      <option value="fr" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇫🇷 Français (FR)</option>
+                      <option value="de" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇩🇪 Deutsch (DE)</option>
                     </select>
                   </div>
 
@@ -4318,50 +4362,85 @@ export default function App() {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
-              <button 
-                onClick={() => {
-                  setSelectedCardForEdit(null);
-                  setIsLabelManagerOpen(false);
-                  setIsCardSessionLogExpanded(false);
-                }}
-                className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={async () => {
-                  if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
-                    await triggerHaptic();
-                    showToast("⚠️ Task title is required to save the card!");
-                    return;
-                  }
-                  if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
-                    await triggerHaptic();
-                    showToast("⚠️ Task description is empty! Please write a summary.");
-                    return;
-                  }
-                  await triggerHaptic();
-                  const exists = cards.some(c => c.id === selectedCardForEdit.id);
-                  const updatedCards = exists 
-                    ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
-                    : [...cards, selectedCardForEdit];
-                  await saveCards(updatedCards);
+            <div className="flex flex-col sm:flex-row gap-3 justify-between mt-6 pt-4 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
+              {/* Left Actions: Delete & Archive */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const deleted = await handleDeleteCard(selectedCardForEdit.id);
+                    if (deleted) {
+                      setSelectedCardForEdit(null);
+                      setIsLabelManagerOpen(false);
+                      setIsCardSessionLogExpanded(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 border-2 border-red-900 bg-red-950/40 hover:bg-red-900/60 text-red-300 font-bold text-xs uppercase rounded transition-colors cursor-pointer"
+                  title="Permanently delete task card"
+                >
+                  🗑️ Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const currentlyArchived = !!selectedCardForEdit.isArchived;
+                    await handleArchiveCard(selectedCardForEdit.id, !currentlyArchived);
+                    setSelectedCardForEdit(null);
+                    setIsLabelManagerOpen(false);
+                    setIsCardSessionLogExpanded(false);
+                  }}
+                  className="px-3 py-1.5 border-2 border-amber-900 bg-amber-950/20 hover:bg-amber-900/40 text-amber-300 font-bold text-xs uppercase rounded transition-colors cursor-pointer"
+                >
+                  {selectedCardForEdit.isArchived ? "📥 Restore" : "📦 Archive"}
+                </button>
+              </div>
 
-                  // Phase 5: Trigger Native iOS Integrations
-                  if (isNative && selectedCardForEdit.dueDate) {
-                    await scheduleLocalAlarm(selectedCardForEdit);
-                    await syncToAppleCalendar(selectedCardForEdit);
-                  }
+              {/* Right Actions: Cancel & Save */}
+              <div className="flex gap-2 justify-end">
+                <button 
+                  onClick={() => {
+                    setSelectedCardForEdit(null);
+                    setIsLabelManagerOpen(false);
+                    setIsCardSessionLogExpanded(false);
+                  }}
+                  className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
+                      await triggerHaptic();
+                      showToast("⚠️ Task title is required to save the card!");
+                      return;
+                    }
+                    if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
+                      await triggerHaptic();
+                      showToast("⚠️ Task description is empty! Please write a summary.");
+                      return;
+                    }
+                    await triggerHaptic();
+                    const exists = cards.some(c => c.id === selectedCardForEdit.id);
+                    const updatedCards = exists 
+                      ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
+                      : [...cards, selectedCardForEdit];
+                    await saveCards(updatedCards);
 
-                  setSelectedCardForEdit(null);
-                  setIsLabelManagerOpen(false);
-                  setIsCardSessionLogExpanded(false);
-                }}
-                className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
-              >
-                Save Changes
-              </button>
+                    // Phase 5: Trigger Native iOS Integrations
+                    if (isNative && selectedCardForEdit.dueDate) {
+                      await scheduleLocalAlarm(selectedCardForEdit);
+                      await syncToAppleCalendar(selectedCardForEdit);
+                    }
+
+                    setSelectedCardForEdit(null);
+                    setIsLabelManagerOpen(false);
+                    setIsCardSessionLogExpanded(false);
+                  }}
+                  className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -6850,6 +6929,251 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 📦 BOARD ARCHIVE & RECALL STUDIO OVERLAY */}
+      {isArchiveStudioOpen && (() => {
+        const filteredCards = cards.filter(c => {
+          const query = archiveSearchQuery.trim().toLowerCase();
+          const matchesSearch = c.title.toLowerCase().includes(query) || (c.description || '').toLowerCase().includes(query);
+          
+          if (!matchesSearch) return false;
+          if (archiveFilterTab === 'completed') return c.listId === 'done';
+          if (archiveFilterTab === 'archived') return !!c.isArchived;
+          return true; // 'all'
+        });
+
+        return (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[190] flex items-center justify-center p-4 animate-fadeIn">
+            <div className="w-full max-w-2xl bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-6 rounded-lg shadow-[12px_12px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[85vh]">
+              {/* Header */}
+              <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">📦</span>
+                  <div className="flex flex-col">
+                    <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider">
+                      ARCHIVE & RECALL STUDIO
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      Query, manage, and recall completed or archived items
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsArchiveStudioHelpOpen(!isArchiveStudioHelpOpen);
+                    }}
+                    className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                      isArchiveStudioHelpOpen
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                    }`}
+                    title="Archive Studio Runbook Guide"
+                  >
+                    ❓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsArchiveStudioOpen(false);
+                      setIsArchiveStudioHelpOpen(false);
+                      setArchiveSearchQuery('');
+                    }}
+                    className="w-8 h-8 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Interactive Archive Help Panel */}
+              {isArchiveStudioHelpOpen && (
+                <div className="mt-1 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left flex-shrink-0">
+                  <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                    <span>🗳️ Archive & Recall Studio Guide</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsArchiveStudioHelpOpen(false)}
+                      className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                    >
+                      Hide ×
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[9px]">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-black text-blue-200">📦 ARCHIVE / RESTORE</span>
+                      <span>Hides active cards from primary Kanban boards while fully preserving study stats, logs, and checklists. Tap <b>Restore</b> to return to view.</span>
+                    </div>
+                    <div className="flex flex-col gap-1 border-t sm:border-t-0 sm:border-l border-blue-900/30 pt-2 sm:pt-0 sm:pl-3">
+                      <span className="font-black text-blue-200">↩️ RECALL TO BOARD</span>
+                      <span>Quickly moves any completed or archived task card back into the <b>To Do</b> column, clearing its completion date for immediate re-use.</span>
+                    </div>
+                    <div className="flex flex-col gap-1 border-t sm:border-t-0 sm:border-l border-blue-900/30 pt-2 sm:pt-0 sm:pl-3">
+                      <span className="font-black text-blue-200">🗑️ PERMANENT DELETE</span>
+                      <span>Completely clears the card from device storage. This is irreversible and resets associated study focus history. Requires confirmation.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Search & Filter Controls */}
+              <div className="flex flex-col gap-3 flex-shrink-0">
+                <input
+                  type="text"
+                  placeholder="🔎 Search card titles or summaries..."
+                  value={archiveSearchQuery}
+                  onChange={(e) => setArchiveSearchQuery(e.target.value)}
+                  className="w-full bg-black/55 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white p-3 rounded text-xs font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] placeholder-gray-500"
+                />
+
+                {/* Filter Chips */}
+                <div className="flex gap-2">
+                  {(['all', 'completed', 'archived'] as const).map(tab => {
+                    const count = cards.filter(c => {
+                      if (tab === 'completed') return c.listId === 'done';
+                      if (tab === 'archived') return !!c.isArchived;
+                      return true;
+                    }).length;
+
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setArchiveFilterTab(tab);
+                        }}
+                        className={`px-3 py-1.5 rounded font-bold uppercase text-[9px] border transition-colors cursor-pointer ${
+                          archiveFilterTab === tab
+                            ? 'bg-[var(--color-accent,#DF5504)] border-transparent text-white'
+                            : 'bg-black/35 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {tab === 'all' && `🌐 All (${count})`}
+                        {tab === 'completed' && `✅ Completed (${count})`}
+                        {tab === 'archived' && `📦 Archived (${count})`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Scrollable List Area */}
+              <div className="flex-grow overflow-y-auto no-scrollbar flex flex-col gap-3 pr-1 py-1">
+                {filteredCards.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500 gap-2 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/60 rounded-md bg-black/10">
+                    <span className="text-3xl">🗳️</span>
+                    <span className="font-bold uppercase tracking-wider text-[10px]">No cards found</span>
+                    <span className="text-[9px] text-gray-600 max-w-[280px]">
+                      Try resetting filters or searching with a different keyword.
+                    </span>
+                  </div>
+                ) : (
+                  filteredCards.map(card => {
+                    const checklist = card.checklists?.[0];
+                    const completedTasks = checklist?.items.filter(i => i.isChecked).length || 0;
+                    const totalTasks = checklist?.items.length || 0;
+                    const listObj = lists.find(l => l.id === card.listId);
+
+                    return (
+                      <div 
+                        key={card.id}
+                        className="p-3.5 bg-black/40 border border-[#4C4C4C] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[var(--color-accent,#DF5504)] transition-all"
+                      >
+                        <div className="flex flex-col gap-1 sm:max-w-[65%]">
+                          <div className="flex items-center flex-wrap gap-2">
+                            <span className="font-bold text-sm text-white">{card.title}</span>
+                            
+                            {/* Badges */}
+                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-white/10 ${
+                              card.listId === 'done' 
+                                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800' 
+                                : 'bg-blue-950/40 text-blue-400 border-blue-800'
+                            }`}>
+                              COLUMN: {listObj?.name || card.listId}
+                            </span>
+
+                            {card.isArchived && (
+                              <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-800 bg-amber-950/40 text-amber-400 animate-pulse">
+                                ARCHIVED
+                              </span>
+                            )}
+                          </div>
+
+                          {card.description && (
+                            <p className="text-xs text-[#8892b0] line-clamp-2">{card.description}</p>
+                          )}
+
+                          {totalTasks > 0 && (
+                            <div className="flex items-center gap-1.5 text-[9px] text-gray-400 font-bold mt-1">
+                              <span>📋 Checklist:</span>
+                              <span className="text-[var(--color-accent,#DF5504)]">{completedTasks}/{totalTasks} tasks ({Math.round((completedTasks/totalTasks)*100)}%)</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quick action buttons row */}
+                        <div className="flex items-center gap-2 sm:self-center flex-shrink-0">
+                          {/* Recall Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleRecallCard(card.id)}
+                            className="px-2.5 py-1.5 bg-blue-950/30 border border-blue-850 hover:bg-blue-900/60 text-blue-300 font-bold text-[9px] uppercase rounded transition-colors cursor-pointer"
+                            title="Recall and send card back to 'To Do' column"
+                          >
+                            ↩️ Recall
+                          </button>
+
+                          {/* Archive/Restore Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => handleArchiveCard(card.id, !card.isArchived)}
+                            className="px-2.5 py-1.5 bg-amber-950/30 border border-amber-850 hover:bg-amber-900/60 text-amber-300 font-bold text-[9px] uppercase rounded transition-colors cursor-pointer"
+                            title={card.isArchived ? "Restore to active Kanban boards" : "Archive and hide from active Kanban boards"}
+                          >
+                            {card.isArchived ? "📥 Restore" : "📦 Archive"}
+                          </button>
+
+                          {/* Complete Delete button */}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await handleDeleteCard(card.id);
+                            }}
+                            className="w-7 h-7 bg-red-950/30 border border-red-850 hover:bg-red-900/60 text-red-300 font-bold text-[10px] uppercase rounded flex items-center justify-center transition-colors cursor-pointer"
+                            title="Delete card permanently from storage"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/50 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsArchiveStudioOpen(false);
+                    setArchiveSearchQuery('');
+                  }}
+                  className="px-4 py-2 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white hover:border-white font-bold rounded transition-colors text-xs uppercase cursor-pointer"
+                >
+                  Close Studio
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Elegant Brutalist Bottom-Floating Toast Notification */}
       {toastMessage && (
