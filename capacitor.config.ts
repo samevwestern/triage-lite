@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: "com.mdex.triagelite",
-  appName: "Triage Lite",
+  appName: "MTRAx lt",
   webDir: 'dist',
   server: {
     androidScheme: 'https'

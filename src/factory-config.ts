@@ -14,7 +14,7 @@ export interface AppConfig {
 
 export const config: AppConfig = {
   "id": "triage-lite",
-  "name": "Triage Lite",
+  "name": "MTRAx lt",
   "bundleId": "com.mdex.triagelite",
   "accentColor": "#DF5504",
   "apiEndpoint": "https://api.triage.mdex.com",
