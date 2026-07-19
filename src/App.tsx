@@ -3213,7 +3213,7 @@ export default function App() {
       {/* CUSTOM BRUTALIST DETAIL MODAL */}
       {selectedCardForEdit && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
-            <div className={`w-full max-w-md bento-box p-6 text-white max-h-[90vh] overflow-y-auto ${isReadOnly ? 'border-amber-600/50' : ''}`}>
+            <div className={`w-full max-w-md bento-box p-4 sm:p-5.5 text-white max-h-[90vh] overflow-y-auto ${isReadOnly ? 'border-amber-600/50' : ''}`}>
               {isReadOnly && (
                 <div className="mb-4 p-2.5 bg-amber-950/40 border border-amber-800/50 rounded flex items-center gap-2 text-amber-300 font-mono text-[9px] uppercase tracking-wider leading-none animate-pulse">
                   <span>🔒 READ-ONLY MODE. Recall this card to active board to edit!</span>
@@ -3231,7 +3231,7 @@ export default function App() {
                 }}
               >
             {/* Header */}
-            <div className="flex flex-col gap-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mb-4">
+            <div className="flex flex-col gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2 mb-2.5">
               <div className="flex justify-between items-center">
                 <h3 className="font-black text-xs font-mono uppercase tracking-wider text-gray-400">
                   Card Title
@@ -3316,9 +3316,9 @@ export default function App() {
             </div>
 
             {/* Inputs */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2.5">
               {/* ⏱️ Session History Section */}
-              <div className="flex flex-col gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3">
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Session History</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
@@ -3470,16 +3470,16 @@ export default function App() {
               )}
               {/* Description Section */}
               <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Description</label>
+                <label className="block text-[10px] font-mono font-bold uppercase text-gray-400 mb-0.5">Description</label>
                 <textarea 
                   value={selectedCardForEdit.description || ''}
                   onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, description: e.target.value })}
-                  className="w-full h-20 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]"
+                  className="w-full h-14 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]"
                 />
               </div>
 
               {/* Redesigned Compact Labels Section */}
-              <div className="flex flex-col gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-3">
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Labels</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
@@ -3654,9 +3654,9 @@ export default function App() {
 
               {/* List Column Selection Dropdown */}
               <div className="relative">
-                <span className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">List</span>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1.5 p-1 bg-black/25 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded min-h-[38px] flex-grow">
+                <span className="block text-[10px] font-mono font-bold uppercase text-gray-400 mb-0.5">List</span>
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 p-0.5 bg-black/25 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded min-h-[32px] flex-grow">
                     {(() => {
                       const activeList = lists.find(l => l.id === selectedCardForEdit.listId);
                       return (
@@ -3783,7 +3783,7 @@ export default function App() {
               </div>
 
               {/* Checklist & Tasks Section */}
-              <div className="flex flex-col gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mt-1">
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2 mt-0.5">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Checklist & Tasks</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
@@ -3862,7 +3862,7 @@ export default function App() {
 
 
               {/* Notifications & Alert Studio Row */}
-              <div className="flex flex-col gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mt-1">
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2 mt-0.5">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Notifications</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
@@ -3950,7 +3950,7 @@ export default function App() {
 
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
-              <div className="pt-4 mt-2">
+              <div className="pt-2.5 mt-1">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Document & Resource Studio</span>
                 <div className="flex items-center justify-between gap-2 mb-2.5 mt-1">
                   <div className="flex items-center gap-1.5">
@@ -4527,7 +4527,7 @@ export default function App() {
               </div>
 
               {/* 🧾 ASSOCIATED BUSINESS CLAIMS & RECEIPTS STUDIO */}
-              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
+              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 pt-2.5 mt-1">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Receipts</span>
                 <div className="flex items-center justify-between gap-2 mb-2.5 mt-1">
                   <div className="flex items-center gap-1.5">
@@ -4697,7 +4697,7 @@ export default function App() {
               </div>
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-between mt-6 pt-4 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
+            <div className="flex flex-col sm:flex-row gap-3 justify-between mt-4 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
               {/* Left Actions: Delete & Archive */}
               <div className="flex gap-2">
                 <button
