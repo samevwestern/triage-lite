@@ -1381,11 +1381,56 @@ export default function App() {
   };
 
   const handleExportCSV = async () => {
-    const headers = 'Card ID,List,Title,Description,Time Spent (Seconds),Due Date,Completion Date,Archived\n';
+    const headers = 'Card ID,List Name,Title,Description,Time Spent (Seconds),Due Date,Completion Date,Category Labels,Sub-Task Checklists,Active Alarms,Archived\n';
+    
     const rows = cards.map(c => {
+      // 1. Resolve board column name
+      const listObj = lists.find(l => l.id === c.listId);
+      const listName = listObj ? listObj.name : 'Unknown';
+      
+      // 2. Resolve Category Labels
+      const labelNames = (c.labelIds || [])
+        .map(id => {
+          const found = labels.find(l => l.id === id);
+          return found ? found.text : '';
+        })
+        .filter(Boolean)
+        .join(', ');
+        
+      // 3. Resolve Sub-Task Checklists
+      const checklistStrings: string[] = [];
+      let taskIndex = 1;
+      (c.checklists || []).forEach(cl => {
+        cl.items.forEach(item => {
+          const checkbox = item.isChecked ? '[✔]' : '[ ]';
+          checklistStrings.push(`${taskIndex}. ${checkbox} ${item.text}`);
+          taskIndex++;
+        });
+      });
+      const checklistSerialized = checklistStrings.join(', ');
+
+      // 4. Resolve Active Alarms
+      const alarmStrings: string[] = [];
+      if (c.dueDate) {
+        alarmStrings.push(`Card Due: ${new Date(c.dueDate).toLocaleString()}`);
+      }
+      (c.checklists || []).forEach(cl => {
+        cl.items.forEach(item => {
+          if (item.dueDate) {
+            alarmStrings.push(`Sub-task '${item.text}' Alarm: ${new Date(item.dueDate).toLocaleString()}`);
+          }
+        });
+      });
+      const alarmsSerialized = alarmStrings.join(' | ');
+
+      // 5. Format dates
       const dueDateStr = c.dueDate ? new Date(c.dueDate).toISOString().split('T')[0] : '';
       const completedAtStr = c.completedAt ? new Date(c.completedAt).toISOString().split('T')[0] : '';
-      return `"${c.id}","${c.listId}","${c.title}","${c.description || ''}",${c.timeSpent || 0},"${dueDateStr}","${completedAtStr}","${c.isArchived ? 'Yes' : 'No'}"`;
+
+      // Escape fields to prevent CSV injection or formatting breakage
+      const escapeCsv = (str: string) => `"${str.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+
+      return `${escapeCsv(c.id)},${escapeCsv(listName)},${escapeCsv(c.title)},${escapeCsv(c.description || '')},${c.timeSpent || 0},${escapeCsv(dueDateStr)},${escapeCsv(completedAtStr)},${escapeCsv(labelNames)},${escapeCsv(checklistSerialized)},${escapeCsv(alarmsSerialized)},"${c.isArchived ? 'Yes' : 'No'}"`;
     }).join('\n');
     
     const csvContent = headers + rows;
@@ -1397,7 +1442,7 @@ export default function App() {
         await navigator.share({
           files: [file],
           title: 'MTRAx Tasks Export',
-          text: 'Here is your exported CSV backup from MTRAx lt.'
+          text: 'Here is your rich CSV backup export from MTRAx lt.'
         });
         showToast("📤 Share sheet opened successfully!");
         return;
@@ -1414,6 +1459,116 @@ export default function App() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportFullBackup = async () => {
+    const backupPackage = {
+      backupVersion: 1,
+      timestamp: Date.now(),
+      appId: "triage-lite",
+      data: {
+        cards,
+        lists,
+        receipts,
+        voiceLogs,
+        labels,
+        employerEmail
+      }
+    };
+    const jsonString = JSON.stringify(backupPackage, null, 2);
+    const filename = `mtrax_full_backup_${Date.now()}.json`;
+
+    try {
+      const file = new File([jsonString], filename, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'MTRAx Full Backup',
+          text: 'Lossless JSON backup for full-state database restoration.'
+        });
+        showToast("📤 Backup share sheet opened!");
+        return;
+      }
+    } catch (e) {
+      console.warn("Share API not supported/failed:", e);
+    }
+
+    // Web Fallback
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestoreFullBackup = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const jsonText = evt.target?.result as string;
+          const backup = JSON.parse(jsonText);
+
+          // Schema validation check
+          if (!backup || backup.appId !== 'triage-lite' || !backup.data) {
+            alert('Invalid backup file structure! Ensure this is a valid MTRAx backup JSON file.');
+            return;
+          }
+
+          const confirmRestore = window.confirm(
+            '⚠️ WARNING: This will overwrite your current board, categories, tax receipts, settings, and verbal diaries with the backup data. This action cannot be undone.\n\nDo you want to proceed?'
+          );
+          if (!confirmRestore) return;
+
+          await triggerHaptic();
+
+          const data = backup.data;
+          
+          // Save and overwrite all states permanently
+          if (Array.isArray(data.cards)) {
+            setCards(data.cards);
+            await syncData(`factory_app_${config.id}_cards`, data.cards);
+          }
+          if (Array.isArray(data.lists)) {
+            setLists(data.lists);
+            await syncData(`factory_app_${config.id}_lists`, data.lists);
+          }
+          if (Array.isArray(data.receipts)) {
+            setReceipts(data.receipts);
+            await syncData(`factory_app_${config.id}_receipts`, data.receipts);
+          }
+          if (Array.isArray(data.voiceLogs)) {
+            setVoiceLogs(data.voiceLogs);
+            await syncData(`factory_app_${config.id}_voice_logs`, data.voiceLogs);
+          }
+          if (Array.isArray(data.labels)) {
+            setLabels(data.labels);
+            await syncData(`factory_app_${config.id}_labels`, data.labels);
+          }
+          if (typeof data.employerEmail === 'string') {
+            setEmployerEmail(data.employerEmail);
+            await syncData(`factory_app_${config.id}_employer_email`, data.employerEmail);
+          }
+
+          showToast("⚡ Full memory restore complete!");
+          alert("✔ Backup restored successfully! The application will now reload.");
+          window.location.reload();
+        } catch (err) {
+          console.error(err);
+          alert('Failed to parse backup file! Error: ' + (err as Error).message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   const handleArchiveCard = async (cardId: string, archive: boolean) => {
@@ -2606,9 +2761,29 @@ export default function App() {
                   await triggerHaptic();
                   handleExportCSV();
                 }}
-                className="w-full py-2.5 bento-btn bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 font-bold uppercase text-[10px] rounded transition-all"
+                className="w-full py-2.5 bento-btn bg-black/40 border border-gray-600/30 text-white hover:border-[var(--color-accent,#DF5504)] font-bold uppercase text-[10px] rounded transition-all flex items-center justify-center gap-1.5"
               >
-                Export CSV for Excel
+                📊 Export CSV for Excel
+              </button>
+
+              <button 
+                onClick={async () => {
+                  await triggerHaptic();
+                  handleExportFullBackup();
+                }}
+                className="w-full py-2.5 bento-btn bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 font-bold uppercase text-[10px] rounded transition-all flex items-center justify-center gap-1.5 shadow-md"
+              >
+                👑 Export Full JSON Backup (Lossless)
+              </button>
+
+              <button 
+                onClick={async () => {
+                  await triggerHaptic();
+                  handleRestoreFullBackup();
+                }}
+                className="w-full py-2.5 border border-[var(--color-accent,#DF5504)] bg-transparent text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/10 font-bold text-[10px] uppercase rounded transition-all flex items-center justify-center gap-1.5"
+              >
+                📥 Import JSON Backup (Restore)
               </button>
               
               <button 
@@ -2619,9 +2794,9 @@ export default function App() {
                     window.location.reload();
                   }
                 }}
-                className="w-full py-2.5 border border-red-500/30 bg-[var(--color-dark-bg,#282828)] text-red-400 hover:bg-red-900/10 font-bold text-[10px] uppercase rounded transition-all"
+                className="w-full py-2 py-2 border border-red-500/30 bg-[var(--color-dark-bg,#282828)] text-red-400 hover:bg-red-900/10 font-bold text-[9px] uppercase rounded transition-all flex items-center justify-center gap-1.5 mt-2"
               >
-                Reset App Database
+                ⚠️ Reset App Database
               </button>
             </div>
           </div>
