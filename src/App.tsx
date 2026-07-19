@@ -3950,7 +3950,7 @@ export default function App() {
 
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
-              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
+              <div className="pt-4 mt-2">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Document & Resource Studio</span>
                 <div className="flex items-center justify-between gap-2 mb-2.5 mt-1">
                   <div className="flex items-center gap-1.5">
