@@ -1341,35 +1341,6 @@ export default function App() {
     });
   };
 
-  const handleMovePosition = async (cardId: string, direction: 'up' | 'down') => {
-    await triggerHaptic();
-    setCards(prevCards => {
-      const targetCard = prevCards.find(c => c.id === cardId);
-      if (!targetCard) return prevCards;
-
-      const listId = targetCard.listId;
-      const listCards = prevCards.filter(c => c.listId === listId);
-      const cardIdxInList = listCards.findIndex(c => c.id === cardId);
-
-      if (direction === 'up' && cardIdxInList === 0) return prevCards;
-      if (direction === 'down' && cardIdxInList === listCards.length - 1) return prevCards;
-
-      const swapWithIdx = direction === 'up' ? cardIdxInList - 1 : cardIdxInList + 1;
-      const swapWithCard = listCards[swapWithIdx];
-
-      const targetAbsIdx = prevCards.findIndex(c => c.id === cardId);
-      const swapWithAbsIdx = prevCards.findIndex(c => c.id === swapWithCard.id);
-
-      const updated = [...prevCards];
-      const temp = updated[targetAbsIdx];
-      updated[targetAbsIdx] = updated[swapWithAbsIdx];
-      updated[swapWithAbsIdx] = temp;
-
-      syncData(`factory_app_${config.id}_cards`, updated);
-      return updated;
-    });
-  };
-
   const handleReorderCard = async (draggedId: string, targetId: string) => {
     await triggerHaptic();
     setCards(prevCards => {
@@ -1689,6 +1660,24 @@ export default function App() {
               </div>
               <span className="text-gray-500 group-hover:text-white text-xs pl-1 font-sans">❯</span>
             </button>
+
+            {/* Language Selector bento box */}
+            <div className="w-full p-2.5 bento-box bg-black/40 flex flex-col gap-2 font-mono">
+              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">🌐 App Language</span>
+              <select
+                value={currentLanguage}
+                onChange={async (e) => {
+                  await triggerHaptic();
+                  setCurrentLanguage(e.target.value as any);
+                }}
+                className="w-full bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded text-[11px] text-white py-1.5 px-2 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
+              >
+                <option value="en" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇺🇸 English (EN)</option>
+                <option value="es" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇪🇸 Español (ES)</option>
+                <option value="fr" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇫🇷 Français (FR)</option>
+                <option value="de" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇩🇪 Deutsch (DE)</option>
+              </select>
+            </div>
           </div>
 
           {/* Section 2: Interactive Quick Tools */}
@@ -1801,6 +1790,22 @@ export default function App() {
                 <span className="text-[9px] text-gray-400">Import attachments.</span>
               </div>
             </button>
+
+            {/* Button 7: Archive Studio */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsArchiveStudioOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">📦</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Archive Studio</span>
+                <span className="text-[9px] text-gray-400">Recall completed/archived cards.</span>
+              </div>
+            </button>
           </div>
 
           {/* Section 3: Premium Access */}
@@ -1883,65 +1888,30 @@ export default function App() {
       </div>
 
       {/* HEADER SECTION (CONTROL ICON BAR) */}
-      <header className="flex items-center justify-between border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          {/* Suited Minimalist Hamburger Menu Button */}
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsSidebarOpen(!isSidebarOpen);
-            }}
-            className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
-            title="Open Menu"
-          >
-            ☰
-          </button>
+      <header className="flex items-center justify-start gap-3 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6 flex-shrink-0">
+        {/* Suited Minimalist Hamburger Menu Button */}
+        <button
+          onClick={async () => {
+            await triggerHaptic();
+            setIsSidebarOpen(!isSidebarOpen);
+          }}
+          className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
+          title="Open Menu"
+        >
+          ☰
+        </button>
 
-          {/* Minimalist Dashboard Help/Runbook icon */}
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsDashboardHelpOpen(true);
-            }}
-            className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
-            title="Dashboard Runbook"
-          >
-            ❓
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsArchiveStudioOpen(true);
-            }}
-            className="px-2.5 py-1.5 rounded-md bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] hover:text-[var(--color-accent,#DF5504)] text-white text-[10px] font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer hover:shadow-[0_0_10px_rgba(223,85,4,0.3)] animate-fadeIn"
-            title="Search & Recall Archived Cards"
-          >
-            <span>📦</span>
-            <span className="hidden sm:inline">ARCHIVE STUDIO</span>
-          </button>
-
-          {showLanguageInHeader && (
-            <div className="flex items-center gap-1.5 animate-fadeIn">
-              <span className="text-[10px] font-bold text-gray-400 font-mono hidden md:inline">🌐 LANGUAGE:</span>
-              <select
-                value={currentLanguage}
-                onChange={async (e) => {
-                  await triggerHaptic();
-                  setCurrentLanguage(e.target.value as any);
-                }}
-                className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-md text-[10px] text-white py-1.5 px-2 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
-              >
-                <option value="en" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇺🇸 EN</option>
-                <option value="es" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇪🇸 ES</option>
-                <option value="fr" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇫🇷 FR</option>
-                <option value="de" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇩🇪 DE</option>
-              </select>
-            </div>
-          )}
-        </div>
+        {/* Minimalist Dashboard Help/Runbook icon */}
+        <button
+          onClick={async () => {
+            await triggerHaptic();
+            setIsDashboardHelpOpen(true);
+          }}
+          className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
+          title="Dashboard Runbook"
+        >
+          ❓
+        </button>
       </header>
       <main className="flex-grow overflow-y-auto no-scrollbar pr-0.5">
         <div className="grid grid-cols-1 gap-6 items-start">
@@ -2257,58 +2227,8 @@ export default function App() {
                       </div>
 
                       {/* Timer details inside the card */}
-                      <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-3 pt-2 flex justify-between items-center font-mono">
+                      <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-3 pt-2 flex items-center font-mono">
                         <span className="text-[10px] text-[var(--color-accent,#DF5504)]">⏱ {Math.floor((card.timeSpent || 0) / 60)}m spent</span>
-                        {/* Card Move Dropdown Box */}
-                        <div 
-                          className="relative" 
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onTouchStart={(e) => e.stopPropagation()}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onDragStart={(e) => e.stopPropagation()}
-                        >
-                          <select
-                            value=""
-                            onChange={async (e) => {
-                              const val = e.target.value;
-                              if (val === 'move-up') {
-                                await handleMovePosition(card.id, 'up');
-                              } else if (val === 'move-down') {
-                                await handleMovePosition(card.id, 'down');
-                              } else if (val) {
-                                console.log('Moving card', card.id, 'to list', val);
-                                await triggerHaptic();
-                                handleMoveCard(card.id, val);
-                              }
-                            }}
-                            className="text-[10px] bento-btn bg-[var(--color-accent,#DF5504)] text-white px-2 py-1 font-bold uppercase rounded cursor-pointer border-2 border-[#E96213] shadow-[2px_2px_0px_0px_rgba(223,85,4,0.3)] hover:translate-y-[-0.5px] active:translate-y-[0.5px] transition-transform select-none outline-none font-sans appearance-none pr-5 relative"
-                            style={{
-                              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 10 6'><path fill='white' d='M0 0l5 5 5-5z'/></svg>")`,
-                              backgroundRepeat: 'no-repeat',
-                              backgroundPosition: 'right 6px center',
-                              backgroundSize: '8px 5px'
-                            }}
-                          >
-                            <option value="" disabled hidden>
-                              Move ▼
-                            </option>
-                            <option value="move-up" className="text-white bg-[#282828] font-bold font-mono text-[10px]">
-                              ▲ MOVE UP
-                            </option>
-                            <option value="move-down" className="text-white bg-[#282828] font-bold font-mono text-[10px]">
-                              ▼ MOVE DOWN
-                            </option>
-                            <option value="" disabled className="text-gray-500 bg-[#282828] font-bold font-mono text-[10px]">
-                              ──────────────
-                            </option>
-                            {lists.map(l => (
-                              <option key={l.id} value={l.id} className="text-white bg-[#282828] font-bold font-mono text-[10px]">
-                                TO: {l.name.toUpperCase()}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -7169,7 +7089,7 @@ export default function App() {
                   📄 <strong className="text-white font-mono">CARD INTERACTION:</strong> Tap any card's frame to open Card Details (to edit checklist bullets, set alarms, or attach documents). Tap the <strong className="text-[var(--color-accent,#DF5504)]">+</strong> icon in the header bar to create a card in the current column.
                 </p>
                 <p>
-                  🔄 <strong className="text-white font-mono">MOVING CARDS:</strong> Tap the orange <strong className="text-[var(--color-accent,#DF5504)]">MOVE ▾</strong> button in the bottom-right of any card to shift columns. On desktop, click and drag cards directly to any list column.
+                  🔄 <strong className="text-white font-mono">MOVING CARDS:</strong> Tap any card to open Card Details and change its column list location, or use click-and-drag directly on desktop browsers.
                 </p>
                 <p>
                   ⏱️ <strong className="text-white font-mono">TIMERS & INDICATORS:</strong> Spent Timer displays total time spent on this card, updated by active focused study sessions. Task Progress shows percentage progress and next sub-checklist items.
