@@ -688,6 +688,7 @@ export default function App() {
   
   // Card Editing Modal State
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<Card | null>(null);
+  const isReadOnly = selectedCardForEdit ? (selectedCardForEdit.isArchived || selectedCardForEdit.listId === 'done' || selectedCardForEdit.completedAt !== null) : false;
   const [isLabelManagerOpen, setIsLabelManagerOpen] = useState(false);
   const [lightboxFile, setLightboxFile] = useState<FileAttachment | null>(null);
   
@@ -773,7 +774,7 @@ export default function App() {
   const [isArchiveStudioOpen, setIsArchiveStudioOpen] = useState(false);
   const [isArchiveStudioHelpOpen, setIsArchiveStudioHelpOpen] = useState(false);
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
-  const [archiveFilterTab, setArchiveFilterTab] = useState<'all' | 'completed' | 'archived'>('all');
+  const [archiveFilterTab, setArchiveFilterTab] = useState<'all' | 'active' | 'completed' | 'archived'>('all');
   const [isReceiptsLinkHelpOpen, setIsReceiptsLinkHelpOpen] = useState(false);
   const [showBackupHelp, setShowBackupHelp] = useState(false);
   const [showSyncHelp, setShowSyncHelp] = useState(false);
@@ -3232,7 +3233,23 @@ export default function App() {
       {/* CUSTOM BRUTALIST DETAIL MODAL */}
       {selectedCardForEdit && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="w-full max-w-md bento-box p-6 text-white max-h-[90vh] overflow-y-auto">
+            <div className={`w-full max-w-md bento-box p-6 text-white max-h-[90vh] overflow-y-auto ${isReadOnly ? 'border-amber-600/50' : ''}`}>
+              {isReadOnly && (
+                <div className="mb-4 p-2.5 bg-amber-950/40 border border-amber-800/50 rounded flex items-center gap-2 text-amber-300 font-mono text-[9px] uppercase tracking-wider leading-none animate-pulse">
+                  <span>🔒 READ-ONLY MODE. Recall this card to active board to edit!</span>
+                </div>
+              )}
+              <div 
+                className={isReadOnly ? "pointer-events-none opacity-85 select-none" : ""}
+                onClickCapture={async (e) => {
+                  if (isReadOnly) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await triggerHaptic();
+                    showToast("⚠️ This card is read-only. Recall to active board to edit!");
+                  }
+                }}
+              >
             {/* Header */}
             <div className="flex flex-col gap-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mb-4">
               <div className="flex justify-between items-center">
@@ -4728,6 +4745,8 @@ export default function App() {
               </div>
             </div>
 
+              </div>
+
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 justify-between mt-6 pt-4 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
               {/* Left Actions: Delete & Archive */}
@@ -4764,49 +4783,64 @@ export default function App() {
 
               {/* Right Actions: Cancel & Save */}
               <div className="flex gap-2 justify-end">
-                <button 
-                  onClick={() => {
-                    setSelectedCardForEdit(null);
-                    setIsLabelManagerOpen(false);
-                    setIsCardSessionLogExpanded(false);
-                  }}
-                  className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={async () => {
-                    if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
-                      await triggerHaptic();
-                      showToast("⚠️ Task title is required to save the card!");
-                      return;
-                    }
-                    if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
-                      await triggerHaptic();
-                      showToast("⚠️ Task description is empty! Please write a summary.");
-                      return;
-                    }
-                    await triggerHaptic();
-                    const exists = cards.some(c => c.id === selectedCardForEdit.id);
-                    const updatedCards = exists 
-                      ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
-                      : [...cards, selectedCardForEdit];
-                    await saveCards(updatedCards);
+                {isReadOnly ? (
+                  <button 
+                    onClick={() => {
+                      setSelectedCardForEdit(null);
+                      setIsLabelManagerOpen(false);
+                      setIsCardSessionLogExpanded(false);
+                    }}
+                    className="px-5 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold text-xs uppercase rounded cursor-pointer transition-colors"
+                  >
+                    Close Viewer
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => {
+                        setSelectedCardForEdit(null);
+                        setIsLabelManagerOpen(false);
+                        setIsCardSessionLogExpanded(false);
+                      }}
+                      className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
+                          await triggerHaptic();
+                          showToast("⚠️ Task title is required to save the card!");
+                          return;
+                        }
+                        if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
+                          await triggerHaptic();
+                          showToast("⚠️ Task description is empty! Please write a summary.");
+                          return;
+                        }
+                        await triggerHaptic();
+                        const exists = cards.some(c => c.id === selectedCardForEdit.id);
+                        const updatedCards = exists 
+                          ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
+                          : [...cards, selectedCardForEdit];
+                        await saveCards(updatedCards);
 
-                    // Phase 5: Trigger Native iOS Integrations
-                    if (isNative && selectedCardForEdit.dueDate) {
-                      await scheduleLocalAlarm(selectedCardForEdit);
-                      await syncToAppleCalendar(selectedCardForEdit);
-                    }
+                        // Phase 5: Trigger Native iOS Integrations
+                        if (isNative && selectedCardForEdit.dueDate) {
+                          await scheduleLocalAlarm(selectedCardForEdit);
+                          await syncToAppleCalendar(selectedCardForEdit);
+                        }
 
-                    setSelectedCardForEdit(null);
-                    setIsLabelManagerOpen(false);
-                    setIsCardSessionLogExpanded(false);
-                  }}
-                  className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
-                >
-                  Save Changes
-                </button>
+                        setSelectedCardForEdit(null);
+                        setIsLabelManagerOpen(false);
+                        setIsCardSessionLogExpanded(false);
+                      }}
+                      className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
+                    >
+                      Save Changes
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -7705,7 +7739,8 @@ export default function App() {
           const matchesSearch = c.title.toLowerCase().includes(query) || (c.description || '').toLowerCase().includes(query);
           
           if (!matchesSearch) return false;
-          if (archiveFilterTab === 'completed') return c.listId === 'done';
+          if (archiveFilterTab === 'active') return !c.isArchived && c.listId !== 'done';
+          if (archiveFilterTab === 'completed') return c.listId === 'done' && !c.isArchived;
           if (archiveFilterTab === 'archived') return !!c.isArchived;
           return true; // 'all'
         });
@@ -7798,10 +7833,11 @@ export default function App() {
                 />
 
                 {/* Filter Chips */}
-                <div className="flex gap-2">
-                  {(['all', 'completed', 'archived'] as const).map(tab => {
+                <div className="flex gap-2 flex-wrap">
+                  {(['all', 'active', 'completed', 'archived'] as const).map(tab => {
                     const count = cards.filter(c => {
-                      if (tab === 'completed') return c.listId === 'done';
+                      if (tab === 'active') return !c.isArchived && c.listId !== 'done';
+                      if (tab === 'completed') return c.listId === 'done' && !c.isArchived;
                       if (tab === 'archived') return !!c.isArchived;
                       return true;
                     }).length;
@@ -7821,6 +7857,7 @@ export default function App() {
                         }`}
                       >
                         {tab === 'all' && `🌐 All (${count})`}
+                        {tab === 'active' && `⚡ Active (${count})`}
                         {tab === 'completed' && `✅ Completed (${count})`}
                         {tab === 'archived' && `📦 Archived (${count})`}
                       </button>
@@ -7830,7 +7867,7 @@ export default function App() {
               </div>
 
               {/* Scrollable List Area */}
-              <div className="flex-grow overflow-y-auto no-scrollbar flex flex-col gap-3 pr-1 py-1">
+              <div className="flex-grow overflow-y-auto no-scrollbar flex flex-col gap-2 pr-1 py-1">
                 {filteredCards.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500 gap-2 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/60 rounded-md bg-black/10">
                     <span className="text-3xl">🗳️</span>
@@ -7849,47 +7886,46 @@ export default function App() {
                     return (
                       <div 
                         key={card.id}
-                        className="p-3.5 bg-black/40 border border-[#4C4C4C] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[var(--color-accent,#DF5504)] transition-all"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setSelectedCardForEdit(card);
+                        }}
+                        className="p-2.5 bg-black/40 border border-[#3D3D3D] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[var(--color-accent,#DF5504)] hover:bg-black/55 transition-all cursor-pointer"
                       >
-                        <div className="flex flex-col gap-1 sm:max-w-[65%]">
-                          <div className="flex items-center flex-wrap gap-2">
-                            <span className="font-bold text-sm text-white">{card.title}</span>
-                            
-                            {/* Badges */}
-                            <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-white/10 ${
-                              card.listId === 'done' 
-                                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800' 
-                                : 'bg-blue-950/40 text-blue-400 border-blue-800'
-                            }`}>
-                              COLUMN: {listObj?.name || card.listId}
-                            </span>
-
-                            {card.isArchived && (
-                              <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-800 bg-amber-950/40 text-amber-400 animate-pulse">
-                                ARCHIVED
-                              </span>
-                            )}
-                          </div>
-
-                          {card.description && (
-                            <p className="text-xs text-[#8892b0] line-clamp-2">{card.description}</p>
-                          )}
-
+                        <div className="flex items-center gap-2 max-w-[65%] truncate">
+                          <span className="font-bold text-xs text-white truncate">{card.title}</span>
                           {totalTasks > 0 && (
-                            <div className="flex items-center gap-1.5 text-[9px] text-gray-400 font-bold mt-1">
-                              <span>📋 Checklist:</span>
-                              <span className="text-[var(--color-accent,#DF5504)]">{completedTasks}/{totalTasks} tasks ({Math.round((completedTasks/totalTasks)*100)}%)</span>
-                            </div>
+                            <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-mono font-bold flex-shrink-0">
+                              ({Math.round((completedTasks/totalTasks)*100)}%)
+                            </span>
+                          )}
+                          
+                          {/* Badges */}
+                          <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border border-white/5 flex-shrink-0 ${
+                            card.listId === 'done' 
+                              ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/30' 
+                              : 'bg-blue-950/40 text-blue-400 border-blue-900/30'
+                          }`}>
+                            {listObj?.name || card.listId}
+                          </span>
+
+                          {card.isArchived && (
+                            <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-900/30 bg-amber-950/40 text-amber-400 flex-shrink-0 animate-pulse">
+                              ARCHIVED
+                            </span>
                           )}
                         </div>
 
                         {/* Quick action buttons row */}
-                        <div className="flex items-center gap-2 sm:self-center flex-shrink-0">
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
                           {/* Recall Button */}
                           <button
                             type="button"
-                            onClick={() => handleRecallCard(card.id)}
-                            className="px-2.5 py-1.5 bg-blue-950/30 border border-blue-850 hover:bg-blue-900/60 text-blue-300 font-bold text-[9px] uppercase rounded transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRecallCard(card.id);
+                            }}
+                            className="px-2 py-1 bg-blue-950/30 border border-blue-900/40 hover:bg-blue-900/60 text-blue-300 font-bold text-[8px] uppercase rounded transition-colors cursor-pointer"
                             title="Recall and send card back to 'To Do' column"
                           >
                             ↩️ Recall
@@ -7898,8 +7934,11 @@ export default function App() {
                           {/* Archive/Restore Toggle */}
                           <button
                             type="button"
-                            onClick={() => handleArchiveCard(card.id, !card.isArchived)}
-                            className="px-2.5 py-1.5 bg-amber-950/30 border border-amber-850 hover:bg-amber-900/60 text-amber-300 font-bold text-[9px] uppercase rounded transition-colors cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchiveCard(card.id, !card.isArchived);
+                            }}
+                            className="px-2 py-1 bg-amber-950/30 border border-amber-900/40 hover:bg-amber-900/60 text-amber-300 font-bold text-[8px] uppercase rounded transition-colors cursor-pointer"
                             title={card.isArchived ? "Restore to active Kanban boards" : "Archive and hide from active Kanban boards"}
                           >
                             {card.isArchived ? "📥 Restore" : "📦 Archive"}
@@ -7908,10 +7947,11 @@ export default function App() {
                           {/* Complete Delete button */}
                           <button
                             type="button"
-                            onClick={async () => {
+                            onClick={async (e) => {
+                              e.stopPropagation();
                               await handleDeleteCard(card.id);
                             }}
-                            className="w-7 h-7 bg-red-950/30 border border-red-850 hover:bg-red-900/60 text-red-300 font-bold text-[10px] uppercase rounded flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-5 h-5 bg-red-950/30 border border-red-900/40 hover:bg-red-900/60 text-red-300 font-bold text-[8px] uppercase rounded flex items-center justify-center transition-colors cursor-pointer"
                             title="Delete card permanently from storage"
                           >
                             🗑️
