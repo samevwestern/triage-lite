@@ -1380,18 +1380,38 @@ export default function App() {
     });
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const headers = 'Card ID,List,Title,Description,Time Spent (Seconds),Due Date,Completion Date,Archived\n';
     const rows = cards.map(c => {
       const dueDateStr = c.dueDate ? new Date(c.dueDate).toISOString().split('T')[0] : '';
       const completedAtStr = c.completedAt ? new Date(c.completedAt).toISOString().split('T')[0] : '';
       return `"${c.id}","${c.listId}","${c.title}","${c.description || ''}",${c.timeSpent || 0},"${dueDateStr}","${completedAtStr}","${c.isArchived ? 'Yes' : 'No'}"`;
     }).join('\n');
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    
+    const csvContent = headers + rows;
+    const filename = `${config.id}_tasks_export.csv`;
+    
+    try {
+      const file = new File([csvContent], filename, { type: 'text/csv' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'MTRAx Tasks Export',
+          text: 'Here is your exported CSV backup from MTRAx lt.'
+        });
+        showToast("📤 Share sheet opened successfully!");
+        return;
+      }
+    } catch (e) {
+      console.warn("Web Share API files sharing not supported/failed:", e);
+    }
+
+    // Web Fallback
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${config.id}_tasks_export.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -4219,11 +4239,30 @@ export default function App() {
                               const rows = (selectedCardForEdit.resources || [])
                                 .map(r => `"${r.title.replace(/"/g, '""')}","${r.url.replace(/"/g, '""')}"`)
                                 .join('\n');
-                              const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+                              
+                              const csvContent = headers + rows;
+                              const filename = `citations_${selectedCardForEdit.id}.csv`;
+
+                              try {
+                                const file = new File([csvContent], filename, { type: 'text/csv' });
+                                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                  await navigator.share({
+                                    files: [file],
+                                    title: 'Citations Export',
+                                    text: `Resource citations for card ${selectedCardForEdit.title}`
+                                  });
+                                  showToast("📤 Share sheet opened successfully!");
+                                  return;
+                                }
+                              } catch (e) {
+                                console.warn("Web Share API files sharing not supported/failed:", e);
+                              }
+
+                              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                               const url = URL.createObjectURL(blob);
                               const a = document.createElement('a');
                               a.href = url;
-                              a.download = `citations_${selectedCardForEdit.id}.csv`;
+                              a.download = filename;
                               a.click();
                               URL.revokeObjectURL(url);
                             }}
@@ -5261,11 +5300,28 @@ export default function App() {
                       }
                     });
                     const csvContent = csvRows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
+                    const filename = `triage_focus_session_logs_${Date.now()}.csv`;
+
+                    try {
+                      const file = new File([csvContent], filename, { type: 'text/csv' });
+                      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                          files: [file],
+                          title: 'Focus Session Logs Export',
+                          text: 'Here is your exported focus session logs CSV from MTRAx lt.'
+                        });
+                        showToast("📤 Share sheet opened successfully!");
+                        return;
+                      }
+                    } catch (e) {
+                      console.warn("Web Share API files sharing not supported/failed:", e);
+                    }
+
                     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement("a");
                     link.setAttribute("href", url);
-                    link.setAttribute("download", `triage_focus_session_logs_${Date.now()}.csv`);
+                    link.setAttribute("download", filename);
                     link.click();
                     showToast("📥 CSV Export downloaded successfully!");
                   }}
