@@ -3669,14 +3669,26 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Active Labels Tally Badge */}
+                  {/* Active Labels Tally Badge Button */}
                   {(() => {
                     const labelsCount = selectedCardForEdit.labelIds?.length || 0;
                     return (
-                      <div className="px-3 py-1.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/40 rounded-lg text-[var(--color-accent,#DF5504)] font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsLabelManagerOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isLabelManagerOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Label Manager"
+                      >
                         <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Tags:</span>
                         <span>{labelsCount}</span>
-                      </div>
+                      </button>
                     );
                   })()}
                 </div>
