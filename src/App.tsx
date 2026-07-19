@@ -3116,10 +3116,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsCardSessionLogExpanded(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isCardSessionLogExpanded 
-                          ? 'border-[var(--color-accent,#DF5504)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
                       }`}
                       title="Toggle Session Log View"
                     >
@@ -3133,10 +3133,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsSessionHistoryGuideOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isSessionHistoryGuideOpen 
-                          ? 'border-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
                       }`}
                       title="Session History Guide"
                     >
@@ -3277,10 +3277,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsLabelManagerOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isLabelManagerOpen 
-                          ? 'border-[var(--color-accent,#DF5504)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)] text-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
                       }`}
                       title="Toggle Active Labels Dashboard"
                     >
@@ -3294,10 +3294,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsLabelHelpOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isLabelHelpOpen 
-                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
                       }`}
                       title="Labels Guide"
                     >
@@ -3344,7 +3344,7 @@ export default function App() {
                       </select>
                       <button
                         type="button"
-                        className="w-full h-full rounded-lg flex items-center justify-center font-black transition-all border-2 border-[#2C2C2C] bg-[#222222] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
+                        className="w-full h-full rounded-lg flex items-center justify-center font-black transition-all border-2 border-transparent bg-transparent hover:border-gray-500/30 hover:scale-105"
                         title="Add/Allocate Labels"
                       >
                         <span className="text-sm font-bold text-green-500">＋</span>
@@ -3612,7 +3612,11 @@ export default function App() {
                         await triggerHaptic();
                         setIsChecklistModalOpen(true);
                       }}
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 border-[#2C2C2C] bg-[#222222] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white"
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isChecklistModalOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
+                      }`}
                       title="Open Checklist Manager"
                     >
                       <span className="text-sm">📋</span>
@@ -3625,10 +3629,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsChecklistHelpOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isChecklistHelpOpen 
-                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
                       }`}
                       title="Checklist Guide"
                     >
@@ -3687,7 +3691,11 @@ export default function App() {
                         await triggerHaptic();
                         setIsNotificationStudioOpen(true);
                       }}
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 border-[#2C2C2C] bg-[#222222] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isNotificationStudioOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
+                      }`}
                       title="Open Notification & Alert Studio"
                     >
                       <span className="text-sm">🔔</span>
@@ -3700,10 +3708,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsAlertsHelpOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isAlertsHelpOpen 
-                          ? 'border-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
                       }`}
                       title="Alerts Guide"
                     >
@@ -3771,10 +3779,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsDocStudioOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isDocStudioOpen 
-                          ? 'border-[var(--color-accent,#DF5504)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
                       }`}
                       title="Toggle Document Studio Vault"
                     >
@@ -3788,10 +3796,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsDocsHelpOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isDocsHelpOpen 
-                          ? 'border-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
                       }`}
                       title="Documents Guide"
                     >
@@ -4329,7 +4337,7 @@ export default function App() {
                         await triggerHaptic();
                         setIsReceiptsOpen(true);
                       }}
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 border-[#2C2C2C] bg-[#222222] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent border-transparent text-gray-400 hover:text-white hover:border-gray-500/30 hover:scale-105"
                       title="Launch Global Receipts Tracker"
                     >
                       <span className="text-sm">🧾</span>
@@ -4342,10 +4350,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsReceiptsLinkHelpOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isReceiptsLinkHelpOpen 
-                          ? 'border-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
                       }`}
                       title="Receipts Guide"
                     >
@@ -4359,10 +4367,10 @@ export default function App() {
                         await triggerHaptic();
                         setIsReceiptStudioOpen(prev => !prev);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
                         isReceiptStudioOpen 
-                          ? 'border-[var(--color-accent,#DF5504)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-green-500 hover:border-gray-500/30'
                       }`}
                       title="Toggle Local Linker Panel"
                     >
