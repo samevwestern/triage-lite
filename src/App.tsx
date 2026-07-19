@@ -3969,15 +3969,27 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Tasks Complete Tally Badge */}
+                  {/* Tasks Complete Tally Badge Button */}
                   {(() => {
                     const totalTasks = selectedCardForEdit.checklists?.[0]?.items?.length || 0;
                     const completedTasks = selectedCardForEdit.checklists?.[0]?.items?.filter(it => it.isChecked).length || 0;
                     return (
-                      <div className="px-3 py-1.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/40 rounded-lg text-[var(--color-accent,#DF5504)] font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsChecklistModalOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isChecklistModalOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Checklist Manager"
+                      >
                         <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Tasks:</span>
                         <span>{completedTasks}/{totalTasks}</span>
-                      </div>
+                      </button>
                     );
                   })()}
                 </div>
