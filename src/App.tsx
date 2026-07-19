@@ -4048,16 +4048,28 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Active Alarms Tally Badge */}
+                  {/* Active Alarms Tally Badge Button */}
                   {(() => {
                     const primaryAlertCount = selectedCardForEdit.dueDate ? 1 : 0;
                     const subtaskAlertCount = selectedCardForEdit.checklists?.[0]?.items?.filter(it => it.dueDate).length || 0;
                     const totalAlarms = primaryAlertCount + subtaskAlertCount;
                     return (
-                      <div className="px-3 py-1.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/40 rounded-lg text-[var(--color-accent,#DF5504)] font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsNotificationStudioOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isNotificationStudioOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Alert Studio"
+                      >
                         <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Alarms:</span>
                         <span>{totalAlarms}</span>
-                      </div>
+                      </button>
                     );
                   })()}
                 </div>
@@ -6328,6 +6340,144 @@ export default function App() {
               >
                 <span>📧</span> Send Email Reminder
               </a>
+            </div>
+
+            {/* 🗓️ Card Alarms Agenda Timeline (Calendar List) */}
+            <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2.5 text-left mt-1.5">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-500 flex justify-between items-center w-full">
+                <span>🗓️ Card Alarms Agenda Timeline</span>
+                <span className="text-gray-500 text-[8px]">Chronological</span>
+              </span>
+
+              {(() => {
+                // Gather all alarm entries
+                const agendaItems: Array<{
+                  type: 'primary' | 'subtask';
+                  title: string;
+                  dueDate: number;
+                  originalItem?: ChecklistItem;
+                }> = [];
+
+                if (selectedCardForEdit.dueDate) {
+                  agendaItems.push({
+                    type: 'primary',
+                    title: '🚨 Main Card Deadline alert',
+                    dueDate: selectedCardForEdit.dueDate
+                  });
+                }
+
+                selectedCardForEdit.checklists?.[0]?.items?.forEach(it => {
+                  if (it.dueDate) {
+                    agendaItems.push({
+                      type: 'subtask',
+                      title: `⏰ Sub-task: "${it.text}"`,
+                      dueDate: it.dueDate,
+                      originalItem: it
+                    });
+                  }
+                });
+
+                // Sort chronologically by due date
+                agendaItems.sort((a, b) => a.dueDate - b.dueDate);
+
+                if (agendaItems.length === 0) {
+                  return (
+                    <div className="py-4 text-center text-gray-500 text-[9px] font-mono border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 rounded bg-black/20">
+                      🔕 No alarms currently scheduled.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto pr-0.5 no-scrollbar">
+                    {agendaItems.map((item, index) => {
+                      const dateObj = new Date(item.dueDate);
+                      const isExpired = item.dueDate < Date.now();
+                      return (
+                        <div 
+                          key={index}
+                          className={`p-2 bg-[#1A1A1A] border rounded flex justify-between items-center gap-1.5 transition-colors ${
+                            isExpired 
+                              ? 'border-gray-800 opacity-60' 
+                              : item.type === 'primary' 
+                                ? 'border-red-900/40 hover:border-red-900/80 bg-red-950/5' 
+                                : 'border-amber-900/40 hover:border-amber-900/80 bg-amber-950/5'
+                          }`}
+                        >
+                          {/* Left contents */}
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-[10px] text-white font-bold truncate tracking-tight">
+                              {item.title}
+                            </span>
+                            <span className="text-[8px] font-mono text-gray-400">
+                              🗓️ {dateObj.toLocaleDateString()} at {dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {isExpired && <span className="text-red-500 font-bold uppercase ml-1.5">[Expired]</span>}
+                            </span>
+                          </div>
+
+                          {/* Action triggers */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {item.type === 'primary' ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  // Clear main card due date
+                                  setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: null });
+                                  showToast("🗑️ Main Card alert cleared!");
+                                }}
+                                className="w-5 h-5 rounded bg-black hover:bg-red-950 hover:text-red-400 border border-gray-800 hover:border-red-900/50 flex items-center justify-center font-bold text-[9px] transition-all cursor-pointer"
+                                title="Clear Main Card Alarm"
+                              >
+                                🗑️
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    // Open subtask editor directly on top
+                                    setSubTaskModalItem(item.originalItem!);
+                                  }}
+                                  className="px-1.5 py-0.5 rounded bg-black hover:bg-amber-950 hover:text-amber-400 border border-gray-800 hover:border-amber-900/50 text-[8px] font-bold uppercase transition-all cursor-pointer"
+                                  title="Edit Sub-Task Alarm"
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    // Cancel notification
+                                    await cancelChecklistItemAlarm(item.originalItem!);
+                                    // Clear due date
+                                    const updatedItem = { ...item.originalItem!, dueDate: undefined };
+                                    const updatedItems = selectedCardForEdit.checklists?.[0]?.items?.map(it => 
+                                      it.id === item.originalItem!.id ? updatedItem : it
+                                    ) || [];
+                                    setSelectedCardForEdit({
+                                      ...selectedCardForEdit,
+                                      checklists: selectedCardForEdit.checklists?.map((cl, i) => 
+                                        i === 0 ? { ...cl, items: updatedItems } : cl
+                                      )
+                                    });
+                                    showToast("🗑️ Sub-task alarm cleared!");
+                                  }}
+                                  className="w-5 h-5 rounded bg-black hover:bg-red-950 hover:text-red-400 border border-gray-800 hover:border-red-900/50 flex items-center justify-center font-bold text-[9px] transition-all cursor-pointer"
+                                  title="Clear Sub-Task Alarm"
+                                >
+                                  🗑️
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Modal Footer */}
