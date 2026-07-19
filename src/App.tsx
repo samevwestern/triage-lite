@@ -4211,7 +4211,12 @@ export default function App() {
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">🏆 Central Submission Portal</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.attachments?.filter(a => a.type === 'submission').length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       {selectedCardForEdit.attachments?.find(a => a.type === 'submission') ? (
@@ -4300,7 +4305,12 @@ export default function App() {
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">🖇️ Supporting File Vault</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.attachments?.filter(a => a.type === 'supporting').length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       <div className="max-h-32 overflow-y-auto flex flex-col gap-1.5 pr-1">
@@ -4380,7 +4390,12 @@ export default function App() {
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">📚 Bibliography & Citations</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.resources?.length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       {/* 🔍 RESEARCH & SEARCH ENGINE PORTAL */}
@@ -4591,7 +4606,12 @@ export default function App() {
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">🌐 Cloud & Drives Links</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.attachments?.filter(a => a.type === 'cloud_link').length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       <div className="flex flex-col gap-1.5 font-mono">
