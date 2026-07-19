@@ -702,6 +702,7 @@ export default function App() {
   const [subTaskModalItem, setSubTaskModalItem] = useState<ChecklistItem | null>(null);
   const [subTaskModalText, setSubTaskModalText] = useState('');
   const [subTaskModalDueDate, setSubTaskModalDueDate] = useState<number | null>(null);
+  const [focusedChecklistItemId, setFocusedChecklistItemId] = useState<string | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListVal, setNewListVal] = useState('');
   const [draggedOverCardId, setDraggedOverCardId] = useState<string | null>(null);
@@ -4858,7 +4859,10 @@ export default function App() {
               </span>
               <button
                 type="button"
-                onClick={() => setIsChecklistModalOpen(false)}
+                onClick={() => {
+                  setIsChecklistModalOpen(false);
+                  setFocusedChecklistItemId(null);
+                }}
                 className="text-gray-400 hover:text-white font-black text-sm cursor-pointer select-none"
               >
                 ✕
@@ -4927,16 +4931,26 @@ export default function App() {
                 const sortedItems = [...items].sort((a, b) => (a.isChecked ? 1 : 0) - (b.isChecked ? 1 : 0));
 
                 return sortedItems.map(item => {
+                  const isFocused = focusedChecklistItemId === item.id;
                   return (
                     <div 
                       key={item.id}
-                      className="flex justify-between items-center gap-2 bg-black/25 hover:bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-2.5 rounded font-mono text-[11px]"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setFocusedChecklistItemId(isFocused ? null : item.id);
+                      }}
+                      className={`flex justify-between items-center gap-2 border p-2.5 rounded font-mono text-[11px] transition-all cursor-pointer ${
+                        isFocused 
+                          ? 'border-[var(--color-accent,#DF5504)] bg-black/60 shadow-[0_0_8px_rgba(223,85,4,0.3)]' 
+                          : 'border-[var(--color-dark-tertiary,#3D3D3D)]/40 bg-black/25 hover:bg-black/40'
+                      }`}
                     >
                       {/* Checkbox and Text */}
-                      <label className="flex items-center gap-2.5 cursor-pointer flex-grow select-none overflow-hidden">
+                      <div className="flex items-center gap-2.5 flex-grow select-none overflow-hidden">
                         <input 
                           type="checkbox"
                           checked={item.isChecked}
+                          onClick={(e) => e.stopPropagation()}
                           onChange={async () => {
                             await triggerHaptic();
                             const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
@@ -4950,12 +4964,16 @@ export default function App() {
                             }) || [];
                             setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
                           }}
-                          className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-4 h-4 cursor-pointer"
+                          className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-4 h-4 cursor-pointer flex-shrink-0"
                         />
-                        <span className={`text-white transition-all truncate text-[11px] ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
+                        <span className={`text-white transition-all text-[11px] ${
+                          isFocused 
+                            ? 'whitespace-normal break-words overflow-visible' 
+                            : 'truncate'
+                        } ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
                           {item.text}
                         </span>
-                      </label>
+                      </div>
 
                       {/* Actions: Edit / Notification / Delete */}
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -5028,7 +5046,10 @@ export default function App() {
             {/* Close button at the bottom */}
             <button
               type="button"
-              onClick={() => setIsChecklistModalOpen(false)}
+              onClick={() => {
+                setIsChecklistModalOpen(false);
+                setFocusedChecklistItemId(null);
+              }}
               className="w-full mt-2 py-2 bg-[var(--color-dark-tertiary,#3D3D3D)] hover:bg-[var(--color-dark-tertiary)]/80 text-white font-bold uppercase rounded text-[10px] tracking-wide cursor-pointer transition-colors"
             >
               Close Checklist
