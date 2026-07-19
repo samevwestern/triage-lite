@@ -3424,6 +3424,15 @@ export default function App() {
                     <p>
                       🌐 <strong className="text-white font-mono">CLOUD STORAGE LINKS:</strong> Paste external folder links from Google Drive, Apple iCloud, or OneDrive for instant access.
                     </p>
+                    <div className="border-t border-blue-900/30 pt-2 mt-1.5 flex flex-col gap-1.5">
+                      <span className="font-extrabold text-blue-400 font-mono text-[9px] uppercase tracking-wide">📦 Archiving vs. 🗑️ Deletion Lifecycles</span>
+                      <p>
+                        • <strong className="text-white font-mono">ARCHIVE:</strong> Sets <code className="text-blue-200">isArchived: true</code>. The card is hidden from active columns but remains 100% intact on-device. All linked files, labels, checklist items, and OS alarms are preserved. Viewable/restorable in Archive Studio.
+                      </p>
+                      <p>
+                        • <strong className="text-white font-mono">DELETE:</strong> Permanently purges the card. Large document & image attachments (Base64) stored on the card are instantly erased from disk to save space. Scheduled OS checklist alarms are cancelled, while independent Verbal Diaries & Receipts remain preserved with their card links safely reverted to Unassigned.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -7509,6 +7518,16 @@ export default function App() {
                 </p>
                 <p>
                   🕹️ <strong className="text-white font-mono">GLOBAL TOOLS:</strong> Launch quick tools such as Calendar (agenda timetables), Verbal Journals (audio diaries), Receipts (business claims), and Pomodoro (study timers) directly from the left sidebar drawer.
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-950/20 border border-amber-800/40 rounded flex flex-col gap-1.5 text-amber-200">
+                <p className="font-extrabold text-amber-400 font-mono text-[10px] uppercase tracking-wide">📦 ARCHIVING VS. 🗑️ DELETION LIFECYCLE</p>
+                <p className="leading-relaxed">
+                  • <strong className="text-white font-mono">ARCHIVING CARDS:</strong> Hides cards from active Kanban views but preserves them completely on-device. All checklists, files, categories, and notifications remain active and restorable anytime within the **Archive Studio**.
+                </p>
+                <p className="leading-relaxed">
+                  • <strong className="text-white font-mono">DELETING CARDS:</strong> Permanently purges the card. Large documents/images (Base64) are erased from disk immediately to save space. Scheduled OS checklist alarms are cancelled, while independent **Verbal Diaries** & **Receipts** logs are preserved for tax/records history with their card links safely reverted to unassigned.
                 </p>
               </div>
             </div>
