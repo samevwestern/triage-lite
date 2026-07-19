@@ -6,6 +6,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Camera, CameraResultType } from '@capacitor/camera';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { Ocr } from '@capacitor-community/image-to-text';
+import { App as CapApp } from '@capacitor/app';
 
 
 export interface ChecklistItem {
@@ -688,6 +689,8 @@ export default function App() {
   
   // Card Editing Modal State
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<Card | null>(null);
+  const [incomingSharedCard, setIncomingSharedCard] = useState<Card | null>(null);
+  const [isShareAcknowledgementChecked, setIsShareAcknowledgementChecked] = useState(false);
   const isReadOnly = selectedCardForEdit ? (selectedCardForEdit.isArchived || selectedCardForEdit.listId === 'done') : false;
   const [isLabelManagerOpen, setIsLabelManagerOpen] = useState(false);
   const [lightboxFile, setLightboxFile] = useState<FileAttachment | null>(null);
@@ -1206,6 +1209,55 @@ export default function App() {
   useEffect(() => {
     selectedCardIdRef.current = selectedCardForEdit ? selectedCardForEdit.id : null;
   }, [selectedCardForEdit?.id]);
+
+  // Native iOS Custom URL Protocol Listener (mtrax://import?card=<base64>)
+  useEffect(() => {
+    const setupDeepLinkListener = async () => {
+      const handleAppUrlOpen = (event: any) => {
+        try {
+          const urlStr = event.url;
+          if (!urlStr) return;
+          
+          // Parse the incoming URL
+          const parsedUrl = new URL(urlStr);
+          if (parsedUrl.protocol === 'mtrax:' && parsedUrl.host === 'import') {
+            const cardData = parsedUrl.searchParams.get('card');
+            if (cardData) {
+              // Decode base64 to standard JSON string securely (handles emojis perfectly)
+              const decodedStr = decodeURIComponent(escape(window.atob(cardData)));
+              const cardObj = JSON.parse(decodedStr);
+              if (cardObj && cardObj.id && cardObj.title) {
+                setIncomingSharedCard(cardObj);
+                setIsShareAcknowledgementChecked(false);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse incoming deep-link card payload:', error);
+        }
+      };
+
+      // Add the listener
+      const listener = await CapApp.addListener('appUrlOpen', handleAppUrlOpen);
+
+      // Check if the app was launched by a deep link initially
+      const launchUrlObj = await CapApp.getLaunchUrl();
+      if (launchUrlObj && launchUrlObj.url) {
+        handleAppUrlOpen({ url: launchUrlObj.url });
+      }
+
+      return () => {
+        listener.remove();
+      };
+    };
+
+    const cleanupPromise = setupDeepLinkListener();
+    return () => {
+      cleanupPromise.then(cleanup => {
+        if (typeof cleanup === 'function') cleanup();
+      });
+    };
+  }, []);
 
   // Automatic Screen-Open Card Focus Timer Thread
   useEffect(() => {
@@ -4698,8 +4750,8 @@ export default function App() {
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 justify-between mt-4 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
-              {/* Left Actions: Delete & Archive */}
-              <div className="flex gap-2">
+              {/* Left Actions: Delete, Archive, and Share */}
+              <div className="flex gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={async () => {
@@ -4727,6 +4779,49 @@ export default function App() {
                   className="px-3 py-1.5 border-2 border-amber-900 bg-amber-950/20 hover:bg-amber-900/40 text-amber-300 font-bold text-xs uppercase rounded transition-colors cursor-pointer"
                 >
                   {selectedCardForEdit.isArchived ? "📥 Restore" : "📦 Archive"}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    try {
+                      // Compact the card object to keep the URL extremely short and clean
+                      const compactCard = {
+                        id: selectedCardForEdit.id,
+                        title: selectedCardForEdit.title,
+                        description: selectedCardForEdit.description || '',
+                        checklists: selectedCardForEdit.checklists || [],
+                        labelIds: selectedCardForEdit.labelIds || []
+                      };
+                      
+                      // Base64 encode securely (supports UTF-8 emojis/characters perfectly)
+                      const jsonStr = JSON.stringify(compactCard);
+                      const base64Payload = window.btoa(unescape(encodeURIComponent(jsonStr)));
+                      const shareUrl = `mtrax://import?card=${base64Payload}`;
+                      
+                      // Trigger native Share Sheet
+                      const shareData = {
+                        title: `Share Card: ${selectedCardForEdit.title}`,
+                        text: `Import this task card directly into your MTRAx lite board:`,
+                        url: shareUrl
+                      };
+                      
+                      // If web client fallback, copy to clipboard
+                      if (navigator.share) {
+                        await navigator.share(shareData);
+                      } else {
+                        await navigator.clipboard.writeText(shareUrl);
+                        showToast("📋 Copied custom import link to clipboard!");
+                      }
+                    } catch (err) {
+                      console.error("Failed to share card deep link:", err);
+                      showToast("⚠️ Failed to generate card share link");
+                    }
+                  }}
+                  className="px-3 py-1.5 border-2 border-indigo-900 bg-indigo-950/20 hover:bg-indigo-900/40 text-indigo-300 font-bold text-xs uppercase rounded transition-colors cursor-pointer"
+                  title="Share card as custom link via Messages"
+                >
+                  📤 Share Link
                 </button>
               </div>
 
@@ -4791,6 +4886,165 @@ export default function App() {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📥 DEEP-LINK CARD IMPORT & VERSIONING OVERLAY MODAL */}
+      {incomingSharedCard && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[300] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-[#181818] border-2 border-amber-600/80 p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 text-left">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-amber-600/40 pb-2.5">
+              <span className="text-amber-500 font-black uppercase flex items-center gap-1.5 text-[11px] tracking-wider animate-pulse">
+                ⚠️ MANDATORY PRIVACY DISCLAIMER
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIncomingSharedCard(null);
+                  setIsShareAcknowledgementChecked(false);
+                }}
+                className="text-gray-400 hover:text-white transition-colors border-none bg-transparent cursor-pointer font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Alert/Warning Body */}
+            <div className="flex flex-col gap-3 text-gray-300 leading-relaxed text-[11px]">
+              <div className="p-2.5 bg-amber-950/20 border border-amber-800/40 rounded flex flex-col gap-1.5 text-amber-300">
+                <span className="font-extrabold uppercase tracking-wide text-xs">🔒 PRIVATE-BY-DESIGN OFFLINE MODE</span>
+                <span>MTRAx lite has <strong>NO server</strong> infrastructure. We do not track, capture, store, or intercept your data. Any card you share or receive is processed locally on-device.</span>
+              </div>
+
+              <div className="p-2.5 bg-indigo-950/20 border border-indigo-800/40 rounded flex flex-col gap-1.5 text-indigo-300">
+                <span className="font-extrabold uppercase tracking-wide text-xs">📝 STATIC SNAPSHOT, NOT A LIVE SHARE</span>
+                <span>This is a <strong>one-time static clone</strong> of the card at the exact moment it was sent. Your edits will <strong>not</strong> affect the sender, and future changes they make will not sync to your device.</span>
+              </div>
+
+              {/* Version Control Logic */}
+              {(() => {
+                const existingCard = cards.find(c => c.id === incomingSharedCard.id);
+                if (existingCard) {
+                  return (
+                    <div className="p-3 bg-red-950/30 border border-red-800/50 rounded flex flex-col gap-2 text-red-300">
+                      <span className="font-extrabold uppercase tracking-wide text-xs">🔄 CARD VERSION DETECTED</span>
+                      <span>You already have a version of <strong>"{existingCard.title}"</strong> on your board (currently in column: <em>{lists.find(l => l.id === existingCard.listId)?.name || 'Unassigned'}</em>).</span>
+                      <span className="text-gray-400 text-[10px]">Tapping <strong>"Overwrite / Update"</strong> will safely replace your local copy with the incoming one, preserving its current board list column position.</span>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="p-3 bg-green-950/20 border border-green-800/40 rounded flex flex-col gap-1.5 text-green-300">
+                      <span className="font-extrabold uppercase tracking-wide text-xs">🆕 NEW CARD IMPORT DETECTED</span>
+                      <span>Card title: <strong>"{incomingSharedCard.title}"</strong> will be added as a brand new task under your <strong>"{lists[0]?.name || 'To Do'}"</strong> column list.</span>
+                    </div>
+                  );
+                }
+              })()}
+
+              {/* Mandatory Checklist Acknowledge */}
+              <label className="flex items-start gap-2.5 mt-2 p-2 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 rounded cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isShareAcknowledgementChecked}
+                  onChange={(e) => setIsShareAcknowledgementChecked(e.target.checked)}
+                  className="mt-0.5 rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] cursor-pointer"
+                />
+                <span className="text-gray-400 font-bold text-[10px] uppercase leading-snug">
+                  I acknowledge this is an offline snapshot, not a live sync, and that MTRAx lite does not host or sync my data.
+                </span>
+              </label>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+              {(() => {
+                const existingCard = cards.find(c => c.id === incomingSharedCard.id);
+                if (existingCard) {
+                  return (
+                    <div className="flex gap-2 w-full justify-between">
+                      <button
+                        type="button"
+                        disabled={!isShareAcknowledgementChecked}
+                        onClick={async () => {
+                          await triggerHaptic();
+                          // Overwrite existing card, preserving current listId
+                          const updatedCards = cards.map(c => 
+                            c.id === incomingSharedCard.id 
+                              ? { ...incomingSharedCard, listId: c.listId } // Keep current local column
+                              : c
+                          );
+                          await saveCards(updatedCards);
+                          showToast("🔄 Successfully updated existing card!");
+                          setIncomingSharedCard(null);
+                          setIsShareAcknowledgementChecked(false);
+                        }}
+                        className={`flex-grow px-3 py-2 border-2 border-red-900 bg-red-950/40 text-red-300 font-black uppercase text-[10px] tracking-wider rounded transition-opacity cursor-pointer ${!isShareAcknowledgementChecked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-red-900/60 active:translate-y-0.5'}`}
+                      >
+                        🔄 Overwrite / Update
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isShareAcknowledgementChecked}
+                        onClick={async () => {
+                          await triggerHaptic();
+                          // Duplicate with a brand new random UUID
+                          const duplicateCard = {
+                            ...incomingSharedCard,
+                            id: `card_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                            listId: lists[0]?.id || 'todo'
+                          };
+                          await saveCards([...cards, duplicateCard]);
+                          showToast("👯 Imported as separate duplicate card!");
+                          setIncomingSharedCard(null);
+                          setIsShareAcknowledgementChecked(false);
+                        }}
+                        className={`flex-grow px-3 py-2 border-2 border-indigo-900 bg-indigo-950/20 text-indigo-300 font-black uppercase text-[10px] tracking-wider rounded transition-opacity cursor-pointer ${!isShareAcknowledgementChecked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-900/40 active:translate-y-0.5'}`}
+                      >
+                        👯 Import as Duplicate
+                      </button>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <button
+                      type="button"
+                      disabled={!isShareAcknowledgementChecked}
+                      onClick={async () => {
+                        await triggerHaptic();
+                        // Import new card, place in first list column
+                        const newCard = {
+                          ...incomingSharedCard,
+                          listId: lists[0]?.id || 'todo'
+                        };
+                        await saveCards([...cards, newCard]);
+                        showToast("📥 Successfully imported new task card!");
+                        setIncomingSharedCard(null);
+                        setIsShareAcknowledgementChecked(false);
+                      }}
+                      className={`w-full px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase text-xs tracking-wider rounded transition-opacity cursor-pointer flex justify-center items-center gap-1.5 shadow-[4px_4px_0px_0px_#000] active:translate-y-0.5 ${!isShareAcknowledgementChecked ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    >
+                      📥 Acknowledge & Import Card
+                    </button>
+                  );
+                }
+              })()}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIncomingSharedCard(null);
+                  setIsShareAcknowledgementChecked(false);
+                }}
+                className="w-full py-1.5 bg-transparent hover:bg-white/5 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 font-mono text-[10px] uppercase rounded transition-colors cursor-pointer text-center"
+              >
+                Cancel / Decline
+              </button>
             </div>
           </div>
         </div>

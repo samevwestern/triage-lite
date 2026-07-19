@@ -55,5 +55,16 @@
 	<string>Triage Lite requires photo library access to import and associate business receipt screenshots from your camera roll.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Triage Lite requires permission to save newly snapped receipt photographs directly into your photo library.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.mdex.triagelite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mtrax</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
