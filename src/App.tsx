@@ -3504,19 +3504,18 @@ export default function App() {
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Labels</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    {/* Toggle tag board drawer */}
+                    {/* Open Board Label Studio Modal */}
                     <button
                       type="button"
                       onClick={async () => {
                         await triggerHaptic();
-                        setIsLabelManagerOpen(prev => !prev);
+                        setEditingLabelId(null);
+                        setLabelFormText('');
+                        setLabelFormColor('#DF5504');
+                        setIsGlobalLabelModalOpen(true);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
-                        isLabelManagerOpen 
-                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
-                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
-                      }`}
-                      title="Toggle Active Labels Dashboard"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 border-transparent text-gray-400 hover:text-white hover:border-gray-500/30 hover:scale-105"
+                      title="Open Board Label Studio"
                     >
                       <span className="text-sm">🏷️</span>
                     </button>
@@ -3538,52 +3537,22 @@ export default function App() {
                       <span className="text-red-500 font-extrabold text-base">❓</span>
                     </button>
 
-                    {/* Add label dropdown select with hidden native selector */}
-                    <div className="relative w-10 h-10 sm:w-11 sm:h-11">
-                      <select
-                        value=""
-                        onChange={async (e) => {
-                          const val = e.target.value;
-                          if (val === 'add-new') {
-                            await triggerHaptic();
-                            setEditingLabelId(null);
-                            setLabelFormText('');
-                            setLabelFormColor('#DF5504');
-                            setIsGlobalLabelModalOpen(true);
-                          } else if (val) {
-                            await triggerHaptic();
-                            const labelId = val;
-                            const currentIds = selectedCardForEdit.labelIds || [];
-                            const nextIds = currentIds.includes(labelId)
-                              ? currentIds.filter(id => id !== labelId)
-                              : [...currentIds, labelId];
-                            setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
-                          }
-                          e.target.value = ''; // Reset option select
-                        }}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      >
-                        <option value="">🏷️ Add Label</option>
-                        {labels.map(lbl => {
-                          const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
-                          return (
-                            <option key={lbl.id} value={lbl.id} className="text-white bg-[#282828]">
-                              {lbl.text} {hasLabel ? '✓' : ''}
-                            </option>
-                          );
-                        })}
-                        <option value="add-new" className="text-[var(--color-accent,#DF5504)] font-bold bg-[#282828]">
-                          ＋ CREATE NEW LABEL...
-                        </option>
-                      </select>
-                      <button
-                        type="button"
-                        className="w-full h-full rounded-lg flex items-center justify-center font-black transition-all border-2 border-transparent bg-transparent hover:border-gray-500/30 hover:scale-105"
-                        title="Add/Allocate Labels"
-                      >
-                        <span className="text-sm font-bold text-green-500">＋</span>
-                      </button>
-                    </div>
+                    {/* Toggle tag board drawer to select existing labels */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsLabelManagerOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isLabelManagerOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-green-500 hover:border-gray-500/30'
+                      }`}
+                      title="Add/Allocate Labels"
+                    >
+                      <span className="text-sm font-bold text-green-500">＋</span>
+                    </button>
                   </div>
 
                   {/* Active Labels Tally Badge */}
