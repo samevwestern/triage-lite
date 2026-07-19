@@ -3480,13 +3480,25 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Total Focus Time Badge */}
-                  <div className="px-3.5 py-1.5 bg-[#DF5504]/10 border-2 border-[var(--color-accent,#DF5504)]/40 rounded-lg text-[var(--color-accent,#DF5504)] font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]">
+                  {/* Total Focus Time Badge Button */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsCardSessionLogExpanded(prev => !prev);
+                    }}
+                    className={`px-3.5 py-1.5 border-2 rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                      isCardSessionLogExpanded
+                        ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                        : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)]/80 text-[var(--color-accent,#DF5504)]'
+                    }`}
+                    title="Toggle Session Log View"
+                  >
                     <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Focus Time:</span>
                     <span>
                       {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
                     </span>
-                  </div>
+                  </button>
                 </div>
 
                 {/* Inline sliding ⏱️ Session History Guide panel */}
