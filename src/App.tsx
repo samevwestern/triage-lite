@@ -883,6 +883,37 @@ export default function App() {
     localStorage.setItem('mtrax_show_lang_header', String(showLanguageInHeader));
   }, [showLanguageInHeader]);
 
+  // Automatically scroll containers to top on navigation/state changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+
+    const resetScroll = () => {
+      const scrollableElements = document.querySelectorAll('.overflow-y-auto, .overflow-y-scroll, [class*="overflow-y-"]');
+      scrollableElements.forEach(el => {
+        el.scrollTop = 0;
+      });
+    };
+
+    resetScroll();
+    const timer = setTimeout(resetScroll, 50);
+    return () => clearTimeout(timer);
+  }, [
+    isArchiveStudioOpen,
+    isDocStudioOpen,
+    isReceiptStudioOpen,
+    isCalendarAgendaOpen,
+    isNotificationStudioOpen,
+    isSettingsOpen,
+    isDiaryOpen,
+    isReceiptsOpen,
+    isTimerModalOpen,
+    isSessionLogOpen,
+    isChecklistModalOpen,
+    archiveFilterTab,
+    archiveSearchQuery,
+    selectedCardForEdit ? selectedCardForEdit.id : null
+  ]);
+
   // Premium feature guard helper
   // Premium feature guard helper
   const handlePremiumAction = (action: () => void) => {
