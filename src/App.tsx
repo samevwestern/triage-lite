@@ -691,6 +691,65 @@ export default function App() {
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<Card | null>(null);
   const [incomingSharedCard, setIncomingSharedCard] = useState<Card | null>(null);
   const [isShareAcknowledgementChecked, setIsShareAcknowledgementChecked] = useState(false);
+  const [pendingNavigationAction, setPendingNavigationAction] = useState<(() => void) | null>(null);
+
+  // Helper to determine if the Card Edit Modal has unsaved changes compared to state
+  const hasUnsavedCardChanges = (): boolean => {
+    if (!selectedCardForEdit) return false;
+    
+    // Find the original card in our active board state
+    const originalCard = cards.find(c => c.id === selectedCardForEdit.id);
+    if (!originalCard) {
+      // It's a new card. It has changes if either Title or Description are not empty
+      return !!selectedCardForEdit.title?.trim() || !!selectedCardForEdit.description?.trim();
+    }
+    
+    // Check basic properties
+    if (selectedCardForEdit.title !== originalCard.title) return true;
+    if ((selectedCardForEdit.description || '') !== (originalCard.description || '')) return true;
+    if (selectedCardForEdit.listId !== originalCard.listId) return true;
+    if (selectedCardForEdit.dueDate !== originalCard.dueDate) return true;
+    if (selectedCardForEdit.notifyInApp !== originalCard.notifyInApp) return true;
+    if (selectedCardForEdit.notifyLocalPanel !== originalCard.notifyLocalPanel) return true;
+    if (selectedCardForEdit.notifyCalendarAlarm !== originalCard.notifyCalendarAlarm) return true;
+    if (selectedCardForEdit.notifyEmailReminder !== originalCard.notifyEmailReminder) return true;
+    
+    // Check categories/labels
+    const originalLabels = originalCard.labelIds || [];
+    const currentLabels = selectedCardForEdit.labelIds || [];
+    if (originalLabels.length !== currentLabels.length) return true;
+    if (originalLabels.some(id => !currentLabels.includes(id))) return true;
+    
+    // Check checklists
+    const originalChecklists = originalCard.checklists || [];
+    const currentChecklists = selectedCardForEdit.checklists || [];
+    if (originalChecklists.length !== currentChecklists.length) return true;
+    
+    for (let i = 0; i < originalChecklists.length; i++) {
+      const origCl = originalChecklists[i];
+      const currCl = currentChecklists[i];
+      if (origCl.items.length !== currCl.items.length) return true;
+      for (let j = 0; j < origCl.items.length; j++) {
+        const origItem = origCl.items[j];
+        const currItem = currCl.items[j];
+        if (origItem.text !== currItem.text) return true;
+        if (origItem.isChecked !== currItem.isChecked) return true;
+        if (origItem.dueDate !== currItem.dueDate) return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Guardian function to intercept navigation if card is dirty
+  const navigateWithCheck = (action: () => void) => {
+    if (hasUnsavedCardChanges()) {
+      setPendingNavigationAction(() => action);
+    } else {
+      action();
+    }
+  };
+
   const isReadOnly = selectedCardForEdit ? (selectedCardForEdit.isArchived || selectedCardForEdit.listId === 'done') : false;
   const [isLabelManagerOpen, setIsLabelManagerOpen] = useState(false);
   const [lightboxFile, setLightboxFile] = useState<FileAttachment | null>(null);
@@ -3306,10 +3365,13 @@ export default function App() {
                   </button>
 
                   <button 
-                    onClick={() => {
-                      setSelectedCardForEdit(null);
-                      setIsLabelManagerOpen(false);
-                      setIsCardHelpOpen(false);
+                    onClick={async () => {
+                      await triggerHaptic();
+                      navigateWithCheck(() => {
+                        setSelectedCardForEdit(null);
+                        setIsLabelManagerOpen(false);
+                        setIsCardHelpOpen(false);
+                      });
                     }}
                     className="text-gray-400 hover:text-white font-black text-lg p-1 border-none bg-transparent cursor-pointer"
                   >
@@ -4829,10 +4891,13 @@ export default function App() {
               <div className="flex gap-2 justify-end">
                 {isReadOnly ? (
                   <button 
-                    onClick={() => {
-                      setSelectedCardForEdit(null);
-                      setIsLabelManagerOpen(false);
-                      setIsCardSessionLogExpanded(false);
+                    onClick={async () => {
+                      await triggerHaptic();
+                      navigateWithCheck(() => {
+                        setSelectedCardForEdit(null);
+                        setIsLabelManagerOpen(false);
+                        setIsCardSessionLogExpanded(false);
+                      });
                     }}
                     className="px-5 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold text-xs uppercase rounded cursor-pointer transition-colors"
                   >
@@ -4841,10 +4906,13 @@ export default function App() {
                 ) : (
                   <>
                     <button 
-                      onClick={() => {
-                        setSelectedCardForEdit(null);
-                        setIsLabelManagerOpen(false);
-                        setIsCardSessionLogExpanded(false);
+                      onClick={async () => {
+                        await triggerHaptic();
+                        navigateWithCheck(() => {
+                          setSelectedCardForEdit(null);
+                          setIsLabelManagerOpen(false);
+                          setIsCardSessionLogExpanded(false);
+                        });
                       }}
                       className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded cursor-pointer"
                     >
@@ -4886,6 +4954,97 @@ export default function App() {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ UNSAVED CHANGES CONTROLLER OVERLAY MODAL */}
+      {pendingNavigationAction && selectedCardForEdit && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[260] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-sm bg-[#181818] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 text-left">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2.5">
+              <span className="text-amber-500 font-black uppercase flex items-center gap-1.5 text-[11px] tracking-wider animate-pulse">
+                ⚠️ UNSAVED CHANGES DETECTED
+              </span>
+            </div>
+
+            {/* Warning Body */}
+            <div className="text-gray-300 leading-relaxed text-[11px] flex flex-col gap-2">
+              <span>You have modified <strong>"{selectedCardForEdit.title || 'this task card'}"</strong> but have not saved your changes yet.</span>
+              <span className="text-gray-400 font-bold uppercase text-[9px]">Would you like to save or discard these modifications before switching screens?</span>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+              {/* Option A: Save & Proceed */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
+                    showToast("⚠️ Task title is required to save the card!");
+                    return;
+                  }
+                  
+                  // Save the current card state
+                  const exists = cards.some(c => c.id === selectedCardForEdit.id);
+                  const updatedCards = exists 
+                    ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
+                    : [...cards, selectedCardForEdit];
+                  await saveCards(updatedCards);
+                  showToast("💾 Saved changes successfully!");
+                  
+                  // Reset modal states
+                  setSelectedCardForEdit(null);
+                  setIsLabelManagerOpen(false);
+                  setIsCardHelpOpen(false);
+                  setIsCardSessionLogExpanded(false);
+
+                  // Execute the delayed navigation callback
+                  const action = pendingNavigationAction;
+                  setPendingNavigationAction(null);
+                  action();
+                }}
+                className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase text-[10px] tracking-wider rounded transition-colors cursor-pointer text-center shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5"
+              >
+                💾 Save Changes & Proceed
+              </button>
+
+              {/* Option B: Discard & Proceed */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  // Reset modal states without saving
+                  setSelectedCardForEdit(null);
+                  setIsLabelManagerOpen(false);
+                  setIsCardHelpOpen(false);
+                  setIsCardSessionLogExpanded(false);
+
+                  // Execute the delayed navigation callback
+                  const action = pendingNavigationAction;
+                  setPendingNavigationAction(null);
+                  action();
+                }}
+                className="w-full px-3 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/30 font-bold uppercase text-[10px] tracking-wider rounded transition-colors cursor-pointer text-center active:translate-y-0.5"
+              >
+                🗑️ Discard Changes
+              </button>
+
+              {/* Option C: Keep Editing (Cancel Navigation) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  // Simply cancel navigation
+                  setPendingNavigationAction(null);
+                }}
+                className="w-full py-1.5 bg-transparent hover:bg-white/5 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 font-mono text-[9px] uppercase rounded transition-colors cursor-pointer text-center"
+              >
+                ✕ Keep Editing
+              </button>
             </div>
           </div>
         </div>
