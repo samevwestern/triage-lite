@@ -4160,14 +4160,26 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* Document Count Tally Badge */}
+                  {/* Document Count Tally Badge Button */}
                   {(() => {
-                    const docCount = selectedCardForEdit.attachments?.length || 0;
+                    const docCount = (selectedCardForEdit.attachments?.length || 0) + (selectedCardForEdit.resources?.length || 0);
                     return (
-                      <div className="px-3 py-1.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/40 rounded-lg text-[var(--color-accent,#DF5504)] font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsDocStudioOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isDocStudioOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Document Studio"
+                      >
                         <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Docs:</span>
                         <span>{docCount}</span>
-                      </div>
+                      </button>
                     );
                   })()}
                 </div>
@@ -4206,6 +4218,169 @@ export default function App() {
                 {/* Expandable Document Studio Content Box */}
                 {isDocStudioOpen && (
                   <div className="flex flex-col gap-3 mt-1.5 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 animate-fadeIn">
+                  
+                  {/* 📁 Unified Document & Resource Index (Only visible if attachments exist) */}
+                  {(() => {
+                    const submissionAttachments = selectedCardForEdit.attachments?.filter(a => a.type === 'submission') || [];
+                    const supportingAttachments = selectedCardForEdit.attachments?.filter(a => a.type === 'supporting') || [];
+                    const citations = selectedCardForEdit.resources || [];
+                    const cloudLinks = selectedCardForEdit.attachments?.filter(a => a.type === 'cloud_link') || [];
+                    const totalItems = submissionAttachments.length + supportingAttachments.length + citations.length + cloudLinks.length;
+
+                    if (totalItems === 0) return null;
+
+                    return (
+                      <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2.5 text-left animate-fadeIn">
+                        <div className="flex justify-between items-center pb-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-1.5">
+                            <span>📁 Unified Document & Resource Index</span>
+                          </span>
+                          <span className="px-1.5 py-0.5 bg-[var(--color-accent,#DF5504)]/20 border border-[var(--color-accent,#DF5504)]/40 rounded-full text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold">
+                            {totalItems} Item{totalItems > 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        {/* Tidy List of launchable links */}
+                        <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
+                          {/* Submissions */}
+                          {submissionAttachments.map(file => (
+                            <button
+                              key={file.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                setLightboxFile(file);
+                              }}
+                              className="w-full text-left p-1.5 bg-[#1F1610] hover:bg-[#2C1D15] border border-orange-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-[var(--color-accent,#DF5504)]">
+                                🏆 [Submission] {file.name}
+                              </span>
+                              <span className="text-gray-500 text-[8px] flex-shrink-0">
+                                {Math.round((file.size || 0) / 1024)} KB ↗
+                              </span>
+                            </button>
+                          ))}
+
+                          {/* Supporting Files */}
+                          {supportingAttachments.map(file => (
+                            <button
+                              key={file.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                setLightboxFile(file);
+                              }}
+                              className="w-full text-left p-1.5 bg-[#12191F] hover:bg-[#1A2631] border border-blue-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-blue-400">
+                                🖇️ [Supporting] {file.name}
+                              </span>
+                              <span className="text-gray-500 text-[8px] flex-shrink-0">
+                                {Math.round((file.size || 0) / 1024)} KB ↗
+                              </span>
+                            </button>
+                          ))}
+
+                          {/* Citations */}
+                          {citations.map(cit => (
+                            <button
+                              key={cit.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                window.open(cit.url, '_blank');
+                              }}
+                              className="w-full text-left p-1.5 bg-[#18111F] hover:bg-[#241A2E] border border-purple-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-purple-400">
+                                📚 [Citation] {cit.title}
+                              </span>
+                              <span className="text-gray-500 text-[7px] truncate max-w-[100px] flex-shrink-0">
+                                {cit.url} ↗
+                              </span>
+                            </button>
+                          ))}
+
+                          {/* Cloud Links */}
+                          {cloudLinks.map(link => (
+                            <button
+                              key={link.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                window.open(link.dataUrl, '_blank');
+                              }}
+                              className="w-full text-left p-1.5 bg-[#111F16] hover:bg-[#1B2F22] border border-green-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-green-400">
+                                🌐 [Cloud Link] {link.name}
+                              </span>
+                              <span className="text-gray-500 text-[7px] truncate max-w-[100px] flex-shrink-0">
+                                {link.dataUrl} ↗
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Email Export Button */}
+                        <a
+                          href={`mailto:?subject=${encodeURIComponent(`Document Index Export: ${selectedCardForEdit.title}`)}&body=${encodeURIComponent(
+                            (() => {
+                              const bodyLines = [
+                                `Document and Resource Index for Task: "${selectedCardForEdit.title}"`,
+                                `========================================================\n`,
+                                `Total items: ${totalItems}\n`
+                              ];
+
+                              if (submissionAttachments.length > 0) {
+                                bodyLines.push(`🏆 CENTRAL SUBMISSIONS:`);
+                                submissionAttachments.forEach(a => {
+                                  bodyLines.push(`- ${a.name} (${Math.round((a.size || 0)/1024)} KB)`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              if (supportingAttachments.length > 0) {
+                                bodyLines.push(`🖇️ SUPPORTING DOCUMENTS:`);
+                                supportingAttachments.forEach(a => {
+                                  bodyLines.push(`- ${a.name} (${Math.round((a.size || 0)/1024)} KB)`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              if (citations.length > 0) {
+                                bodyLines.push(`📚 BIBLIOGRAPHY & CITATIONS:`);
+                                citations.forEach(c => {
+                                  bodyLines.push(`- ${c.title} : ${c.url}`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              if (cloudLinks.length > 0) {
+                                bodyLines.push(`🌐 CLOUD & DRIVE SHARED LINKS:`);
+                                cloudLinks.forEach(l => {
+                                  bodyLines.push(`- ${l.name} : ${l.dataUrl}`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              bodyLines.push(`----------------------------------------`);
+                              bodyLines.push(`Generated via MTRAx Triage Lite.`);
+                              return bodyLines.join('\n');
+                            })()
+                          )}`}
+                          onClick={async () => {
+                            await triggerHaptic();
+                            showToast("📧 Preparing index export email...");
+                          }}
+                          className="w-full text-center py-2 bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 font-bold uppercase text-[9px] tracking-wider rounded transition-all cursor-pointer block flex items-center justify-center gap-1.5"
+                        >
+                          <span>📬</span> Export Document Index via Email
+                        </a>
+                      </div>
+                    );
+                  })()}
                   
                   {/* 1. CENTRAL SUBMISSION PORTAL */}
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
