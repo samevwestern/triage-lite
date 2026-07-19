@@ -701,7 +701,6 @@ export default function App() {
   const [subTaskModalItem, setSubTaskModalItem] = useState<ChecklistItem | null>(null);
   const [subTaskModalText, setSubTaskModalText] = useState('');
   const [subTaskModalDueDate, setSubTaskModalDueDate] = useState<number | null>(null);
-  const [inlineNewTaskText, setInlineNewTaskText] = useState('');
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListVal, setNewListVal] = useState('');
   const [draggedOverCardId, setDraggedOverCardId] = useState<string | null>(null);
@@ -761,7 +760,6 @@ export default function App() {
   const [isCardHelpOpen, setIsCardHelpOpen] = useState(false);
   const [isSessionHistoryGuideOpen, setIsSessionHistoryGuideOpen] = useState(false);
   const [isChecklistHelpOpen, setIsChecklistHelpOpen] = useState(false);
-  const [isChecklistExpanded, setIsChecklistExpanded] = useState(true);
   const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
   const [isLabelHelpOpen, setIsLabelHelpOpen] = useState(false);
   const [isListDropdownOpen, setIsListDropdownOpen] = useState(false);
@@ -4685,12 +4683,27 @@ export default function App() {
                       {/* Actions: Edit / Notification / Delete */}
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         {item.dueDate && (
-                          <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold px-1.5 py-0.5 bg-[#DF5504]/10 rounded border border-[#DF5504]/25">
+                          <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold px-1.5 py-0.5 bg-[#DF5504]/10 rounded border border-[#DF5504]/25 flex items-center gap-0.5">
                             ⏰ {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                           </span>
                         )}
 
-                        {/* Edit & Notification Trigger button */}
+                        {/* Bell Button (Assign alarm / notifications) */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setSubTaskModalItem(item);
+                            setSubTaskModalText(item.text);
+                            setSubTaskModalDueDate(item.dueDate || null);
+                          }}
+                          className="p-1 text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors text-[10px] cursor-pointer"
+                          title="Assign Date & Time Alarm"
+                        >
+                          🔔
+                        </button>
+
+                        {/* Pencil Edit Button (Edit task text name) */}
                         <button
                           type="button"
                           onClick={async () => {
@@ -4700,7 +4713,7 @@ export default function App() {
                             setSubTaskModalDueDate(item.dueDate || null);
                           }}
                           className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors text-[10px] cursor-pointer"
-                          title="Edit Details & Alarm"
+                          title="Edit Task Name"
                         >
                           ✏️
                         </button>
