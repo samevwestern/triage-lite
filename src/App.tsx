@@ -688,7 +688,7 @@ export default function App() {
   
   // Card Editing Modal State
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<Card | null>(null);
-  const isReadOnly = selectedCardForEdit ? (selectedCardForEdit.isArchived || selectedCardForEdit.listId === 'done' || selectedCardForEdit.completedAt !== null) : false;
+  const isReadOnly = selectedCardForEdit ? (selectedCardForEdit.isArchived || selectedCardForEdit.listId === 'done') : false;
   const [isLabelManagerOpen, setIsLabelManagerOpen] = useState(false);
   const [lightboxFile, setLightboxFile] = useState<FileAttachment | null>(null);
   
