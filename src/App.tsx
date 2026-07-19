@@ -762,6 +762,8 @@ export default function App() {
   const [isSessionHistoryGuideOpen, setIsSessionHistoryGuideOpen] = useState(false);
   const [isChecklistHelpOpen, setIsChecklistHelpOpen] = useState(false);
   const [isChecklistExpanded, setIsChecklistExpanded] = useState(true);
+  const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
+  const [isLabelHelpOpen, setIsLabelHelpOpen] = useState(false);
   const [isListDropdownOpen, setIsListDropdownOpen] = useState(false);
   const [isCreatingListInline, setIsCreatingListInline] = useState(false);
   const [inlineNewListName, setInlineNewListName] = useState('');
@@ -3021,7 +3023,7 @@ export default function App() {
             <div className="flex flex-col gap-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mb-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-black text-xs font-mono uppercase tracking-wider text-gray-400">
-                  Card details
+                  Card Title
                 </h3>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -3051,6 +3053,17 @@ export default function App() {
                     &times;
                   </button>
                 </div>
+              </div>
+
+              {/* Title input field directly under the Card Title label header */}
+              <div className="mt-1">
+                <input 
+                  type="text"
+                  value={selectedCardForEdit.title}
+                  onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, title: e.target.value })}
+                  className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]"
+                  placeholder="Enter task title..."
+                />
               </div>
 
               {/* Dynamic Interactive Card Help Panel */}
@@ -3244,44 +3257,219 @@ export default function App() {
                   </div>
                 </div>
               )}
-              {/* Card Title Section */}
-              <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
-                <input 
-                  type="text"
-                  value={selectedCardForEdit.title}
-                  onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, title: e.target.value })}
-                  className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
-                />
-              </div>
-
-              {/* Active Labels List Display (Under Title, Above Description) */}
-              {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(id => labels.find(l => l.id === id)).filter(Boolean).length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 min-h-[22px] -mt-1">
-                  {selectedCardForEdit.labelIds.map(labelId => {
-                    const labelObj = labels.find(l => l.id === labelId);
-                    if (!labelObj) return null;
-                    return (
-                      <span 
-                        key={labelId}
-                        className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]"
-                        style={{ backgroundColor: labelObj.color }}
-                      >
-                        {labelObj.text}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-
               {/* Description Section */}
               <div>
                 <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Description</label>
                 <textarea 
                   value={selectedCardForEdit.description || ''}
                   onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, description: e.target.value })}
-                  className="w-full h-20 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
+                  className="w-full h-20 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]"
                 />
+              </div>
+
+              {/* Redesigned Compact Labels Section */}
+              <div className="flex flex-col gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-3">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Labels</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {/* Toggle tag board drawer */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsLabelManagerOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                        isLabelManagerOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)] text-[var(--color-accent,#DF5504)]' 
+                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white'
+                      }`}
+                      title="Toggle Active Labels Dashboard"
+                    >
+                      <span className="text-sm">🏷️</span>
+                    </button>
+
+                    {/* Labels Guide Toggle */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsLabelHelpOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
+                        isLabelHelpOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]' 
+                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white'
+                      }`}
+                      title="Labels Guide"
+                    >
+                      <span className="text-red-500 font-extrabold text-base">❓</span>
+                    </button>
+
+                    {/* Add label dropdown select with hidden native selector */}
+                    <div className="relative w-10 h-10 sm:w-11 sm:h-11">
+                      <select
+                        value=""
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          if (val === 'add-new') {
+                            await triggerHaptic();
+                            setEditingLabelId(null);
+                            setLabelFormText('');
+                            setLabelFormColor('#DF5504');
+                            setIsGlobalLabelModalOpen(true);
+                          } else if (val) {
+                            await triggerHaptic();
+                            const labelId = val;
+                            const currentIds = selectedCardForEdit.labelIds || [];
+                            const nextIds = currentIds.includes(labelId)
+                              ? currentIds.filter(id => id !== labelId)
+                              : [...currentIds, labelId];
+                            setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
+                          }
+                          e.target.value = ''; // Reset option select
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      >
+                        <option value="">🏷️ Add Label</option>
+                        {labels.map(lbl => {
+                          const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
+                          return (
+                            <option key={lbl.id} value={lbl.id} className="text-white bg-[#282828]">
+                              {lbl.text} {hasLabel ? '✓' : ''}
+                            </option>
+                          );
+                        })}
+                        <option value="add-new" className="text-[var(--color-accent,#DF5504)] font-bold bg-[#282828]">
+                          ＋ CREATE NEW LABEL...
+                        </option>
+                      </select>
+                      <button
+                        type="button"
+                        className="w-full h-full rounded-lg flex items-center justify-center font-black transition-all border-2 border-[#2C2C2C] bg-[#222222] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
+                        title="Add/Allocate Labels"
+                      >
+                        <span className="text-sm font-bold text-green-500">＋</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Active Labels Tally Badge */}
+                  {(() => {
+                    const labelsCount = selectedCardForEdit.labelIds?.length || 0;
+                    return (
+                      <div className="px-3 py-1.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/40 rounded-lg text-[var(--color-accent,#DF5504)] font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Tags:</span>
+                        <span>{labelsCount}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Active Labels Badges List */}
+                {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(id => labels.find(l => l.id === id)).filter(Boolean).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {selectedCardForEdit.labelIds.map(labelId => {
+                      const labelObj = labels.find(l => l.id === labelId);
+                      if (!labelObj) return null;
+                      return (
+                        <span 
+                          key={labelId}
+                          className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)] animate-fadeIn"
+                          style={{ backgroundColor: labelObj.color }}
+                        >
+                          {labelObj.text}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Labels Guide Panel */}
+                {isLabelHelpOpen && (
+                  <div className="mt-2.5 p-3.5 bg-violet-950/70 border border-violet-800/50 text-violet-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left font-sans">
+                    <div className="font-bold text-[10px] uppercase text-violet-400 border-b border-violet-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                      <span>🏷️ Labels & Tags Guide</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsLabelHelpOpen(false)}
+                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black font-mono"
+                      >
+                        Hide ×
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <p>
+                        🏷️ <strong className="text-white font-mono">TAG ALLOCATIONS:</strong> Assign label tags to filter, group, and track tasks on your board. Clicking labels on the main board filters viewports.
+                      </p>
+                      <p>
+                        ＋ <strong className="text-white font-mono">CUSTOM LABELS:</strong> Select "Create New Label..." from the dropdown to design custom colors and names for your labels globally.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Collapsible Label Selector Dropdown (Interactive Tag Board) */}
+                {isLabelManagerOpen && (
+                  <div className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2.5 rounded mt-2.5 animate-fadeIn flex flex-col gap-2 font-mono text-xs text-left shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]">
+                    <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1">
+                      <span className="font-bold text-[9px] uppercase text-gray-400">Board Labels Dashboard</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsLabelManagerOpen(false);
+                        }}
+                        className="text-[9px] text-gray-400 hover:text-white cursor-pointer"
+                      >
+                        Close ×
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {labels.map(lbl => {
+                        const isAssigned = selectedCardForEdit.labelIds?.includes(lbl.id);
+                        return (
+                          <button
+                            key={lbl.id}
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              const currentIds = selectedCardForEdit.labelIds || [];
+                              const nextIds = isAssigned 
+                                ? currentIds.filter(id => id !== lbl.id) 
+                                : [...currentIds, lbl.id];
+                              setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
+                            }}
+                            className={`text-[9px] font-black px-2 py-1 rounded border transition-all flex items-center gap-1 cursor-pointer ${
+                              isAssigned 
+                                ? 'border-white scale-105 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]' 
+                                : 'border-transparent opacity-50 hover:opacity-100'
+                            }`}
+                            style={{ backgroundColor: lbl.color, color: 'white' }}
+                          >
+                            {lbl.text} {isAssigned ? '✓' : '＋'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-start mt-1 pt-1.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setEditingLabelId(null);
+                          setLabelFormText('');
+                          setLabelFormColor('#DF5504');
+                          setIsGlobalLabelModalOpen(true);
+                        }}
+                        className="text-[9px] text-[var(--color-accent,#DF5504)] font-bold uppercase hover:underline cursor-pointer"
+                      >
+                        ＋ Create New Custom Label Type
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* List Column Selection Dropdown */}
@@ -3419,19 +3607,15 @@ export default function App() {
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Checklist & Tasks</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
-                    {/* Expand/Collapse Viewport toggle */}
+                    {/* Open roomy checklist sub-modal */}
                     <button
                       type="button"
                       onClick={async () => {
                         await triggerHaptic();
-                        setIsChecklistExpanded(prev => !prev);
+                        setIsChecklistModalOpen(true);
                       }}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
-                        isChecklistExpanded 
-                          ? 'border-[var(--color-accent,#DF5504)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
-                      }`}
-                      title="Toggle Checklist Viewport"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 border-[#2C2C2C] bg-[#222222] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white"
+                      title="Open Checklist Manager"
                     >
                       <span className="text-sm">📋</span>
                     </button>
@@ -3445,8 +3629,8 @@ export default function App() {
                       }}
                       className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-[#222222] ${
                         isChecklistHelpOpen 
-                          ? 'border-[var(--color-accent,#DF5504)]' 
-                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]' 
+                          : 'border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-white'
                       }`}
                       title="Checklist Guide"
                     >
@@ -3469,134 +3653,24 @@ export default function App() {
 
                 {/* Sliding Checklist Help Guide Panel */}
                 {isChecklistHelpOpen && (
-                  <div className="mt-2.5 p-3.5 bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                  <div className="mt-2.5 p-3.5 bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left font-sans">
                     <div className="font-bold text-[10px] uppercase text-indigo-400 border-b border-indigo-900/30 pb-1 flex justify-between items-center font-mono w-full">
                       <span>📋 Checklist & Tasks Guide</span>
                       <button
                         type="button"
                         onClick={() => setIsChecklistHelpOpen(false)}
-                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black font-mono"
                       >
                         Hide ×
                       </button>
                     </div>
-                    <div className="flex flex-col gap-1.5 font-sans">
+                    <div className="flex flex-col gap-1.5">
                       <p>
-                        ✅ <strong className="text-white font-mono">TASK LISTING:</strong> Add or mark individual items complete. Completed items are automatically sorted to the bottom of your checklist viewport.
+                        📋 <strong className="text-white font-mono">ROOMY SUB-TASKS:</strong> Click the clipboard button to open a roomy sub-task editor overlay containing a streamlined add-new bar, sub-task list, inline checkbox toggles, edits, and deletions.
                       </p>
                       <p>
-                        ⏰ <strong className="text-white font-mono">ALARMS & ALERTS:</strong> Tap any task row to set a dedicated local notification lock-screen alarm, or rename and delete the task instantly.
+                        ⏰ <strong className="text-white font-mono">ALARMS & REMINDERS:</strong> Tap the pencil icon next to any sub-task inside the manager to schedule a custom lead-time reminder alert.
                       </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Drag-resizable and scrollable checklist viewport container */}
-                {isChecklistExpanded && (
-                  <div className="w-full mt-2.5 resize-y overflow-auto min-h-[120px] h-36 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 rounded flex flex-col focus-within:border-[var(--color-accent,#DF5504)] transition-all">
-                    <div className="flex-grow flex flex-col gap-1.5 overflow-y-auto pr-1">
-                      {/* Inline Task Creator Row (Dynamic '+' Row) - Now positioned at the very top */}
-                      <div className="flex items-center gap-2 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/20 transition-all mb-1.5">
-                        <span className="text-[12px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
-                        <input 
-                          type="text"
-                          placeholder="New task... (Press Enter)"
-                          value={inlineNewTaskText}
-                          onChange={(e) => setInlineNewTaskText(e.target.value)}
-                          onKeyDown={async (e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (inlineNewTaskText.trim()) {
-                                await triggerHaptic();
-                                const newItem = {
-                                  id: 'item-' + Date.now(),
-                                  text: inlineNewTaskText.trim(),
-                                  isChecked: false
-                                };
-                                const currentChecklists = selectedCardForEdit.checklists || [];
-                                let updatedChecklists = [];
-                                if (currentChecklists.length === 0) {
-                                  updatedChecklists = [{
-                                    id: 'cl-' + Date.now(),
-                                    items: [newItem]
-                                  }];
-                                } else {
-                                  updatedChecklists = currentChecklists.map((cl, idx) => {
-                                    if (idx === 0) {
-                                      return {
-                                        ...cl,
-                                        items: [...cl.items, newItem]
-                                      };
-                                    }
-                                    return cl;
-                                  });
-                                }
-                                setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                setInlineNewTaskText('');
-                              }
-                            }
-                          }}
-                          className="bg-transparent text-white border-none focus:outline-none placeholder-gray-500 text-[11px] font-mono flex-grow"
-                        />
-                      </div>
-
-                      {/* Render active tasks - Sorted so incomplete/active tasks come first */}
-                      {(() => {
-                        const sortedChecklistItems = selectedCardForEdit.checklists?.[0]?.items 
-                          ? [...selectedCardForEdit.checklists[0].items].sort((a, b) => (a.isChecked ? 1 : 0) - (b.isChecked ? 1 : 0))
-                          : [];
-                        
-                        return sortedChecklistItems.map(item => {
-                          return (
-                            <div 
-                              key={item.id} 
-                              onClick={async (e) => {
-                                // If they clicked the checkbox input itself, don't trigger the edit modal
-                                if ((e.target as HTMLElement).tagName === 'INPUT') return;
-                                await triggerHaptic();
-                                setSubTaskModalItem(item);
-                                setSubTaskModalText(item.text);
-                                setSubTaskModalDueDate(item.dueDate || null);
-                              }}
-                              className="flex justify-between items-center gap-2 bg-black/20 hover:bg-black/35 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] cursor-pointer"
-                            >
-                              <label className="flex items-center gap-2 cursor-pointer flex-grow select-none overflow-hidden">
-                                <input 
-                                  type="checkbox"
-                                  checked={item.isChecked}
-                                  onChange={async () => {
-                                    await triggerHaptic();
-                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                      if (idx === 0) {
-                                        return {
-                                          ...cl,
-                                          items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
-                                        };
-                                      }
-                                      return cl;
-                                    }) || [];
-                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                  }}
-                                  className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
-                                />
-                                <span className={`text-white transition-all truncate ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
-                                  {item.text}
-                                </span>
-                              </label>
-
-                              {/* Tally and alarm indicators */}
-                              <div className="flex items-center gap-1.5 flex-shrink-0 opacity-75">
-                                {item.dueDate && (
-                                  <span className="text-[9px] text-[var(--color-accent,#DF5504)] font-bold font-mono px-1.5 py-0.5 bg-[#DF5504]/10 rounded border border-[#DF5504]/25 flex items-center gap-0.5">
-                                    ⏰ {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                  </span>
-                                )}
-                                <span className="text-gray-400 hover:text-white text-[10px] pl-1 font-bold">✏️</span>
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()}
                     </div>
                   </div>
                 )}
@@ -3685,102 +3759,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Active Selected Labels Header (Repositioned below Alerts & Notifications) */}
-              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-                {/* Unified Labels Bar (Matches Alerts and Document layout format) */}
-                <div className="flex gap-2 items-center w-full">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await triggerHaptic();
-                      setIsLabelManagerOpen(!isLabelManagerOpen);
-                    }}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
-                    title="Label Manager Guide"
-                  >
-                    <span className="text-red-500 font-extrabold text-base">?</span>
-                  </button>
 
-                  {/* Wide Orange Action Dropdown Trigger */}
-                  <div className="relative flex-grow h-10 sm:h-11">
-                    <select
-                      value=""
-                      onChange={async (e) => {
-                        const val = e.target.value;
-                        if (val === 'add-new') {
-                          await triggerHaptic();
-                          setEditingLabelId(null);
-                          setLabelFormText('');
-                          setLabelFormColor('#DF5504');
-                          setIsGlobalLabelModalOpen(true);
-                        } else if (val) {
-                          await triggerHaptic();
-                          const labelId = val;
-                          const currentIds = selectedCardForEdit.labelIds || [];
-                          const nextIds = currentIds.includes(labelId)
-                            ? currentIds.filter(id => id !== labelId)
-                            : [...currentIds, labelId];
-                          setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
-                        }
-                        e.target.value = ''; // Reset select box
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 font-mono text-[9px]"
-                    >
-                      <option value="">🏷️ Add Label</option>
-                      {labels.map(lbl => {
-                        const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
-                        return (
-                          <option key={lbl.id} value={lbl.id} className="text-white bg-[#282828]">
-                            {lbl.text} {hasLabel ? '✓' : ''}
-                          </option>
-                        );
-                      })}
-                      <option value="add-new" className="text-[var(--color-accent,#DF5504)] font-bold font-mono bg-[#282828]">
-                        ＋ ADD NEW LABEL...
-                      </option>
-                    </select>
-                    <button
-                      type="button"
-                      className="w-full h-full text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
-                    >
-                      <span>{isLabelManagerOpen ? 'Close Label Editor' : 'Manage Card Labels ▼'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Collapsible Label Selector Dropdown (Adjacent Drawer) */}
-              {isLabelManagerOpen && (
-                <div className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2.5 rounded mt-2 animate-fadeIn flex flex-col gap-2 font-mono text-xs">
-                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1">
-                    <span className="font-bold text-[9px] uppercase text-gray-400">Toggle Card Labels (Active Only)</span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-1.5">
-                    {labels.filter(lbl => selectedCardForEdit.labelIds?.includes(lbl.id)).map(lbl => {
-                      return (
-                        <button
-                          key={lbl.id}
-                          type="button"
-                          onClick={async () => {
-                            await triggerHaptic();
-                            const currentIds = selectedCardForEdit.labelIds || [];
-                            const nextIds = currentIds.filter(id => id !== lbl.id);
-                            setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
-                          }}
-                          className="text-[9px] font-black px-1.5 py-0.5 border border-white scale-105 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)] transition-all rounded flex items-center gap-1"
-                          style={{ backgroundColor: lbl.color, color: 'white' }}
-                        >
-                          {lbl.text} ✓
-                        </button>
-                      );
-                    })}
-                    {(!selectedCardForEdit.labelIds || selectedCardForEdit.labelIds.filter(id => labels.some(l => l.id === id)).length === 0) && (
-                      <span className="text-[9px] text-gray-500 italic">No active labels assigned. Use the dropdown above to add one.</span>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
               <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
@@ -4589,6 +4568,181 @@ export default function App() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📋 ROOMY SLEEK CHECKLIST OVERLAY MODAL */}
+      {isChecklistModalOpen && selectedCardForEdit && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[220] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-[#181818] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 text-left">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2.5">
+              <span className="text-white font-black uppercase flex items-center gap-1.5 text-[11px] tracking-wider">
+                📋 Sub-Task Checklist
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsChecklistModalOpen(false)}
+                className="text-gray-400 hover:text-white font-black text-sm cursor-pointer select-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Sleek Add Task Input Bar at the top */}
+            <div className="flex items-center gap-2 bg-black/35 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-2 rounded focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/50 transition-all">
+              <span className="text-[14px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
+              <input 
+                type="text"
+                placeholder="Add new sub-task... (Press Enter)"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const input = e.target as HTMLInputElement;
+                    const text = input.value.trim();
+                    if (!text) return;
+                    await triggerHaptic();
+
+                    const checklistId = selectedCardForEdit.checklists?.[0]?.id || `cl-${Date.now()}`;
+                    const newItem = {
+                      id: `item-${Date.now()}`,
+                      text,
+                      isChecked: false,
+                      dueDate: null
+                    };
+
+                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                      if (idx === 0) {
+                        return {
+                          ...cl,
+                          items: [...(cl.items || []), newItem]
+                        };
+                      }
+                      return cl;
+                    }) || [{
+                      id: checklistId,
+                      title: "Default",
+                      items: [newItem]
+                    }];
+
+                    setSelectedCardForEdit({
+                      ...selectedCardForEdit,
+                      checklists: updatedChecklists
+                    });
+                    input.value = '';
+                  }
+                }}
+                className="flex-grow bg-transparent border-none p-0 text-[11px] text-white placeholder-gray-500 focus:ring-0 focus:outline-none font-mono"
+              />
+            </div>
+
+            {/* Roomy scrollable Checklist items list */}
+            <div className="flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-1">
+              {(() => {
+                const items = selectedCardForEdit.checklists?.[0]?.items || [];
+                if (items.length === 0) {
+                  return (
+                    <div className="text-center py-8 bg-black/15 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/30 rounded text-gray-500 italic">
+                      No sub-tasks. Type above to add your first task!
+                    </div>
+                  );
+                }
+
+                // Sort checklist items so active ones come first
+                const sortedItems = [...items].sort((a, b) => (a.isChecked ? 1 : 0) - (b.isChecked ? 1 : 0));
+
+                return sortedItems.map(item => {
+                  return (
+                    <div 
+                      key={item.id}
+                      className="flex justify-between items-center gap-2 bg-black/25 hover:bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-2.5 rounded font-mono text-[11px]"
+                    >
+                      {/* Checkbox and Text */}
+                      <label className="flex items-center gap-2.5 cursor-pointer flex-grow select-none overflow-hidden">
+                        <input 
+                          type="checkbox"
+                          checked={item.isChecked}
+                          onChange={async () => {
+                            await triggerHaptic();
+                            const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                              if (idx === 0) {
+                                  return {
+                                    ...cl,
+                                    items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
+                                  };
+                              }
+                              return cl;
+                            }) || [];
+                            setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                          }}
+                          className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-4 h-4 cursor-pointer"
+                        />
+                        <span className={`text-white transition-all truncate text-[11px] ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
+                          {item.text}
+                        </span>
+                      </label>
+
+                      {/* Actions: Edit / Notification / Delete */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {item.dueDate && (
+                          <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold px-1.5 py-0.5 bg-[#DF5504]/10 rounded border border-[#DF5504]/25">
+                            ⏰ {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        )}
+
+                        {/* Edit & Notification Trigger button */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setSubTaskModalItem(item);
+                            setSubTaskModalText(item.text);
+                            setSubTaskModalDueDate(item.dueDate || null);
+                          }}
+                          className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors text-[10px] cursor-pointer"
+                          title="Edit Details & Alarm"
+                        >
+                          ✏️
+                        </button>
+
+                        {/* Delete sub-task item */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            if (confirm(`Delete sub-task "${item.text}"?`)) {
+                              const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                if (idx === 0) {
+                                  return {
+                                    ...cl,
+                                    items: cl.items.filter(it => it.id !== item.id)
+                                  };
+                                }
+                                return cl;
+                              }) || [];
+                              setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                            }
+                          }}
+                          className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors text-[10px] cursor-pointer"
+                          title="Delete Subtask"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Close button at the bottom */}
+            <button
+              type="button"
+              onClick={() => setIsChecklistModalOpen(false)}
+              className="w-full mt-2 py-2 bg-[var(--color-dark-tertiary,#3D3D3D)] hover:bg-[var(--color-dark-tertiary)]/80 text-white font-bold uppercase rounded text-[10px] tracking-wide cursor-pointer transition-colors"
+            >
+              Close Checklist
+            </button>
           </div>
         </div>
       )}
