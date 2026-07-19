@@ -3469,7 +3469,7 @@ export default function App() {
                 </div>
               )}
               {/* Description Section */}
-              <div>
+              <div className="border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                 <label className="block text-[10px] font-mono font-bold uppercase text-gray-400 mb-0.5">Description</label>
                 <textarea 
                   value={selectedCardForEdit.description || ''}
@@ -3653,7 +3653,7 @@ export default function App() {
               </div>
 
               {/* List Column Selection Dropdown */}
-              <div className="relative">
+              <div className="relative border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                 <span className="block text-[10px] font-mono font-bold uppercase text-gray-400 mb-0.5">List</span>
                 <div className="flex items-center gap-1">
                   <div className="flex items-center gap-1 p-0.5 bg-black/25 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded min-h-[32px] flex-grow">
@@ -3783,7 +3783,7 @@ export default function App() {
               </div>
 
               {/* Checklist & Tasks Section */}
-              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2 mt-0.5">
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Checklist & Tasks</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
@@ -3862,7 +3862,7 @@ export default function App() {
 
 
               {/* Notifications & Alert Studio Row */}
-              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2 mt-0.5">
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Notifications</span>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
@@ -3950,7 +3950,7 @@ export default function App() {
 
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
-              <div className="pt-2.5 mt-1">
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Document & Resource Studio</span>
                 <div className="flex items-center justify-between gap-2 mb-2.5 mt-1">
                   <div className="flex items-center gap-1.5">
@@ -4527,7 +4527,7 @@ export default function App() {
               </div>
 
               {/* 🧾 ASSOCIATED BUSINESS CLAIMS & RECEIPTS STUDIO */}
-              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 pt-2.5 mt-1">
+              <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Receipts</span>
                 <div className="flex items-center justify-between gap-2 mb-2.5 mt-1">
                   <div className="flex items-center gap-1.5">
