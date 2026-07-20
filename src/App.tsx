@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCapacitor } from './hooks/useCapacitor';
+import { useFilesystem } from './hooks/useFilesystem';
 import { config } from './factory-config';
 import { CapacitorCalendar } from '@ebarooni/capacitor-calendar';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -34,6 +35,7 @@ export interface FileAttachment {
   size?: number; // Size in bytes
   mimeType?: string;
   dataUrl?: string; // Standard base64 representation or absolute cloud/drive URL string!
+  filePath?: string; // Physical sandbox filesystem path (if saved locally)
   addedAt: number;
 }
 
@@ -120,6 +122,7 @@ const POMODORO_PRESETS: Record<
 
 export default function App() {
   const { isNative, getStorage, setStorage, triggerHaptic } = useCapacitor();
+  const { saveFile, readFile, deleteFile } = useFilesystem();
   const recognitionRef = useRef<any>(null);
 
   // Native Integration Wrappers
@@ -1050,7 +1053,26 @@ export default function App() {
     }
   };
 
-
+  // File rehydration for native and indexedDB previews
+  useEffect(() => {
+    if (lightboxFile && typeof lightboxFile.filePath === 'string') {
+      const path = lightboxFile.filePath;
+      // Rehydrate the web url on opening the lightbox if we saved a physical file
+      (async () => {
+        try {
+          const resolved = await readFile(path);
+          if (resolved) {
+            setLightboxFile({
+              ...lightboxFile,
+              dataUrl: resolved.webUrl
+            });
+          }
+        } catch (e) {
+          console.error("Failed to rehydrate lightbox file preview URL", e);
+        }
+      })();
+    }
+  }, [lightboxFile?.id]);
 
   // Loading persisted state on start
   useEffect(() => {
@@ -4736,6 +4758,9 @@ export default function App() {
                                   type="button"
                                   onClick={async () => {
                                     await triggerHaptic();
+                                    if (subFile.filePath) {
+                                      await deleteFile(subFile.filePath);
+                                    }
                                     const nextAttachments = selectedCardForEdit.attachments?.filter(a => a.id !== subFile.id) || [];
                                     setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
                                   }}
@@ -4760,12 +4785,13 @@ export default function App() {
                                 const file = e.target.files?.[0];
                                 if (file) {
                                   await triggerHaptic();
-                                  if (file.size > 1.5 * 1024 * 1024) {
-                                    alert('File size exceeds 1.5MB limit. Please attach a smaller compressed file.');
+                                  if (file.size > 50 * 1024 * 1024) {
+                                    alert('File size exceeds 50MB. Please attach a smaller compressed file.');
                                     return;
                                   }
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
+                                  try {
+                                    showToast("💾 Saving to native high-capacity filesystem...");
+                                    const { filePath, webUrl } = await saveFile(`${Date.now()}_${file.name}`, file);
                                     const nextAttachments = [
                                       ...(selectedCardForEdit.attachments || []),
                                       {
@@ -4774,13 +4800,17 @@ export default function App() {
                                         type: 'submission',
                                         size: file.size,
                                         mimeType: file.type,
-                                        dataUrl: event.target?.result as string,
+                                        filePath,
+                                        dataUrl: webUrl,
                                         addedAt: Date.now()
                                       } as FileAttachment
                                     ];
                                     setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
-                                  };
-                                  reader.readAsDataURL(file);
+                                    showToast("✓ Stored natively in app sandbox!");
+                                  } catch (error) {
+                                    console.error('File storage error:', error);
+                                    alert('Failed to store document in local sandbox.');
+                                  }
                                 }
                               }}
                             />
@@ -4825,6 +4855,9 @@ export default function App() {
                                   type="button"
                                   onClick={async () => {
                                     await triggerHaptic();
+                                    if (file.filePath) {
+                                      await deleteFile(file.filePath);
+                                    }
                                     const nextAttachments = selectedCardForEdit.attachments?.filter(a => a.id !== file.id) || [];
                                     setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
                                   }}
@@ -4847,12 +4880,13 @@ export default function App() {
                             const file = e.target.files?.[0];
                             if (file) {
                               await triggerHaptic();
-                              if (file.size > 1.5 * 1024 * 1024) {
-                                alert('File size exceeds 1.5MB limit. Please attach a smaller compressed file.');
+                              if (file.size > 50 * 1024 * 1024) {
+                                alert('File size exceeds 50MB. Please attach a smaller compressed file.');
                                 return;
                               }
-                              const reader = new FileReader();
-                              reader.onload = (event) => {
+                              try {
+                                showToast("💾 Saving to native high-capacity filesystem...");
+                                const { filePath, webUrl } = await saveFile(`${Date.now()}_${file.name}`, file);
                                 const nextAttachments = [
                                   ...(selectedCardForEdit.attachments || []),
                                   {
@@ -4861,13 +4895,17 @@ export default function App() {
                                     type: 'supporting',
                                     size: file.size,
                                     mimeType: file.type,
-                                    dataUrl: event.target?.result as string,
+                                    filePath,
+                                    dataUrl: webUrl,
                                     addedAt: Date.now()
                                   } as FileAttachment
                                 ];
                                 setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
-                              };
-                              reader.readAsDataURL(file);
+                                showToast("✓ Stored natively in app sandbox!");
+                              } catch (error) {
+                                console.error('File storage error:', error);
+                                alert('Failed to store document in local sandbox.');
+                              }
                             }
                           }}
                         />
