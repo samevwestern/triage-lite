@@ -136,8 +136,8 @@ export default function App() {
       const endDate = new Date(card.dueDate + 60 * 60 * 1000); // 1 hour duration
 
       await CapacitorCalendar.createEvent({
-        title: `📌 [MTRAx lite] ${card.title}`,
-        location: card.description || 'Synced from MTRAx lite mobile app.',
+        title: `📌 [Triage lite] ${card.title}`,
+        location: card.description || 'Synced from Triage lite mobile app.',
         startDate: startDate.getTime(),
         endDate: endDate.getTime(),
       });
@@ -1992,9 +1992,9 @@ export default function App() {
           <path d="M77.85,65.13v8.87c-1-.2-13-2.8-13-2.8l13.1,6.1,16.2,8,.7,2.4-16.9-8.3v1.9l28.6,13.9v-30.07h-28.7Z" fill="#df5504" />
         </svg>
 
-        {/* Brand Badge in Orange on the Right of Logo (Case Sensitive MTRAx lite) */}
+        {/* Brand Badge in Orange on the Right of Logo (Case Sensitive Triage lite) */}
         <span className="text-[11px] sm:text-xs font-black tracking-wider bg-[#DF5504]/10 border border-[#DF5504]/25 text-[var(--color-accent,#DF5504)] px-2.5 py-1 rounded-sm font-mono select-none">
-          MTRAx lite
+          Triage lite
         </span>
       </div>
 
@@ -2613,7 +2613,7 @@ export default function App() {
                     <span className="text-gray-400 text-[10px] uppercase font-black">💾 Storage Engine</span>
                     <span className="text-white font-bold text-[10px]">Capacitor Preferences & LocalStorage</span>
                     <p className="text-[8px] text-gray-500 leading-relaxed mt-1">
-                      MTRAx lite is private-by-design. All your board cards, focus sessions, and receipts remain completely offline inside your native platform secure storage.
+                      Triage lite is private-by-design. All your board cards, focus sessions, and receipts remain completely offline inside your native platform secure storage.
                     </p>
                   </div>
 
@@ -5341,7 +5341,7 @@ export default function App() {
             <div className="flex flex-col gap-3 text-gray-300 leading-relaxed text-[11px]">
               <div className="p-2.5 bg-amber-950/20 border border-amber-800/40 rounded flex flex-col gap-1.5 text-amber-300">
                 <span className="font-extrabold uppercase tracking-wide text-xs">🔒 PRIVATE-BY-DESIGN OFFLINE MODE</span>
-                <span>MTRAx lite has <strong>NO server</strong> infrastructure. We do not track, capture, store, or intercept your data. Any card you share or receive is processed locally on-device.</span>
+                <span>Triage lite has <strong>NO server</strong> infrastructure. We do not track, capture, store, or intercept your data. Any card you share or receive is processed locally on-device.</span>
               </div>
 
               <div className="p-2.5 bg-indigo-950/20 border border-indigo-800/40 rounded flex flex-col gap-1.5 text-indigo-300">
