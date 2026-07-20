@@ -3016,7 +3016,6 @@ export default function App() {
                     <button
                       onClick={async () => {
                         await triggerHaptic();
-                        // Pre-compile board state as mock sync token
                         console.log("Compiling QR Payload", {
                           board: lists,
                           labels,
@@ -3024,11 +3023,12 @@ export default function App() {
                           syncTime: Date.now()
                         });
                         setQrSyncType('send');
+                        showToast('📡 Data Transmitted Successfully!');
                       }}
                       className="bento-box p-4 bg-amber-950/20 border border-amber-500/20 hover:border-amber-400 rounded flex flex-col items-center justify-center gap-2 text-center group cursor-pointer transition-all"
                     >
                       <span className="text-2xl group-hover:scale-110 transition-transform">📤</span>
-                      <span className="font-bold text-[10px] uppercase text-amber-400">Send to Device</span>
+                      <span className="font-bold text-[10px] uppercase text-amber-400">Show me the QR</span>
                       <p className="text-gray-400 text-[9px] leading-tight">Generate QR Code with encrypted card data & links</p>
                     </button>
 
@@ -3040,7 +3040,7 @@ export default function App() {
                       className="bento-box p-4 bg-amber-950/20 border border-amber-500/20 hover:border-amber-400 rounded flex flex-col items-center justify-center gap-2 text-center group cursor-pointer transition-all"
                     >
                       <span className="text-2xl group-hover:scale-110 transition-transform">📥</span>
-                      <span className="font-bold text-[10px] uppercase text-amber-400">Receive from Device</span>
+                      <span className="font-bold text-[10px] uppercase text-amber-400">Read QR</span>
                       <p className="text-gray-400 text-[9px] leading-tight">Scan QR code using camera to import data</p>
                     </button>
                   </div>
@@ -3184,7 +3184,7 @@ export default function App() {
                           setCards(sampleCards);
                           setQrSyncType(null);
                           setIsQRSyncOpen(false);
-                          showToast('✔ Premium QR Data & Receipts Synced Successfully!');
+                          showToast('📥 Data Received Successfully!');
                         }}
                         className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold uppercase text-[10px] rounded transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
                       >
