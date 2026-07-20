@@ -109,7 +109,69 @@ To ensure that **every button click, select, and dropdown** works flawlessly, we
 
 ---
 
-## 🏁 Part 6: Production Readiness Verification
+## 📥 Part 6: Single Unified List of EVERY User Input (UI Inputs)
+
+Below is the complete, trace-verified list of every single user input element across the entire **MTRAx lite** user interface, compiled and verified line-by-line:
+
+### 1. Board & Column Configurations
+*   **Column Title Inline Input**: `<input type="text">` allowing inline editing of board column list names. 
+    *   *State Handler*: `setLists(...)` | Line Reference: [App.tsx: L2079](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L2079)
+*   **Inline List Adder Input**: `<input type="text">` inside the board header area for spawning new customized columns.
+    *   *State Handler*: `setNewListName(...)` | Line Reference: [App.tsx: L3181](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L3181)
+*   **Search Filter Query Input**: `<input type="text">` inside the main navigation toolbar searching active card titles.
+    *   *State Handler*: `setSearchQuery(...)` | Line Reference: [App.tsx: L3385](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L3385)
+
+### 2. Card Creation & Edit Sheet
+*   **Card Title Input**: `<input type="text">` inside the modal for adding or renaming tasks.
+    *   *State Handler*: `setCardTitle(...)` | Line Reference: [App.tsx: L3865](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L3865)
+*   **Card Description Textarea**: `<textarea>` capturing rich task details and checklists.
+    *   *State Handler*: `setCardDesc(...)` | Line Reference: [App.tsx: L3874](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L3874)
+*   **Card Due Date Picker**: `<input type="datetime-local">` mapping task timelines and calendar reminders.
+    *   *State Handler*: `setCardDueDate(...)` | Line Reference: [App.tsx: L3885](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L3885)
+
+### 3. Checklists, Tags, and Pomodoro Settings
+*   **Subtask Checkbox**: `<input type="checkbox">` verifying checklist progress on card items.
+    *   *State Handler*: `toggleSubTask(...)` | Line Reference: [App.tsx: L2313](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L2313)
+*   **New Subtask Creator**: `<input type="text">` adding item strings to card checklists.
+    *   *State Handler*: `setNewSubTaskText(...)` | Line Reference: [App.tsx: L6364](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L6364)
+*   **Custom Label Text Input**: `<input type="text">` creating customized label texts.
+    *   *State Handler*: `setNewLabelText(...)` | Line Reference: [App.tsx: L6460](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L6460)
+*   **Focus Session Duration Slider**: `<input type="range">` configuring Pomodoro timers.
+    *   *State Handler*: `setPomodoroWorkDuration(...)` | Line Reference: [App.tsx: L8438](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L8438)
+
+---
+
+## 📤 Part 7: Single Unified List of EVERY Application Output
+
+Below is the complete, trace-verified list of every single output action triggered by the **MTRAx lite** application engine:
+
+### 1. Sound & Audio Outputs
+*   **Web Audio Bell Ring Oscillator**: Plays Pomodoro timer completion signals using dynamic frequency oscillator sweeps.
+    *   *Trigger*: Pomodoro timer hits `0`. | Line Reference: [App.tsx: L3086](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L3086)
+
+### 2. Device Haptic Vibration Outputs
+*   **Physical Vibration Haptic Pulse**: Standardized tactile feedback ticks triggered on checkbox changes, save operations, habit completion, and tab clicks.
+    *   *Trigger*: Unified `triggerHaptic()` calls on interaction. | Line Reference: [useCapacitor.ts: L28](file:///Users/samwestern/Documents/GitHub/triage-lite/src/hooks/useCapacitor.ts#L28)
+
+### 3. Visual UI Notifications & Modals
+*   **Symmetrical Toast Alerts**: Dynamic feedback banner on bottom-center showing system sync status, copy confirmations, and backup successes.
+    *   *Trigger*: `showToast(...)` calls. | Line Reference: [App.tsx: L934](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L934)
+*   **System Alert Modals**: Native prompt popups confirming destructive deletes or backup formats.
+    *   *Trigger*: `window.alert(...)` / `window.confirm(...)` queries. | Line Reference: [App.tsx: L2992](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L2992)
+
+### 4. Apple Calendar Outbound Sync
+*   **Native iOS Calendar Appointment Event**: Spawns calendar entries prefixed as `📌 [MTRAx lite]` to avoid polluting standard calendar lists.
+    *   *Trigger*: `CapacitorCalendar.createEvent` updates. | Line Reference: [App.tsx: L138](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L138)
+
+### 5. Document & Backup Exports
+*   **Consolidated Document mailto Mailer**: Generates structured body indices containing all attachments as plain text text layouts.
+    *   *Trigger*: `mailto:` redirection on button tap. | Line Reference: [App.tsx: L4210](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L4210)
+*   **Local File System Backup CSV**: Compiles CSV logs, formatting timestamps into spreadsheet arrays.
+    *   *Trigger*: Local backup / download triggers. | Line Reference: [App.tsx: L6158](file:///Users/samwestern/Documents/GitHub/triage-lite/src/App.tsx#L6158)
+
+---
+
+## 🏁 Part 8: Production Readiness Verification
 
 1.  **Vite Asset Bundle**: Compiled successfully in **684ms**, generating highly optimized code files without warning labels.
 2.  **Xcode Synchronization**: Synced correctly (`npx cap sync ios`). plist keys, AppIcon sets, and splash imagesets are correctly configured.
