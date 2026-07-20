@@ -8,6 +8,7 @@ import { Camera, CameraResultType } from '@capacitor/camera';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { Ocr } from '@capacitor-community/image-to-text';
 import { App as CapApp } from '@capacitor/app';
+import jsQR from 'jsqr';
 
 
 export interface ChecklistItem {
@@ -1018,6 +1019,157 @@ export default function App() {
         .catch(err => console.warn("[MTRAx Sync] Server-info query skipped (running standalone/offline)", err));
     }
   }, [isQRSyncOpen]);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [isSyncingAutomatic, setIsSyncingAutomatic] = useState<boolean>(false);
+
+  // Live Camera Auto-Scanner: continuous canvas-based QR decoding at 5 FPS
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    let scanTimerId: any = null;
+
+    if (isQRSyncOpen && qrSyncType === 'receive') {
+      console.log("[MTRAx Camera] Requesting physical device environment camera...");
+      setIsSyncingAutomatic(false);
+
+      navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 480 },
+          height: { ideal: 480 }
+        }
+      })
+      .then(stream => {
+        activeStream = stream;
+        setCameraStream(stream);
+        console.log("[MTRAx Camera] Viewfinder stream successfully established!");
+        
+        // Link to ref node
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(err => console.error("[MTRAx Camera] Playback error", err));
+        }
+
+        // Setup canvas and background scan polling loop at 5 FPS (~200ms interval)
+        const canvas = document.createElement('canvas');
+        const canvasCtx = canvas.getContext('2d', { willReadFrequently: true });
+
+        const performFrameScan = async () => {
+          if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) {
+            scanTimerId = setTimeout(performFrameScan, 200);
+            return;
+          }
+
+          const videoWidth = videoRef.current.videoWidth;
+          const videoHeight = videoRef.current.videoHeight;
+
+          if (videoWidth > 0 && videoHeight > 0 && canvasCtx) {
+            canvas.width = videoWidth;
+            canvas.height = videoHeight;
+            canvasCtx.drawImage(videoRef.current, 0, 0, videoWidth, videoHeight);
+            
+            try {
+              const imgData = canvasCtx.getImageData(0, 0, videoWidth, videoHeight);
+              const code = jsQR(imgData.data, videoWidth, videoHeight, {
+                inversionAttempts: "dontInvert"
+              });
+
+              if (code && code.data) {
+                console.log("[MTRAx Auto-Scanner] QR Code Detected! Content:", code.data);
+                
+                // Halt further loop scanning to prevent multiple triggers
+                setIsSyncingAutomatic(true);
+                
+                // Audio beep sweep
+                try {
+                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  const osc = audioCtx.createOscillator();
+                  const gainNode = audioCtx.createGain();
+                  osc.connect(gainNode);
+                  gainNode.connect(audioCtx.destination);
+                  osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                  osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.25);
+                  gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                  osc.start();
+                  osc.stop(audioCtx.currentTime + 0.25);
+                } catch (e) {
+                  console.error(e);
+                }
+
+                showToast("🔌 Connecting to laptop sync server...");
+
+                let resolvedIp = code.data;
+                try {
+                  const parsed = JSON.parse(code.data);
+                  if (parsed && parsed.ip) {
+                    resolvedIp = parsed.ip;
+                  }
+                } catch (e) {
+                  // Fallback: raw IP payload content
+                }
+
+                // Append API route
+                const targetUrl = resolvedIp.endsWith('/') ? `${resolvedIp}api/sync` : `${resolvedIp}/api/sync`;
+
+                // Fire the automated network fetch REST pull!
+                try {
+                  const res = await fetch(targetUrl);
+                  const data = await res.json();
+                  if (data && (data.cards || data.lists)) {
+                    const syncedLists = data.lists || [];
+                    const syncedCards = data.cards || [];
+                    await syncData('lists', syncedLists);
+                    await syncData('cards', syncedCards);
+                    setLists(syncedLists);
+                    setCards(syncedCards);
+                    setQrSyncType(null);
+                    setIsQRSyncOpen(false);
+                    showToast('📥 Data Received Successfully!');
+                    return; // Done!
+                  } else {
+                    showToast('❌ Data Sync Failed: Empty database payload.');
+                  }
+                } catch (fetchErr) {
+                  console.error("[MTRAx Auto-Scanner] Direct REST sync handshake failed:", fetchErr);
+                  showToast('❌ Data Sync Failed: Connection refused.');
+                }
+
+                // Release scanning lock after some seconds if fetch fails
+                setTimeout(() => {
+                  setIsSyncingAutomatic(false);
+                }, 3000);
+              }
+            } catch (err) {
+              console.warn("[MTRAx Auto-Scanner] Frame extraction warning:", err);
+            }
+          }
+
+          scanTimerId = setTimeout(performFrameScan, 200);
+        };
+
+        // Start scanning loop after video starts streaming
+        scanTimerId = setTimeout(performFrameScan, 1000);
+      })
+      .catch(err => {
+        console.warn("[MTRAx Camera] Environment camera access refused or denied.", err);
+      });
+    }
+
+    return () => {
+      if (scanTimerId) {
+        clearTimeout(scanTimerId);
+      }
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => {
+          track.stop();
+          console.log("[MTRAx Camera] Lens powered down cleanly.");
+        });
+      }
+      setCameraStream(null);
+    };
+  }, [isQRSyncOpen, qrSyncType]);
 
 
 
@@ -3157,25 +3309,37 @@ export default function App() {
                 ) : (
                   /* RECEIVE HANDSHAKE VIEW (iOS Scan on PC) */
                   <div className="space-y-4 flex flex-col items-center">
-                    <div className="relative p-4 bg-white rounded-lg shadow-inner flex items-center justify-center w-48 h-48 border-2 border-amber-400 overflow-hidden">
-                      {/* Laser scanner line anim */}
-                      <div className="absolute left-0 right-0 h-0.5 bg-amber-500 opacity-80 animate-scanner-sweep shadow-[0_0_8px_#f59e0b]"></div>
-                      
-                      {/* CSS-drawn high density premium matrix grid */}
-                      <div className="w-40 h-48 bg-black flex flex-col items-center justify-center rounded p-1.5 relative select-none">
-                        {/* QR Corners */}
-                        <div className="absolute top-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
-                        <div className="absolute top-2 right-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
-                        <div className="absolute bottom-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
-                        {/* Center Logo Icon */}
-                        <div className="absolute inset-0 m-auto w-10 h-10 bg-amber-400 border-2 border-black rounded flex items-center justify-center font-bold text-black text-[9px]">INBOX</div>
-                        {/* High-density grid visual filler */}
-                        <div className="grid grid-cols-8 grid-rows-8 gap-0.5 opacity-80 w-full h-full p-6">
-                          {Array.from({ length: 64 }).map((_, idx) => (
-                            <div key={idx} className={`rounded-sm ${idx % 4 === 0 || idx % 5 === 0 ? 'bg-amber-400' : 'bg-transparent'}`}></div>
-                          ))}
+                    <div className="relative bg-black rounded-lg shadow-inner flex items-center justify-center w-48 h-48 border-2 border-amber-500 overflow-hidden">
+                      {/* Live Camera Viewfinder Video */}
+                      <video
+                        ref={videoRef}
+                        playsInline
+                        muted
+                        autoPlay
+                        className="absolute inset-0 w-full h-full object-cover rounded-md"
+                        style={{ display: cameraStream ? 'block' : 'none' }}
+                      />
+
+                      {/* Fallback CSS-drawn matrix grid when camera is offline */}
+                      {!cameraStream && (
+                        <div className="w-40 h-40 flex flex-col items-center justify-center rounded p-1.5 relative select-none">
+                          {/* QR Corners */}
+                          <div className="absolute top-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
+                          <div className="absolute top-2 right-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
+                          <div className="absolute bottom-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
+                          {/* Center Logo Icon */}
+                          <div className="absolute inset-0 m-auto w-10 h-10 bg-amber-500 border-2 border-black rounded flex items-center justify-center font-bold text-black text-[9px]">INBOX</div>
+                          {/* High-density grid visual filler */}
+                          <div className="grid grid-cols-8 grid-rows-8 gap-0.5 opacity-40 w-full h-full p-6">
+                            {Array.from({ length: 64 }).map((_, idx) => (
+                              <div key={idx} className={`rounded-sm ${idx % 4 === 0 || idx % 5 === 0 ? 'bg-amber-500' : 'bg-transparent'}`}></div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Laser scanner line anim sweeping on top of video */}
+                      <div className="absolute left-0 right-0 h-0.5 bg-amber-500 opacity-80 animate-scanner-sweep shadow-[0_0_8px_#f59e0b]"></div>
                     </div>
 
                     <div className="w-full text-center space-y-1">
@@ -3189,7 +3353,13 @@ export default function App() {
                     <div className="w-full p-2.5 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded text-[9px] space-y-1 text-gray-400 text-left">
                       <div>📁 <strong className="text-white">Receiver Tunnel ID:</strong> mtrax-rx-tunnel-{Date.now().toString().slice(-6)}</div>
                       <div>🔒 <strong className="text-white">Tunnel Security:</strong> E2EE AES-256 (Licensed)</div>
-                      <div>⏳ <strong className="text-white">Status:</strong> Listening for iPhone upload...</div>
+                      <div>⏳ <strong className="text-white">Status:</strong> {isSyncingAutomatic ? (
+                        <span className="text-emerald-400 font-bold animate-pulse">⚡ Auto-Sync Active! Fetching data...</span>
+                      ) : cameraStream ? (
+                        <span className="text-amber-400 font-bold animate-pulse">📡 Camera Active: Scan PC QR code now</span>
+                      ) : (
+                        <span>Listening for iPhone upload...</span>
+                      )}</div>
                     </div>
 
                     <div className="w-full space-y-2">

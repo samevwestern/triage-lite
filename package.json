@@ -23,6 +23,7 @@
     "@capacitor/local-notifications": "^8.2.0",
     "@capacitor/preferences": "^6.0.0",
     "@ebarooni/capacitor-calendar": "^8.2.0",
+    "jsqr": "^1.4.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

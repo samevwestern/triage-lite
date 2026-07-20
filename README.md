@@ -205,3 +205,15 @@ Before pushing to production, review these key operational points verified by th
 *   **Vibration Blocked on Simulator:** Native Apple haptics (`triggerHaptic`) require a physical iOS device to vibrate. The simulator will run without crashing but will not vibrate.
 *   **Network IP Blocks (Physical iPhone):** When testing on a physical iPhone, the API base URL in `.env` cannot be `localhost`. You must change `VITE_BACKEND_BASE_URL` to point to your Mac's local network IP address (e.g., `http://192.168.1.104:3000`).
 *   **iOS Safe Margin Glitches:** If top-bar content overlaps the battery/wifi status bar, verify that the `viewport-fit=cover` meta is active in `index.html` and that your parent div uses the `ios-safe-top` padding utility.
+
+---
+
+## ✦ Third-Party Open-Source Software Inclusions
+
+To deliver frictionless and secure on-device operations, **MTRAx lite** includes the following open-source software packages under high-permissibility licenses:
+
+### 1. jsQR
+*   **Purpose**: De facto industry standard library used for real-time video frame QR scanning and decoding on mobile devices.
+*   **License**: **Apache License 2.0** (Permits unrestricted commercial use, modification, and integration in proprietary codebases with zero royalties).
+*   **Attributes**: 100% Client-side, zero external dependencies, 40KB ultra-light payload, and offline-ready.
+*   **Implementation Flow**: Captures camera video streams at 5 FPS on a background `<canvas>` and auto-decodes PC server IPs to trigger automatic zero-interaction database sync handshakes over Wi-Fi or USB connection cables.
