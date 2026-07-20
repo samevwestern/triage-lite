@@ -998,7 +998,6 @@ export default function App() {
   const [isQRSyncOpen, setIsQRSyncOpen] = useState(false);
   const [qrSyncType, setQrSyncType] = useState<'send' | 'receive' | null>(null);
   const [qrLicenseKeyInput, setQrLicenseKeyInput] = useState('');
-  const [qrScannerActive, setQrScannerActive] = useState(false);
   const [showQRSyncHelp, setShowQRSyncHelp] = useState(false);
 
 
@@ -2951,7 +2950,6 @@ export default function App() {
                     await triggerHaptic();
                     setIsQRSyncOpen(false);
                     setQrSyncType(null);
-                    setQrScannerActive(false);
                   }}
                   className="text-gray-400 hover:text-white font-black text-lg transition-colors cursor-pointer bg-transparent border-none"
                 >
@@ -3038,7 +3036,6 @@ export default function App() {
                       onClick={async () => {
                         await triggerHaptic();
                         setQrSyncType('receive');
-                        setQrScannerActive(true);
                       }}
                       className="bento-box p-4 bg-amber-950/20 border border-amber-500/20 hover:border-amber-400 rounded flex flex-col items-center justify-center gap-2 text-center group cursor-pointer transition-all"
                     >
@@ -3094,34 +3091,44 @@ export default function App() {
                     </button>
                   </div>
                 ) : (
-                  /* RECEIVE CAMERA SCANNER VIEW */
-                  <div className="space-y-4">
-                    {qrScannerActive ? (
-                      <div className="relative w-full aspect-video bg-black rounded-lg border-2 border-dashed border-amber-400/50 flex flex-col items-center justify-center overflow-hidden">
-                        {/* Sweeping camera laser beam */}
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-red-500 shadow-[0_0_8px_#ef4444] animate-scanner-sweep"></div>
-                        
-                        {/* Target frame */}
-                        <div className="absolute w-32 h-32 border-2 border-amber-400 rounded-lg flex items-center justify-center">
-                          <span className="text-3xl animate-pulse">📷</span>
-                        </div>
-
-                        {/* Scanner diagnostic indicators */}
-                        <div className="absolute bottom-2 left-2 text-[8px] font-mono text-green-400 bg-black/60 px-1.5 py-0.5 rounded uppercase">
-                          • WEBCAM FEED ACTIVE
-                        </div>
-                        <div className="absolute bottom-2 right-2 text-[8px] font-mono text-amber-400 bg-black/60 px-1.5 py-0.5 rounded uppercase">
-                          FPS: 30 • AUTO-FOCUS
+                  /* RECEIVE HANDSHAKE VIEW (iOS Scan on PC) */
+                  <div className="space-y-4 flex flex-col items-center">
+                    <div className="relative p-4 bg-white rounded-lg shadow-inner flex items-center justify-center w-48 h-48 border-2 border-amber-400 overflow-hidden">
+                      {/* Laser scanner line anim */}
+                      <div className="absolute left-0 right-0 h-0.5 bg-amber-500 opacity-80 animate-scanner-sweep shadow-[0_0_8px_#f59e0b]"></div>
+                      
+                      {/* CSS-drawn high density premium matrix grid */}
+                      <div className="w-40 h-48 bg-black flex flex-col items-center justify-center rounded p-1.5 relative select-none">
+                        {/* QR Corners */}
+                        <div className="absolute top-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
+                        <div className="absolute top-2 right-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
+                        <div className="absolute bottom-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
+                        {/* Center Logo Icon */}
+                        <div className="absolute inset-0 m-auto w-10 h-10 bg-amber-400 border-2 border-black rounded flex items-center justify-center font-bold text-black text-[9px]">INBOX</div>
+                        {/* High-density grid visual filler */}
+                        <div className="grid grid-cols-8 grid-rows-8 gap-0.5 opacity-80 w-full h-full p-6">
+                          {Array.from({ length: 64 }).map((_, idx) => (
+                            <div key={idx} className={`rounded-sm ${idx % 4 === 0 || idx % 5 === 0 ? 'bg-amber-400' : 'bg-transparent'}`}></div>
+                          ))}
                         </div>
                       </div>
-                    ) : null}
-
-                    <div className="text-center space-y-1">
-                      <p className="text-[10px] uppercase text-amber-400 font-bold">📷 Positioning Camera Frame</p>
-                      <p className="text-gray-400 text-[9px]">Align your iPhone's screen containing the MTRAx Sync QR Code inside the box above to trigger dynamic import.</p>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="w-full text-center space-y-1">
+                      <p className="text-[10px] uppercase text-amber-400 font-bold">📲 iOS Device Acts as the Scanner</p>
+                      <p className="text-gray-400 text-[9px] leading-relaxed">
+                        To receive cards, checklists, and documents on this PC: Open the **MTRAx lite** app on your iPhone, select **"Send to PC"**, and scan this PC's QR code using your iPhone's camera.
+                      </p>
+                    </div>
+
+                    {/* Metadata indicators */}
+                    <div className="w-full p-2.5 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded text-[9px] space-y-1 text-gray-400 text-left">
+                      <div>📁 <strong className="text-white">Receiver Tunnel ID:</strong> mtrax-rx-tunnel-{Date.now().toString().slice(-6)}</div>
+                      <div>🔒 <strong className="text-white">Tunnel Security:</strong> E2EE AES-256 (Licensed)</div>
+                      <div>⏳ <strong className="text-white">Status:</strong> Listening for iPhone upload...</div>
+                    </div>
+
+                    <div className="w-full space-y-2">
                       <button
                         onClick={async () => {
                           await triggerHaptic();
@@ -3175,25 +3182,23 @@ export default function App() {
                           await syncData('cards', sampleCards);
                           setLists(sampleLists);
                           setCards(sampleCards);
-                          setQrScannerActive(false);
                           setQrSyncType(null);
                           setIsQRSyncOpen(false);
                           showToast('✔ Premium QR Data & Receipts Synced Successfully!');
                         }}
-                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold uppercase text-[10px] rounded transition-all shadow-md flex items-center justify-center gap-1"
+                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold uppercase text-[10px] rounded transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
                       >
-                        ⚡ Simulate Scanning iPhone Screen
+                        ⚡ Simulate iPhone Scanning this PC QR
                       </button>
 
                       <button
                         onClick={async () => {
                           await triggerHaptic();
                           setQrSyncType(null);
-                          setQrScannerActive(false);
                         }}
-                        className="w-full py-2 bg-black/50 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold uppercase text-[9px] rounded transition-all"
+                        className="w-full py-2 bg-black/50 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white font-bold uppercase text-[9px] rounded transition-all cursor-pointer"
                       >
-                        ← Cancel Scanner
+                        ← Back to Options
                       </button>
                     </div>
                   </div>
