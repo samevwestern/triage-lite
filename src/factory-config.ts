@@ -13,11 +13,11 @@ export interface AppConfig {
 }
 
 export const config: AppConfig = {
-  "id": "triage-lite",
-  "name": "MTRAx lt",
-  "bundleId": "com.mdex.triagelite",
+  "id": "mtrax-lite",
+  "name": "MTRAx lite",
+  "bundleId": "com.mdex.mtraxlite",
   "accentColor": "#DF5504",
-  "apiEndpoint": "https://api.triage.mdex.com",
+  "apiEndpoint": "https://api.mtrax.mdex.com",
   "features": {
     "guestMode": true,
     "pomodoro": true,

@@ -365,7 +365,7 @@ export default function App() {
         notifications: [
           {
             id: numericId,
-            title: "⏰ Triage Task Due Now!",
+            title: "⏰ MTRAx Task Due Now!",
             body: `"${card.title}" has reached its scheduled due date!`,
             schedule: { at: new Date(card.dueDate) },
             sound: 'default',
@@ -431,11 +431,11 @@ export default function App() {
 
   // Application State
   const [currentLanguage, setCurrentLanguage] = useState<'en' | 'es' | 'fr' | 'de'>(() => {
-    return (localStorage.getItem('triage_language') as 'en' | 'es' | 'fr' | 'de') || 'en';
+    return (localStorage.getItem('mtrax_language') as 'en' | 'es' | 'fr' | 'de') || 'en';
   });
 
   useEffect(() => {
-    localStorage.setItem('triage_language', currentLanguage);
+    localStorage.setItem('mtrax_language', currentLanguage);
   }, [currentLanguage]);
 
   const translations = {
@@ -780,7 +780,7 @@ export default function App() {
   const [isCalendarAgendaOpen, setIsCalendarAgendaOpen] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [calendarRangeDays, setCalendarRangeDays] = useState<number>(30);
-  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage' | 'diary' | 'receipts'>('all');
+  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'mtrax' | 'diary' | 'receipts'>('all');
   const [calendarStartDate, setCalendarStartDate] = useState<string>(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -1033,7 +1033,7 @@ export default function App() {
     // 2. Route to appropriate cloud backend
     if (isConnected) {
       // ENTERPRISE PATH: Sync directly with MySQL endpoints
-      console.log(`[Enterprise Sync] Payload routed to api.triage.mdex.com for key: ${key}`);
+      console.log(`[Enterprise Sync] Payload routed to api.mtrax.mdex.com for key: ${key}`);
       // Simulated REST Call: PUT /api/alphav1/cards/:id
     } else {
       // STANDALONE PATH: Sync with Apple iCloud
@@ -1586,7 +1586,7 @@ export default function App() {
     const backupPackage = {
       backupVersion: 1,
       timestamp: Date.now(),
-      appId: "triage-lite",
+      appId: "mtrax-lite",
       data: {
         cards,
         lists,
@@ -1639,7 +1639,7 @@ export default function App() {
           const backup = JSON.parse(jsonText);
 
           // Schema validation check
-          if (!backup || backup.appId !== 'triage-lite' || !backup.data) {
+          if (!backup || (backup.appId !== 'mtrax-lite' && backup.appId !== 'triage-lite') || !backup.data) {
             alert('Invalid backup file structure! Ensure this is a valid MTRAx backup JSON file.');
             return;
           }
@@ -3274,12 +3274,12 @@ export default function App() {
 
             <div>
               <h4 className="font-bold text-white uppercase text-xs mb-2 flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2">
-                {isConnected ? '☁️ Triage Enterprise SQL Sync' : '🍏 Apple iCloud Backup & Sync'}
+                {isConnected ? '☁️ MTRAx Enterprise SQL Sync' : '🍏 Apple iCloud Backup & Sync'}
               </h4>
               {isConnected ? (
                 <div className="space-y-3 mt-3">
                   <p className="text-gray-400 text-[10px] leading-relaxed">
-                    Connected to <strong className="text-white">Triage MySQL Database</strong>. You are viewing a simplified, action-focused board reference.
+                    Connected to <strong className="text-white">MTRAx MySQL Database</strong>. You are viewing a simplified, action-focused board reference.
                   </p>
                   <div className="p-2 bg-green-950/30 border border-green-500/30 text-green-400 text-[9px] font-bold shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]">
                     ✓ REAL-TIME ENTERPRISE SYNC ACTIVE
@@ -3303,13 +3303,13 @@ export default function App() {
                 if (isConnected) {
                   setIsConnected(false);
                 } else {
-                  const connect = window.confirm('Link Triage Enterprise Account? (Mock action)');
+                  const connect = window.confirm('Link MTRAx Enterprise Account? (Mock action)');
                   if (connect) setIsConnected(true);
                 }
               }}
               className={`w-full py-2.5 mt-2 rounded border border-[var(--color-dark-tertiary,#3D3D3D)] ${isConnected ? 'bg-[var(--color-dark-bg,#282828)] text-green-400 border-green-500/30' : 'bento-btn text-white'} text-[10px] font-bold uppercase tracking-wider transition-all`}
             >
-              {isConnected ? '✓ Linked Triage Account' : 'Link Triage Account'}
+              {isConnected ? '✓ Linked MTRAx Account' : 'Link MTRAx Account'}
             </button>
           </div>
         </div>
@@ -4680,7 +4680,7 @@ export default function App() {
                               }
 
                               bodyLines.push(`----------------------------------------`);
-                              bodyLines.push(`Generated via MTRAx Triage Lite.`);
+                              bodyLines.push(`Generated via MTRAx lite.`);
                               return bodyLines.join('\n');
                             })()
                           )}`}
@@ -6469,7 +6469,7 @@ export default function App() {
                       }
                     });
                     const csvContent = csvRows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
-                    const filename = `triage_focus_session_logs_${Date.now()}.csv`;
+                    const filename = `mtrax_focus_session_logs_${Date.now()}.csv`;
 
                     try {
                       const file = new File([csvContent], filename, { type: 'text/csv' });
@@ -6477,7 +6477,7 @@ export default function App() {
                         await navigator.share({
                           files: [file],
                           title: 'Focus Session Logs Export',
-                          text: 'Here is your exported focus session logs CSV from MTRAx lt.'
+                          text: 'Here is your exported focus session logs CSV from MTRAx lite.'
                         });
                         showToast("📤 Share sheet opened successfully!");
                         return;
@@ -6864,7 +6864,7 @@ export default function App() {
               </div>
 
               <a
-                href={`mailto:?subject=Triage%20Task%3A%20${encodeURIComponent(selectedCardForEdit.title)}&body=Task%20Details%3A%0A%0A-%20Title%3A%20${encodeURIComponent(selectedCardForEdit.title)}%0A-%20Description%3A%20${encodeURIComponent(selectedCardForEdit.description || 'No description provided')}%0A-%20Due%20Date%3A%20${selectedCardForEdit.dueDate ? encodeURIComponent(new Date(selectedCardForEdit.dueDate).toLocaleString()) : 'Not set'}%0A%0AStay%20Focused!`}
+                href={`mailto:?subject=MTRAx%20Task%3A%20${encodeURIComponent(selectedCardForEdit.title)}&body=Task%20Details%3A%0A%0A-%20Title%3A%20${encodeURIComponent(selectedCardForEdit.title)}%0A-%20Description%3A%20${encodeURIComponent(selectedCardForEdit.description || 'No description provided')}%0A-%20Due%20Date%3A%20${selectedCardForEdit.dueDate ? encodeURIComponent(new Date(selectedCardForEdit.dueDate).toLocaleString()) : 'Not set'}%0A%0AStay%20Focused!`}
                 onClick={async () => {
                   await triggerHaptic();
                   showToast("📧 Opening native mail app...");
@@ -7174,16 +7174,16 @@ export default function App() {
                   <button
                     onClick={async () => {
                       await triggerHaptic();
-                      setCalendarFilterType('triage');
+                      setCalendarFilterType('mtrax');
                       setSelectedCalendarItemIds([]);
                     }}
                     className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
-                      calendarFilterType === 'triage'
+                      calendarFilterType === 'mtrax'
                         ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
                         : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
                     }`}
                   >
-                    Triage Only
+                    MTRAx Only
                   </button>
                   <button
                     onClick={async () => {
@@ -7274,7 +7274,7 @@ export default function App() {
                       }));
                   } else {
                     filtered = calendarEvents.filter((evt) => {
-                      if (calendarFilterType === 'triage') {
+                      if (calendarFilterType === 'mtrax') {
                         return evt.title && evt.title.includes('📌 [MTRAx lite]');
                       }
                       return true;
