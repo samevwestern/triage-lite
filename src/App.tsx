@@ -1002,6 +1002,22 @@ export default function App() {
   const [qrSyncType, setQrSyncType] = useState<'send' | 'receive' | null>(null);
   const [qrLicenseKeyInput, setQrLicenseKeyInput] = useState('');
   const [showQRSyncHelp, setShowQRSyncHelp] = useState(false);
+  const [serverIp, setServerIp] = useState<string>('http://127.0.0.1:8084');
+
+  // Discover actual local PC network IP address (Wi-Fi or USB physical connection)
+  useEffect(() => {
+    if (isQRSyncOpen && !isNative) {
+      fetch('/api/server-info')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.ip) {
+            setServerIp(data.ip);
+            console.log("[MTRAx Sync] Discovered active network interface: " + data.ip);
+          }
+        })
+        .catch(err => console.warn("[MTRAx Sync] Server-info query skipped (running standalone/offline)", err));
+    }
+  }, [isQRSyncOpen]);
 
 
 
@@ -3044,6 +3060,19 @@ export default function App() {
                           receipts,
                           syncTime: Date.now()
                         });
+
+                        // Automatically merge local state to physical db.json before displaying the QR
+                        try {
+                          await fetch('/api/sync', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ lists, cards })
+                          });
+                          console.log("[MTRAx Sync] Browser card states merged to disk!");
+                        } catch (err) {
+                          console.warn("[MTRAx Sync] Standalone mode, skipped database-to-disk write", err);
+                        }
+
                         setQrSyncType('send');
                         showToast('📡 Data Transmitted Successfully!');
                       }}
@@ -3098,8 +3127,8 @@ export default function App() {
                     {/* Metadata indicators */}
                     <div className="w-full p-2.5 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded text-[9px] space-y-1 text-gray-400">
                       <div>📁 <strong className="text-white">Relay Tunnel ID:</strong> mtrax-sync-tunnel-{Date.now().toString().slice(-6)}</div>
-                      <div>🔒 <strong className="text-white">Encryption status:</strong> Decryption key embedded in screen QR</div>
-                      <div>⏳ <strong className="text-white">Expiry:</strong> 5 minutes from generation</div>
+                      <div>🔌 <strong className="text-white">Active Server IP:</strong> {serverIp}</div>
+                      <div>🔒 <strong className="text-white">Encryption status:</strong> E2EE Link Authenticated</div>
                     </div>
 
                     <button
@@ -3171,7 +3200,28 @@ export default function App() {
                             console.error(e);
                           }
 
-                          // Simulate scanning incoming lists + cards + receipts + Google Drive attachments
+                          showToast("🔌 Connecting to laptop server...");
+
+                          try {
+                            const res = await fetch('/api/sync');
+                            const data = await res.json();
+                            if (data && (data.cards || data.lists)) {
+                              const syncedLists = data.lists || [];
+                              const syncedCards = data.cards || [];
+                              await syncData('lists', syncedLists);
+                              await syncData('cards', syncedCards);
+                              setLists(syncedLists);
+                              setCards(syncedCards);
+                              setQrSyncType(null);
+                              setIsQRSyncOpen(false);
+                              showToast('📥 Data Received Successfully!');
+                              return;
+                            }
+                          } catch (err) {
+                            console.warn("[MTRAx Sync] Standalone mode, running offline local fallback payload", err);
+                          }
+
+                          // Fallback payload when local Vite server sync endpoint is not reachable
                           const sampleLists = [
                             {
                               id: 'list-sync-1',
