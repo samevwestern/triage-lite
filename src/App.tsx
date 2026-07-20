@@ -1029,6 +1029,19 @@ export default function App() {
       const storageKeyReceipts = `factory_app_${config.id}_receipts`;
       const savedReceipts = await getStorage(storageKeyReceipts);
       const parsedReceipts = savedReceipts ? JSON.parse(savedReceipts) : [];
+
+      // DEV BYPASS: Auto-grant premium certificate if running on localhost, 127.0.0.1, or local subnet sub-domains
+      const isDevHost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' || 
+                        window.location.hostname.startsWith('192.168.') || 
+                        window.location.hostname.startsWith('172.20.');
+      const isDevMode = isDevHost;
+
+      if (isDevMode && localStorage.getItem('mtrax_offline_certificate') !== 'true') {
+        localStorage.setItem('mtrax_offline_certificate', 'true');
+        console.log("[MTRAx Dev Bypass] Local network detected. Pre-authorizing Premium Offline Certificate!");
+      }
+
       const hasOfflineCert = localStorage.getItem('mtrax_offline_certificate') === 'true';
 
       // Simulate network/OS verification delay
@@ -1039,7 +1052,7 @@ export default function App() {
         } else {
           setHasValidReceipt(false); 
         }
-      }, 1200);
+      }, 400); // Shorter load duration for developers
     };
     verifyPurchase();
   }, []);
