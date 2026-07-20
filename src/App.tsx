@@ -998,7 +998,6 @@ export default function App() {
   const [isQRSyncOpen, setIsQRSyncOpen] = useState(false);
   const [qrSyncType, setQrSyncType] = useState<'send' | 'receive' | null>(null);
   const [qrLicenseKeyInput, setQrLicenseKeyInput] = useState('');
-  const [qrSyncPayload, setQrSyncPayload] = useState('');
   const [qrScannerActive, setQrScannerActive] = useState(false);
   const [showQRSyncHelp, setShowQRSyncHelp] = useState(false);
 
@@ -3020,13 +3019,12 @@ export default function App() {
                       onClick={async () => {
                         await triggerHaptic();
                         // Pre-compile board state as mock sync token
-                        const compiled = JSON.stringify({
+                        console.log("Compiling QR Payload", {
                           board: lists,
-                          categories,
+                          labels,
                           receipts,
                           syncTime: Date.now()
                         });
-                        setQrSyncPayload(compiled);
                         setQrSyncType('send');
                       }}
                       className="bento-box p-4 bg-amber-950/20 border border-amber-500/20 hover:border-amber-400 rounded flex flex-col items-center justify-center gap-2 text-center group cursor-pointer transition-all"
@@ -3144,33 +3142,39 @@ export default function App() {
                             console.error(e);
                           }
 
-                          // Simulate scanning incoming cards + receipts + Google Drive attachments
+                          // Simulate scanning incoming lists + cards + receipts + Google Drive attachments
                           const sampleLists = [
                             {
-                              id: 'list-1',
-                              title: '📋 ACTIVE DEPLOYMENTS',
-                              cards: [
+                              id: 'list-sync-1',
+                              name: '📋 ACTIVE DEPLOYMENTS'
+                            }
+                          ];
+
+                          const sampleCards = [
+                            {
+                              id: 'card-sync-1',
+                              listId: 'list-sync-1',
+                              title: '🚀 MTRAx Native Web Preview',
+                              description: 'Tested and verified cross-platform preview bindings. Dynamic viewport scaling configured.',
+                              timeSpent: 0,
+                              labelIds: ['label-red', 'label-blue'],
+                              checklists: [
                                 {
-                                  id: 'card-sync-1',
-                                  title: '🚀 MTRAx Native Web Preview',
-                                  desc: 'Tested and verified cross-platform preview bindings. Dynamic viewport scaling configured.',
-                                  due: new Date(Date.now() + 86400000).toISOString(),
-                                  subtasks: [
-                                    { text: 'Verify local web server on Port 4173', done: true },
-                                    { text: 'Cross-test on iPad and local PCs', done: true },
-                                    { text: 'Configure QR Sync Relay parameters', done: false }
-                                  ],
-                                  attachments: [
-                                    { name: 'Purchase_Certificate.pdf', url: 'https://drive.google.com/drive/folders/mtrax-license', type: 'doc' },
-                                    { name: 'Office_Receipt.jpg', url: 'local-filesystem-photo', type: 'receipt' }
+                                  id: 'cl-sync-1',
+                                  items: [
+                                    { id: 'item-sync-1', text: 'Verify local web server on Port 4173', isChecked: true },
+                                    { id: 'item-sync-2', text: 'Cross-test on iPad and local PCs', isChecked: true },
+                                    { id: 'item-sync-3', text: 'Configure QR Sync Relay parameters', isChecked: false }
                                   ]
                                 }
                               ]
                             }
                           ];
 
-                          await syncData('cards', sampleLists);
+                          await syncData('lists', sampleLists);
+                          await syncData('cards', sampleCards);
                           setLists(sampleLists);
+                          setCards(sampleCards);
                           setQrScannerActive(false);
                           setQrSyncType(null);
                           setIsQRSyncOpen(false);
