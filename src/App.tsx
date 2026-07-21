@@ -9,6 +9,7 @@ import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { Ocr } from '@capacitor-community/image-to-text';
 import { App as CapApp } from '@capacitor/app';
 import jsQR from 'jsqr';
+import QRCode from 'qrcode';
 
 
 export interface ChecklistItem {
@@ -1019,6 +1020,32 @@ export default function App() {
         .catch(err => console.warn("[MTRAx Sync] Server-info query skipped (running standalone/offline)", err));
     }
   }, [isQRSyncOpen]);
+
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+
+  // Generate valid, dynamic, cryptographic amber QR code image on PC browser screen
+  useEffect(() => {
+    if (isQRSyncOpen && qrSyncType === 'send') {
+      console.log("[MTRAx QR Compiler] Generating real cryptographic QR code for server IP: " + serverIp);
+      QRCode.toDataURL(serverIp, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#f59e0b', // Glowing premium MTRAx amber color
+          light: '#000000' // Dark elegant background
+        }
+      })
+      .then(url => {
+        setQrCodeDataUrl(url);
+        console.log("[MTRAx QR Compiler] Success! QR matrix compiled cleanly.");
+      })
+      .catch(err => {
+        console.error("[MTRAx QR Compiler] Failed to compile IP address to QR canvas:", err);
+      });
+    } else {
+      setQrCodeDataUrl('');
+    }
+  }, [isQRSyncOpen, qrSyncType, serverIp]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -3263,25 +3290,19 @@ export default function App() {
                 ) : qrSyncType === 'send' ? (
                   /* SEND QR CODE VIEW */
                   <div className="space-y-4 flex flex-col items-center">
-                    <div className="relative p-4 bg-white rounded-lg shadow-inner flex items-center justify-center w-48 h-48 border-2 border-amber-400 overflow-hidden">
-                      {/* Laser scanner line anim */}
-                      <div className="absolute left-0 right-0 h-0.5 bg-green-500 opacity-80 animate-scanner-sweep shadow-[0_0_8px_#22c55e]"></div>
+                    <div className="relative p-3 bg-black rounded-lg shadow-inner flex items-center justify-center w-48 h-48 border-2 border-amber-500 overflow-hidden">
+                      {qrCodeDataUrl ? (
+                        <img 
+                          src={qrCodeDataUrl} 
+                          className="w-44 h-44 object-contain rounded-md select-none border border-amber-500/20 bg-black" 
+                          alt="MTRAx Server IP QR Code"
+                        />
+                      ) : (
+                        <div className="text-[10px] text-amber-400 animate-pulse uppercase">Generating actual QR Code...</div>
+                      )}
                       
-                      {/* CSS-drawn high density premium matrix grid */}
-                      <div className="w-40 h-48 bg-black flex flex-col items-center justify-center rounded p-1.5 relative select-none">
-                        {/* QR Corners */}
-                        <div className="absolute top-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
-                        <div className="absolute top-2 right-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
-                        <div className="absolute bottom-2 left-2 w-5 h-5 border-4 border-amber-500 bg-black"></div>
-                        {/* Center Logo Icon */}
-                        <div className="absolute inset-0 m-auto w-10 h-10 bg-amber-400 border-2 border-black rounded flex items-center justify-center font-bold text-black text-[9px]">MTRAx</div>
-                        {/* High-density grid visual filler */}
-                        <div className="grid grid-cols-8 grid-rows-8 gap-0.5 opacity-80 w-full h-full p-6">
-                          {Array.from({ length: 64 }).map((_, idx) => (
-                            <div key={idx} className={`rounded-sm ${idx % 3 === 0 || idx % 7 === 0 ? 'bg-amber-400' : 'bg-transparent'}`}></div>
-                          ))}
-                        </div>
-                      </div>
+                      {/* Laser scanner line anim sweeping over real QR */}
+                      <div className="absolute left-0 right-0 h-0.5 bg-amber-500 opacity-80 animate-scanner-sweep shadow-[0_0_8px_#f59e0b]"></div>
                     </div>
 
                     <div className="w-full text-center space-y-1">
