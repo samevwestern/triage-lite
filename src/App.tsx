@@ -74,6 +74,7 @@ export interface Card {
   notifyCalendarAlarm?: boolean;
   notifyEmailReminder?: boolean;
   isArchived?: boolean;
+  updatedAt?: number;
 }
 
 interface List {
@@ -1050,6 +1051,8 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isSyncingAutomatic, setIsSyncingAutomatic] = useState<boolean>(false);
+  const [pendingSyncData, setPendingSyncData] = useState<{ lists: List[], cards: Card[] } | null>(null);
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false);
 
   // Live Camera Auto-Scanner: continuous canvas-based QR decoding at 5 FPS
   useEffect(() => {
@@ -1147,6 +1150,17 @@ export default function App() {
                   if (data && (data.cards || data.lists)) {
                     const syncedLists = data.lists || [];
                     const syncedCards = data.cards || [];
+                    
+                    // If local board contains active user data, trigger the Conflict Resolution Modal!
+                    if (cards.length > 0 && syncedCards.length > 0) {
+                      console.log("[MTRAx Sync] Conflict detected! Prompting user to resolve differences...");
+                      setPendingSyncData({ lists: syncedLists, cards: syncedCards });
+                      setIsConflictModalOpen(true);
+                      setQrSyncType(null);
+                      setIsQRSyncOpen(false);
+                      return;
+                    }
+
                     const storageKeyCards = `factory_app_${config.id}_cards`;
                     const storageKeyLists = `factory_app_${config.id}_lists`;
                     await syncData(storageKeyLists, syncedLists);
@@ -1261,6 +1275,41 @@ export default function App() {
         console.error("iCloud synchronization error: ", err);
       }
     }
+  };
+
+  // 🔀 Intelligent Last-Write-Wins Difference Normalizer & Merge Engine
+  const mergeDatabasesIntelligently = (localLists: List[], localCards: Card[], remoteLists: List[], remoteCards: Card[]) => {
+    console.log("[MTRAx Merge Engine] Initiating two-way database normalization...");
+    
+    // 1. Merge Lists (Ensure all unique lists from both devices are present)
+    const mergedLists = [...localLists];
+    remoteLists.forEach(remoteList => {
+      const exists = mergedLists.find(l => l.id === remoteList.id);
+      if (!exists) {
+        mergedLists.push(remoteList);
+      }
+    });
+
+    // 2. Merge Cards based on updatedAt timestamp (Last-Write-Wins)
+    const mergedCards = [...localCards];
+    remoteCards.forEach(remoteCard => {
+      const localCardIdx = mergedCards.findIndex(c => c.id === remoteCard.id);
+      if (localCardIdx > -1) {
+        const localCard = mergedCards[localCardIdx];
+        const localTime = localCard.updatedAt || 0;
+        const remoteTime = remoteCard.updatedAt || 0;
+        if (remoteTime > localTime) {
+          console.log(`[MTRAx Merge Engine] Resolving card conflict for ID: ${remoteCard.id}. Remote wins (${remoteTime} > ${localTime})`);
+          mergedCards[localCardIdx] = remoteCard;
+        } else {
+          console.log(`[MTRAx Merge Engine] Resolving card conflict for ID: ${remoteCard.id}. Local wins (${localTime} >= ${remoteTime})`);
+        }
+      } else {
+        mergedCards.push(remoteCard);
+      }
+    });
+
+    return { mergedLists, mergedCards };
   };
 
   // File rehydration for native and indexedDB previews
@@ -3414,6 +3463,17 @@ export default function App() {
                             if (data && (data.cards || data.lists)) {
                               const syncedLists = data.lists || [];
                               const syncedCards = data.cards || [];
+                              
+                              // If local board contains active user data, trigger the Conflict Resolution Modal!
+                              if (cards.length > 0 && syncedCards.length > 0) {
+                                console.log("[MTRAx Sync] Conflict detected! Prompting user to resolve differences...");
+                                setPendingSyncData({ lists: syncedLists, cards: syncedCards });
+                                setIsConflictModalOpen(true);
+                                setQrSyncType(null);
+                                setIsQRSyncOpen(false);
+                                return;
+                              }
+
                               const storageKeyCards = `factory_app_${config.id}_cards`;
                               const storageKeyLists = `factory_app_${config.id}_lists`;
                               await syncData(storageKeyLists, syncedLists);
@@ -3426,49 +3486,13 @@ export default function App() {
                               return;
                             }
                           } catch (err) {
-                            console.warn("[MTRAx Sync] Standalone mode, running offline local fallback payload", err);
+                            console.warn("[MTRAx Sync] Standalone mode: Local server is unreachable", err);
+                            showToast("⚠️ Local server unreachable. Please run the server on your PC!");
                           }
-
-                          // Fallback payload when local Vite server sync endpoint is not reachable
-                          const sampleLists = [
-                            {
-                              id: 'list-sync-1',
-                              name: '📋 ACTIVE DEPLOYMENTS'
-                            }
-                          ];
-
-                          const sampleCards = [
-                            {
-                              id: 'card-sync-1',
-                              listId: 'list-sync-1',
-                              title: '🚀 MTRAx Native Web Preview',
-                              description: 'Tested and verified cross-platform preview bindings. Dynamic viewport scaling configured.',
-                              timeSpent: 0,
-                              labelIds: ['label-red', 'label-blue'],
-                              checklists: [
-                                {
-                                  id: 'cl-sync-1',
-                                  items: [
-                                    { id: 'item-sync-1', text: 'Verify local web server on Port 4173', isChecked: true },
-                                    { id: 'item-sync-2', text: 'Cross-test on iPad and local PCs', isChecked: true },
-                                    { id: 'item-sync-3', text: 'Configure QR Sync Relay parameters', isChecked: false }
-                                  ]
-                                }
-                              ]
-                            }
-                          ];
-
-                          await syncData('lists', sampleLists);
-                          await syncData('cards', sampleCards);
-                          setLists(sampleLists);
-                          setCards(sampleCards);
-                          setQrSyncType(null);
-                          setIsQRSyncOpen(false);
-                          showToast('📥 Data Received Successfully!');
                         }}
                         className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold uppercase text-[10px] rounded transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
                       >
-                        ⚡ Simulate iPhone Scanning this PC QR
+                        📥 Pull Local Database
                       </button>
 
                       <button
@@ -3485,6 +3509,105 @@ export default function App() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {isConflictModalOpen && pendingSyncData && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="w-full max-w-md bento-box p-6 text-white flex flex-col gap-4 font-mono text-xs text-left border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <h3 className="font-black text-sm uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                🔀 Database Conflict Normalizer
+              </h3>
+              <div className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[9px] uppercase font-bold animate-pulse">
+                Conflict Detected
+              </div>
+            </div>
+
+            <p className="text-gray-400 text-[10px] leading-relaxed">
+              Both this device and the scanned device contain active board data. Please select a synchronization normalization strategy:
+            </p>
+
+            {/* Side-by-Side Comparison */}
+            <div className="grid grid-cols-2 gap-3 my-1">
+              <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded space-y-1">
+                <div className="text-[10px] text-gray-500 uppercase font-black">💻 Local Device</div>
+                <div className="text-sm font-bold text-white">{cards.length} <span className="text-gray-400 text-[10px] font-normal">Cards</span></div>
+                <div className="text-xs text-gray-400">{lists.length} Lists</div>
+              </div>
+              <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded space-y-1">
+                <div className="text-[10px] text-amber-500/70 uppercase font-black">📲 Scanned Device</div>
+                <div className="text-sm font-bold text-amber-400">{pendingSyncData.cards.length} <span className="text-gray-400 text-[10px] font-normal">Cards</span></div>
+                <div className="text-xs text-gray-400">{pendingSyncData.lists.length} Lists</div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              {/* Option 1: Intelligent Merge */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  const { mergedLists, mergedCards } = mergeDatabasesIntelligently(
+                    lists,
+                    cards,
+                    pendingSyncData.lists,
+                    pendingSyncData.cards
+                  );
+                  const storageKeyCards = `factory_app_${config.id}_cards`;
+                  const storageKeyLists = `factory_app_${config.id}_lists`;
+                  await syncData(storageKeyLists, mergedLists);
+                  await syncData(storageKeyCards, mergedCards);
+                  setLists(mergedLists);
+                  setCards(mergedCards);
+                  setPendingSyncData(null);
+                  setIsConflictModalOpen(false);
+                  showToast("🔀 Databases Merged & Normalized Successfully!");
+                }}
+                className="w-full p-3 bg-amber-500 hover:bg-amber-400 text-black rounded transition-all text-left space-y-0.5 cursor-pointer shadow-md border border-amber-400 animate-pulse-slow"
+              >
+                <div className="font-bold uppercase text-[10px] flex items-center gap-1 text-black">🔀 Intelligent Two-Way Merge <span className="px-1.5 py-0.2 bg-black text-amber-400 rounded text-[7px] font-bold">RECOM</span></div>
+                <div className="text-[8.5px] leading-snug opacity-90 text-black">Combine lists and resolve card changes using Last-Write-Wins epoch timestamps. No data is deleted.</div>
+              </button>
+
+              {/* Option 2: Overwrite Local */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  if (window.confirm("⚠️ WARNING: This will completely replace your current cards with the scanned dataset. This action cannot be undone. Proceed?")) {
+                    const storageKeyCards = `factory_app_${config.id}_cards`;
+                    const storageKeyLists = `factory_app_${config.id}_lists`;
+                    await syncData(storageKeyLists, pendingSyncData.lists);
+                    await syncData(storageKeyCards, pendingSyncData.cards);
+                    setLists(pendingSyncData.lists);
+                    setCards(pendingSyncData.cards);
+                    setPendingSyncData(null);
+                    setIsConflictModalOpen(false);
+                    showToast("📥 Local Board Overwritten Successfully!");
+                  }
+                }}
+                className="w-full p-3 bg-black/50 hover:bg-black/30 border border-amber-500/30 hover:border-amber-400 text-white rounded transition-all text-left space-y-0.5 cursor-pointer"
+              >
+                <div className="font-bold uppercase text-[10px] text-amber-400">📥 Overwrite Local Board</div>
+                <div className="text-[8.5px] text-gray-400 leading-snug">Replace your current cards and checklists entirely with the scanned device's dataset.</div>
+              </button>
+
+              {/* Option 3: Keep Local */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setPendingSyncData(null);
+                  setIsConflictModalOpen(false);
+                  showToast("📤 Sync Cancelled: Local board preserved.");
+                }}
+                className="w-full py-2 bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-gray-300 font-bold uppercase text-[9px] rounded text-center transition-all cursor-pointer mt-1"
+              >
+                Cancel & Keep Current Local Board
+              </button>
+            </div>
           </div>
         </div>
       )}
