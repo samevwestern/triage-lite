@@ -1151,6 +1151,9 @@ export default function App() {
                     const syncedLists = data.lists || [];
                     const syncedCards = data.cards || [];
                     
+                    // Save active server IP to local preferences for native manual pulls
+                    await setStorage('last_connected_server_ip', resolvedIp);
+                    
                     // If local board contains active user data, trigger the Conflict Resolution Modal!
                     if (cards.length > 0 && syncedCards.length > 0) {
                       console.log("[MTRAx Sync] Conflict detected! Prompting user to resolve differences...");
@@ -3458,7 +3461,19 @@ export default function App() {
                           showToast("🔌 Connecting to laptop server...");
 
                           try {
-                            const res = await fetch('/api/sync');
+                            let targetUrl = '/api/sync';
+                            if (isNative) {
+                              const savedIp = await getStorage('last_connected_server_ip');
+                              if (savedIp) {
+                                targetUrl = savedIp.endsWith('/') ? `${savedIp}api/sync` : `${savedIp}/api/sync`;
+                                console.log("[MTRAx Sync] Resolving native pull path to saved server IP: " + targetUrl);
+                              } else {
+                                showToast("📡 Please scan the PC QR code first to pair devices!");
+                                return;
+                              }
+                            }
+
+                            const res = await fetch(targetUrl);
                             const data = await res.json();
                             if (data && (data.cards || data.lists)) {
                               const syncedLists = data.lists || [];
