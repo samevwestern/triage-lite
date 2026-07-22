@@ -1147,8 +1147,10 @@ export default function App() {
                   if (data && (data.cards || data.lists)) {
                     const syncedLists = data.lists || [];
                     const syncedCards = data.cards || [];
-                    await syncData('lists', syncedLists);
-                    await syncData('cards', syncedCards);
+                    const storageKeyCards = `factory_app_${config.id}_cards`;
+                    const storageKeyLists = `factory_app_${config.id}_lists`;
+                    await syncData(storageKeyLists, syncedLists);
+                    await syncData(storageKeyCards, syncedCards);
                     setLists(syncedLists);
                     setCards(syncedCards);
                     setQrSyncType(null);
@@ -3412,8 +3414,10 @@ export default function App() {
                             if (data && (data.cards || data.lists)) {
                               const syncedLists = data.lists || [];
                               const syncedCards = data.cards || [];
-                              await syncData('lists', syncedLists);
-                              await syncData('cards', syncedCards);
+                              const storageKeyCards = `factory_app_${config.id}_cards`;
+                              const storageKeyLists = `factory_app_${config.id}_lists`;
+                              await syncData(storageKeyLists, syncedLists);
+                              await syncData(storageKeyCards, syncedCards);
                               setLists(syncedLists);
                               setCards(syncedCards);
                               setQrSyncType(null);
