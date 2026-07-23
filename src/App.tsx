@@ -2698,27 +2698,11 @@ export default function App() {
                   <div className="p-3 bg-red-950/20 border border-red-900/30 rounded-sm">
                     <span className="text-red-400 font-black text-[10px] uppercase">🛠️ {t('advancedAdmin')}</span>
                     <p className="text-[8px] text-gray-500 leading-relaxed mt-1">
-                      Developer and diagnostic tools for verifying native Capacitor capabilities, haptics, and custom labels.
+                      Developer and diagnostic tools for verifying native Capacitor capabilities and haptics.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await triggerHaptic();
-                        setEditingLabelId(null);
-                        setLabelFormText('');
-                        setLabelFormColor('#DF5504');
-                        setIsGlobalLabelModalOpen(true);
-                        setIsSettingsOpen(false);
-                      }}
-                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
-                    >
-                      <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">🏷️ Label Studio</span>
-                      <span className="text-[8px] text-gray-500">Manage categories and colors</span>
-                    </button>
-
+                  <div className="flex flex-col gap-2">
                     <button
                       type="button"
                       onClick={async () => {
@@ -2726,7 +2710,7 @@ export default function App() {
                         setActiveMenuModal('diagnostics');
                         setIsSettingsOpen(false);
                       }}
-                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
+                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group w-full"
                     >
                       <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">⚡ Diagnostics</span>
                       <span className="text-[8px] text-gray-500">Run native API platform tests</span>
