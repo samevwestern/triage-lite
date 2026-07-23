@@ -981,7 +981,6 @@ export default function App() {
   ]);
 
   // Premium feature guard helper
-  // Premium feature guard helper
   const handlePremiumAction = (action: () => void) => {
     const hasOfflineCert = localStorage.getItem('mtrax_offline_certificate') === 'true';
     if (hasValidReceipt || receipts.length > 0 || hasOfflineCert) {
@@ -1750,7 +1749,6 @@ export default function App() {
     }
     return false;
   };
-
   // MONETIZATION GUARDS: Wait for receipt check at startup, but don't block layout
   if (hasValidReceipt === null) {
     return (
@@ -1811,7 +1809,6 @@ export default function App() {
               </div>
               <span className="text-gray-500 group-hover:text-white text-xs pl-1 font-sans">❯</span>
             </button>
-
             {/* Language Selector bento box */}
             <div className="w-full p-2.5 bento-box bg-black/40 flex flex-col gap-2 font-mono">
               <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">🌐 App Language</span>
@@ -1958,7 +1955,6 @@ export default function App() {
               </div>
             </button>
           </div>
-
           {/* Section 3: Premium Access */}
           {!hasValidReceipt && (
             <div className="flex flex-col gap-2 font-mono animate-fadeIn">
