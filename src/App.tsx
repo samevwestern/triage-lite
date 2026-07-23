@@ -910,17 +910,14 @@ export default function App() {
 
   // Unified Settings and Accessibility States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'appearance' | 'language' | 'sync' | 'admin'>('appearance');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'appearance' | 'sync' | 'admin'>('appearance');
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('mtrax_theme_mode') as 'dark' | 'light') || 'dark';
   });
   const [textScale, setTextScale] = useState<'standard' | 'large' | 'xlarge'>(() => {
     return (localStorage.getItem('mtrax_text_scale') as 'standard' | 'large' | 'xlarge') || 'standard';
   });
-  const [showLanguageInHeader, setShowLanguageInHeader] = useState<boolean>(() => {
-    const saved = localStorage.getItem('mtrax_show_lang_header');
-    return saved !== null ? saved === 'true' : true;
-  });
+
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Apply Theme effects
@@ -944,10 +941,7 @@ export default function App() {
     }
   }, [textScale]);
 
-  // Apply Header Language Visibility effect
-  useEffect(() => {
-    localStorage.setItem('mtrax_show_lang_header', String(showLanguageInHeader));
-  }, [showLanguageInHeader]);
+
 
   // Automatically scroll containers to top on navigation/state changes
   useEffect(() => {
@@ -2506,8 +2500,8 @@ export default function App() {
             </div>
 
             {/* Brutalist Tab Bar */}
-            <div className="grid grid-cols-4 gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
-              {(['appearance', 'language', 'sync', 'admin'] as const).map((tab) => (
+            <div className="grid grid-cols-3 gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              {(['appearance', 'sync', 'admin'] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -2522,7 +2516,6 @@ export default function App() {
                   }`}
                 >
                   {tab === 'appearance' && '🎨 Style'}
-                  {tab === 'language' && '🌐 Lang'}
                   {tab === 'sync' && '☁️ Sync'}
                   {tab === 'admin' && '🛠️ Admin'}
                 </button>
@@ -2597,50 +2590,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* LANGUAGE TAB */}
-              {activeSettingsTab === 'language' && (
-                <div className="flex flex-col gap-4 animate-fadeIn">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] text-gray-400 uppercase font-black">{t('langSelection')}</label>
-                    <select
-                      value={currentLanguage}
-                      onChange={async (e) => {
-                        await triggerHaptic();
-                        setCurrentLanguage(e.target.value as any);
-                      }}
-                      className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded p-2.5 text-xs text-white font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] cursor-pointer animate-none"
-                    >
-                      <option value="en" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇺🇸 English (US)</option>
-                      <option value="es" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇪🇸 Español (ES)</option>
-                      <option value="fr" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇫🇷 Français (FR)</option>
-                      <option value="de" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇩🇪 Deutsch (DE)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 pt-3 mt-1">
-                    <div className="flex flex-col gap-0.5 pr-2">
-                      <span className="font-bold text-[10px] text-white">Header Language Selector</span>
-                      <span className="text-[8px] text-gray-500">Show a quick language dropdown in the top-right header</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await triggerHaptic();
-                        setShowLanguageInHeader(!showLanguageInHeader);
-                      }}
-                      className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
-                        showLanguageInHeader ? 'bg-[var(--color-accent,#DF5504)]' : 'bg-[var(--color-dark-tertiary,#3D3D3D)]'
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                          showLanguageInHeader ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* SYNC TAB */}
               {activeSettingsTab === 'sync' && (
