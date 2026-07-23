@@ -134,8 +134,8 @@ export default function App() {
       const endDate = new Date(card.dueDate + 60 * 60 * 1000); // 1 hour duration
 
       await CapacitorCalendar.createEvent({
-        title: `📌 [Triage Lite] ${card.title}`,
-        location: card.description || 'Synced from Triage Lite mobile app.',
+        title: `📌 [MTRAx lite] ${card.title}`,
+        location: card.description || 'Synced from MTRAx lite mobile app.',
         startDate: startDate.getTime(),
         endDate: endDate.getTime(),
       });
@@ -438,9 +438,9 @@ export default function App() {
 
   const translations = {
     en: {
-      menuTitle: "Triage Board Menu",
+      menuTitle: "MTRAx Board Menu",
       close: "Close",
-      runbookTitle: "Triage Settings Runbook",
+      runbookTitle: "MTRAx Settings Runbook",
       exportBackup: "Export Data Backup",
       exportBackupDesc: "Download offline work as standard Excel-compatible CSV database.",
       icloudSync: "Apple iCloud Synchronization",
@@ -460,9 +460,31 @@ export default function App() {
       labelStudioTitleDesc: "Your custom category tag workshop. Create custom labels, choose neon highlight colors, or rename existing categories to instantly prioritize and color-code your cards.",
       diagnosticsTitle: "Feature Diagnostics",
       diagnosticsTitleDesc: "System compatibility test sweeps. Quickly verifies your device compatibility with core features, including tap vibrations, microphone recordings, in-app sounds, local notifications, and system calendar alarms.",
+      
+      // New Settings keys
+      settings: "App Settings",
+      settingsDesc: "Configure theme, text sizes, language, storage sources, and admin options.",
+      theme: "Theme Mode",
+      themeDark: "Dark Mode (Neon Orange)",
+      themeLight: "Light Mode (Contrast Black)",
+      textSize: "Font Scale",
+      sizeStandard: "Standard Size",
+      sizeLarge: "Large Size",
+      sizeXlarge: "Extra Large Size",
+      showLangHeader: "Show Language Selector in Header",
+      premiumLocked: "💎 Premium Locked",
+      upgradeTitle: "MTRAx Premium Upgrade",
+      upgradeDesc: "Unlock cross-device cloud synchronization, offline spreadsheet backup exporting, secure business receipts tracking, and vocal diary entries for a one-time lifetime license.",
+      purchaseBtn: "Purchase for $9.99",
+      simulatePurchase: "[Simulate App Store Purchase]",
+      advancedAdmin: "Advanced Administration",
+      appearanceTitle: "🎨 Appearance Settings",
+      langTitle: "🌐 Language Settings",
+      syncTitle: "☁️ Sync & Data Settings",
+      adminTitle: "🛠️ Admin Tools",
     },
     es: {
-      menuTitle: "Menú de Triage",
+      menuTitle: "Menú de MTRAx",
       close: "Cerrar",
       runbookTitle: "Guía de Configuración",
       exportBackup: "Copia de Seguridad",
@@ -470,23 +492,45 @@ export default function App() {
       icloudSync: "Sincronización con Apple iCloud",
       icloudSyncDesc: "Verifique la conexión, enlace la base de datos SQL o sincronice dispositivos.",
       labelStudio: "Estudio de Etiquetas",
-      labelStudioDesc: "Cree etiquetas de clasificación, cambie de nombre o preestablezca colores.",
+      labelStudioDesc: "Cree etiquetas de classificação, cambie de nombre o preestablezca colores.",
       diagnostics: "Diagnósticos de Funciones Nativas",
       diagnosticsDesc: "Inspeccione la plataforma, el almacenamiento, el calendario y la API de audio.",
       langSelection: "Selección de Idioma",
       langSelectionDesc: "Seleccione su idioma preferido para la interfaz de usuario.",
       backToDashboard: "Volver al Tablero",
       exportTitle: "Copia de Seguridad de Datos",
-      exportTitleDesc: "Guarde su trabajo en un archivo de copia de seguridad seguro en su computadora. Descarga una hoja de cálculo compatible con Excel que muestra todas sus listas de tarjetas de tareas activas, horas de enfoque de hojas de tiempo y notas de progreso de listas de verificación.",
+      exportTitleDesc: "Guarde su trabajo en un archivo de copia de seguridad seguro en su computadora. Descarga una hoja de cálculo compatible con Excel.",
       icloudSyncTitle: "Sincronización con Apple iCloud",
-      icloudSyncTitleDesc: "Mantenga sus tableros perfectamente sincronizados en su iPhone, iPad y Mac. Guarda y hace coincidir dinámicamente sus registros en todos sus dispositivos Apple.",
+      icloudSyncTitleDesc: "Mantenga sus tableros perfectamente sincronizados en todos sus dispositivos Apple.",
       labelStudioTitle: "Estudio de Etiquetas de Tablero",
-      labelStudioTitleDesc: "Su taller de etiquetas de categorías personalizadas. Cree etiquetas personalizadas, elija colores de resaltado de neón o cambie el nombre de las categorías.",
+      labelStudioTitleDesc: "Su taller de etiquetas de categorías personalizadas. Cree etiquetas personalizadas, elija colores o cambie el nombre.",
       diagnosticsTitle: "Diagnóstico de Funciones",
-      diagnosticsTitleDesc: "Barridos de prueba de compatibilidad del sistema. Verifica rápidamente la compatibilidad de su dispositivo con las funciones principales.",
+      diagnosticsTitleDesc: "Barridos de prueba de compatibilidad del sistema. Verifica rápidamente la compatibilidad de su dispositivo.",
+      
+      // New Settings keys
+      settings: "Ajustes de App",
+      settingsDesc: "Configure el tema, el tamaño del texto, el idioma, el almacenamiento y las opciones de administración.",
+      theme: "Modo de Tema",
+      themeDark: "Modo Oscuro (Naranja Neón)",
+      themeLight: "Modo Claro (Negro de Contraste)",
+      textSize: "Escala de Fuente",
+      sizeStandard: "Tamaño Estándar",
+      sizeLarge: "Tamaño Grande",
+      sizeXlarge: "Tamaño Muy Grande",
+      showLangHeader: "Mostrar Selector de Idioma en el Encabezado",
+      premiumLocked: "💎 Premium Bloqueado",
+      upgradeTitle: "Actualización a MTRAx Premium",
+      upgradeDesc: "Desbloquee la sincronización en la nube entre dispositivos, la exportación de copias de seguridad sin conexión, el seguimiento de recibos comerciales y las entradas de voz del diario para obtener una licencia de por vida única.",
+      purchaseBtn: "Comprar por $9.99",
+      simulatePurchase: "[Simular Compra de App Store]",
+      advancedAdmin: "Administración Avanzada",
+      appearanceTitle: "🎨 Configuración de Apariencia",
+      langTitle: "🌐 Configuración de Idioma",
+      syncTitle: "☁️ Sincronización y Datos",
+      adminTitle: "🛠️ Herramientas de Administración",
     },
     fr: {
-      menuTitle: "Menu de Triage",
+      menuTitle: "Menu de MTRAx",
       close: "Fermer",
       runbookTitle: "Guide de Configuration",
       exportBackup: "Sauvegarde des Données",
@@ -501,16 +545,38 @@ export default function App() {
       langSelectionDesc: "Sélectionnez votre langue préférée pour l'interface.",
       backToDashboard: "Retour au Tableau",
       exportTitle: "Sauvegarde des Données",
-      exportTitleDesc: "Enregistrez votre travail dans un fichier de sauvegarde sécurisé sur votre ordinateur. Télécharge un tableur compatible avec Excel.",
+      exportTitleDesc: "Enregistrez votre travail dans un fichier de sauvegarde sécurisé sur votre ordinateur.",
       icloudSyncTitle: "Synchronisation Apple iCloud",
       icloudSyncTitleDesc: "Gardez vos tableaux parfaitement synchronisés sur votre iPhone, iPad et Mac.",
       labelStudioTitle: "Studio d'Étiquettes de Tableau",
       labelStudioTitleDesc: "Votre atelier de balises de catégories personnalisées. Créez des étiquettes personnalisées.",
       diagnosticsTitle: "Diagnostics des Fonctionnalités",
-      diagnosticsTitleDesc: "Balayages de tests de compatibilité système. Vérifie rapidement la compatibilité de votre appareil.",
+      diagnosticsTitleDesc: "Balayages de tests de compatibilité système. Vérifie rapidement la compatibilité.",
+      
+      // New Settings keys
+      settings: "Paramètres de l'App",
+      settingsDesc: "Configurez le thème, la taille du texte, la langue, le stockage et les options d'administration.",
+      theme: "Mode Thème",
+      themeDark: "Mode Sombre (Orange Néon)",
+      themeLight: "Mode Clair (Noir Contraste)",
+      textSize: "Échelle de Police",
+      sizeStandard: "Taille Standard",
+      sizeLarge: "Grande Taille",
+      sizeXlarge: "Très Grande Taille",
+      showLangHeader: "Afficher le Sélecteur de Langue dans l'En-tête",
+      premiumLocked: "💎 Premium Verrouillé",
+      upgradeTitle: "Mise à Niveau MTRAx Premium",
+      upgradeDesc: "Déverrouillez la synchronisation cloud multi-appareils, l'exportation de sauvegarde CSV hors ligne, le suivi des reçus commerciaux et le journal vocal pour une licence unique à vie.",
+      purchaseBtn: "Acheter pour 9,99 $",
+      simulatePurchase: "[Simuler l'Achat sur l'App Store]",
+      advancedAdmin: "Administration Avancée",
+      appearanceTitle: "🎨 Paramètres d'Apparence",
+      langTitle: "🌐 Paramètres de Langue",
+      syncTitle: "☁️ Synchronisation et Données",
+      adminTitle: "🛠️ Outils d'Administration",
     },
     de: {
-      menuTitle: "Triage-Board-Menü",
+      menuTitle: "MTRAx-Board-Menü",
       close: "Schließen",
       runbookTitle: "Konfigurationshandbuch",
       exportBackup: "Datenexport-Backup",
@@ -525,13 +591,35 @@ export default function App() {
       langSelectionDesc: "Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche.",
       backToDashboard: "Zurück zum Dashboard",
       exportTitle: "Datenexport-Backup",
-      exportTitleDesc: "Speichern Sie Ihre Arbeit in einer sicheren Backup-Datei auf Ihrem Computer. Lädt eine Excel-kompatible Tabelle herunter.",
+      exportTitleDesc: "Speichern Sie Ihre Arbeit in einer sicheren Backup-Datei auf Ihrem Computer.",
       icloudSyncTitle: "Apple iCloud-Synchronisierung",
       icloudSyncTitleDesc: "Halten Sie Ihre Boards auf Ihrem iPhone, iPad und Mac perfekt synchronisiert.",
       labelStudioTitle: "Board-Label-Studio",
       labelStudioTitleDesc: "Ihr Workshop für benutzerdefinierte Kategorie-Tags. Erstellen Sie benutzerdefinierte Labels.",
       diagnosticsTitle: "Feature-Diagnose",
-      diagnosticsTitleDesc: "Systemkompatibilitätsprüfungen. Überprüft schnell die Kompatibilität Ihres Geräts.",
+      diagnosticsTitleDesc: "Systemkompatibilitätsprüfungen. Überprüft schnell die Kompatibilität.",
+      
+      // New Settings keys
+      settings: "App-Einstellungen",
+      settingsDesc: "Konfigurieren Sie Thema, Textgrößen, Sprache, Speicherquellen und Admin-Optionen.",
+      theme: "Themen-Modus",
+      themeDark: "Dunkler Modus (Neon-Orange)",
+      themeLight: "Heller Modus (Kontrast-Schwarz)",
+      textSize: "Schriftskalierung",
+      sizeStandard: "Standardgröße",
+      sizeLarge: "Große Größe",
+      sizeXlarge: "Extra Große Größe",
+      showLangHeader: "Sprachauswahl im Header anzeigen",
+      premiumLocked: "💎 Premium Gesperrt",
+      upgradeTitle: "MTRAx Premium-Upgrade",
+      upgradeDesc: "Schalten Sie die cloudübergreifende Gerätesynchronisierung, den offline CSV-Datenexport, die geschäftliche Belegverwaltung und das Sprach-Tagebuch für eine einmalige lebenslange Lizenz frei.",
+      purchaseBtn: "Kaufen für $9.99",
+      simulatePurchase: "[App Store Kauf simulieren]",
+      advancedAdmin: "Erweiterte Verwaltung",
+      appearanceTitle: "🎨 Darstellungseinstellungen",
+      langTitle: "🌐 Spracheinstellungen",
+      syncTitle: "☁️ Synchronisierung & Daten",
+      adminTitle: "🛠️ Admin-Werkzeuge",
     }
   };
 
@@ -675,7 +763,6 @@ export default function App() {
   const [isDocStudioOpen, setIsDocStudioOpen] = useState(false);
   const [isReceiptStudioOpen, setIsReceiptStudioOpen] = useState(false);
   const [isReceiptsLinkHelpOpen, setIsReceiptsLinkHelpOpen] = useState(false);
-  const [isReceiptVerificationHelpOpen, setIsReceiptVerificationHelpOpen] = useState(false);
   const [showBackupHelp, setShowBackupHelp] = useState(false);
   const [showSyncHelp, setShowSyncHelp] = useState(false);
   const [showDiagnosticsHelp, setShowDiagnosticsHelp] = useState(false);
@@ -740,6 +827,56 @@ export default function App() {
   // Dedicated Menu View State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeMenuModal, setActiveMenuModal] = useState<'backup' | 'sync' | 'diagnostics' | null>(null);
+
+  // Unified Settings and Accessibility States
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'appearance' | 'language' | 'sync' | 'admin'>('appearance');
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('mtrax_theme_mode') as 'dark' | 'light') || 'dark';
+  });
+  const [textScale, setTextScale] = useState<'standard' | 'large' | 'xlarge'>(() => {
+    return (localStorage.getItem('mtrax_text_scale') as 'standard' | 'large' | 'xlarge') || 'standard';
+  });
+  const [showLanguageInHeader, setShowLanguageInHeader] = useState<boolean>(() => {
+    const saved = localStorage.getItem('mtrax_show_lang_header');
+    return saved !== null ? saved === 'true' : true;
+  });
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+
+  // Apply Theme effects
+  useEffect(() => {
+    localStorage.setItem('mtrax_theme_mode', themeMode);
+    if (themeMode === 'light') {
+      document.body.classList.add('theme-light');
+    } else {
+      document.body.classList.remove('theme-light');
+    }
+  }, [themeMode]);
+
+  // Apply Font Scaling effects
+  useEffect(() => {
+    localStorage.setItem('mtrax_text_scale', textScale);
+    document.body.classList.remove('font-scale-large', 'font-scale-xlarge');
+    if (textScale === 'large') {
+      document.body.classList.add('font-scale-large');
+    } else if (textScale === 'xlarge') {
+      document.body.classList.add('font-scale-xlarge');
+    }
+  }, [textScale]);
+
+  // Apply Header Language Visibility effect
+  useEffect(() => {
+    localStorage.setItem('mtrax_show_lang_header', String(showLanguageInHeader));
+  }, [showLanguageInHeader]);
+
+  // Premium feature guard helper
+  const handlePremiumAction = (action: () => void) => {
+    if (hasValidReceipt) {
+      action();
+    } else {
+      setIsUpgradeModalOpen(true);
+    }
+  };
 
   // Dedicated Global Label Manager Modal State
   const [isGlobalLabelModalOpen, setIsGlobalLabelModalOpen] = useState(false);
@@ -1226,7 +1363,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  // MONETIZATION GUARDS: Block app rendering if not purchased
+  // MONETIZATION GUARDS: Wait for receipt check at startup, but don't block layout
   if (hasValidReceipt === null) {
     return (
       <div className="min-h-screen bg-[var(--color-dark-bg,#282828)] flex flex-col items-center justify-center font-mono text-[var(--color-accent,#DF5504)] uppercase font-black text-sm tracking-widest gap-4">
@@ -1236,88 +1373,8 @@ export default function App() {
     );
   }
 
-  if (hasValidReceipt === false) {
-    return (
-      <div className="min-h-screen bg-[var(--color-dark-bg,#282828)] flex items-center justify-center p-4 font-mono text-center">
-        <div className="bento-box border-2 border-[var(--color-accent,#DF5504)] p-8 max-w-md">
-          <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-3 mb-4 w-full">
-            <h2 className="text-xl font-black text-white uppercase tracking-wider">MTRAx lt</h2>
-            <button
-              type="button"
-              onClick={async () => {
-                await triggerHaptic();
-                setIsReceiptVerificationHelpOpen(!isReceiptVerificationHelpOpen);
-              }}
-              className={`w-6 h-6 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
-                isReceiptVerificationHelpOpen
-                  ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
-                  : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
-              }`}
-              title="Receipt Sandbox Guide"
-            >
-              ❓
-            </button>
-          </div>
-
-          {isReceiptVerificationHelpOpen && (
-            <div className="mb-4 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
-              <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
-                <span>🛡️ Sandbox Receipt Runbook</span>
-                <button
-                  type="button"
-                  onClick={() => setIsReceiptVerificationHelpOpen(false)}
-                  className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
-                >
-                  Hide ×
-                </button>
-              </div>
-              
-              <div className="flex flex-col gap-2 font-sans text-xs">
-                <p>
-                  🔒 <strong className="text-white font-mono">STANDALONE PRIVACY:</strong> MTRAx lt is offline-first. Your tasks, diary, and receipts are stored safely in a secure local database on your device.
-                </p>
-                <p>
-                  💰 <strong className="text-white font-mono">LIFETIME ACCESS:</strong> A single App Store purchase unlocks all features forever, with no recurring subscription models or tracker telemetry.
-                </p>
-                <p>
-                  🚀 <strong className="text-white font-mono">DEVELOPER BYPASS:</strong> Tap the simulate link at the bottom of the screen to quickly bypass receipt validation and test features locally.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <p className="text-[#8892b0] text-xs mb-6 leading-relaxed">
-            No valid App Store receipt found. MTRAx lt is a premium standalone application with no free tier. Please purchase the app to securely sync your data.
-          </p>
-          <button className="w-full py-4 bento-btn text-white font-black uppercase text-sm">
-            Purchase for $9.99
-          </button>
-
-          <button 
-            onClick={async () => {
-              await triggerHaptic();
-              alert("Sign Up for Premium coming soon! Thank you for your interest!");
-            }}
-            className="w-full mt-3 py-4 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-black uppercase text-sm rounded-md tracking-wider transition-all active:translate-y-0.5 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            💎 Sign Up for Premium
-          </button>
-          <button 
-            onClick={() => {
-              triggerHaptic();
-              setHasValidReceipt(true);
-            }} 
-            className="mt-6 text-[10px] text-gray-500 hover:text-white uppercase font-bold transition-colors"
-          >
-            [Dev Bypass: Simulate Purchase]
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex flex-col justify-between ios-safe-top ios-safe-bottom bg-[var(--color-dark-bg,#282828)] px-4 py-6 select-none">
+    <div className="h-screen max-h-screen flex flex-col justify-between overflow-hidden ios-safe-top ios-safe-bottom bg-[var(--color-dark-bg,#282828)] px-4 py-6 select-none">
       
       {/* COLLAPSIBLE LEFT UNIFIED SIDEBAR (DRAWER) */}
       <div 
@@ -1342,119 +1399,30 @@ export default function App() {
             </button>
           </div>
 
-          {/* Section 1: Settings & Sync */}
+          {/* Section 1: Settings */}
           <div className="flex flex-col gap-2 font-mono">
             <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black uppercase tracking-wider mb-0.5">
-              ⚙️ {t('menuTitle')}
+              ⚙️ Preferences
             </span>
             
-            {/* Row 1: Export Data */}
             <button 
               onClick={async () => {
                 await triggerHaptic();
-                setActiveMenuModal('backup');
+                setIsSettingsOpen(true);
                 setIsSidebarOpen(false);
               }}
-              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
+              className="w-full p-3 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
             >
               <div className="flex flex-col gap-0.5">
                 <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                  💾 {t('exportBackup')}
+                  ⚙️ {t('settings')}
                 </span>
                 <span className="text-[9px] text-gray-400">
-                  {t('exportBackupDesc')}
+                  {t('settingsDesc')}
                 </span>
               </div>
-              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
+              <span className="text-gray-500 group-hover:text-white text-xs pl-1 font-sans">❯</span>
             </button>
-
-            {/* Row 2: iCloud Sync */}
-            <button 
-              onClick={async () => {
-                await triggerHaptic();
-                setActiveMenuModal('sync');
-                setIsSidebarOpen(false);
-              }}
-              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                  🍏 {t('icloudSync')}
-                </span>
-                <span className="text-[9px] text-gray-400">
-                  {t('icloudSyncDesc')}
-                </span>
-              </div>
-              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
-            </button>
-
-            {/* Row 3: Label Studio */}
-            <button 
-              onClick={async () => {
-                await triggerHaptic();
-                setEditingLabelId(null);
-                setLabelFormText('');
-                setLabelFormColor('#DF5504');
-                setIsGlobalLabelModalOpen(true);
-                setIsSidebarOpen(false);
-              }}
-              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                  🏷 {t('labelStudio')}
-                </span>
-                <span className="text-[9px] text-gray-400">
-                  {t('labelStudioDesc')}
-                </span>
-              </div>
-              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
-            </button>
-
-            {/* Row 4: Diagnostics */}
-            <button 
-              onClick={async () => {
-                await triggerHaptic();
-                setActiveMenuModal('diagnostics');
-                setIsSidebarOpen(false);
-              }}
-              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex justify-between items-center text-left transition-all active:translate-y-0.5 group cursor-pointer"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">
-                  ⚡ {t('diagnostics')}
-                </span>
-                <span className="text-[9px] text-gray-400">
-                  {t('diagnosticsDesc')}
-                </span>
-              </div>
-              <span className="text-gray-500 group-hover:text-white text-xs pl-1">❯</span>
-            </button>
-
-            {/* Row 5: Language Selection */}
-            <div className="w-full p-2.5 bento-box bg-black/40 flex justify-between items-center text-left">
-              <div className="flex flex-col gap-0.5 pr-2">
-                <span className="font-bold text-[11px] text-white">
-                  🌐 {t('langSelection')}
-                </span>
-                <span className="text-[9px] text-gray-400">
-                  {t('langSelectionDesc')}
-                </span>
-              </div>
-              <select
-                value={currentLanguage}
-                onChange={async (e) => {
-                  await triggerHaptic();
-                  setCurrentLanguage(e.target.value as any);
-                }}
-                className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] rounded text-[10px] text-white p-1 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
-              >
-                <option value="en">🇺🇸 English</option>
-                <option value="es">🇪🇸 Español</option>
-                <option value="fr">🇫🇷 Français</option>
-                <option value="de">🇩🇪 Deutsch</option>
-              </select>
-            </div>
           </div>
 
           {/* Section 2: Interactive Quick Tools */}
@@ -1480,34 +1448,42 @@ export default function App() {
               </div>
             </button>
 
-            {/* Button 2: Verbal Diary */}
+            {/* Button 2: Verbal Diary (GATED) */}
             <button
               onClick={async () => {
                 await triggerHaptic();
-                setIsDiaryOpen(true);
                 setIsSidebarOpen(false);
+                handlePremiumAction(() => {
+                  setIsDiaryOpen(true);
+                });
               }}
-              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer relative"
             >
               <span className="text-base">📔</span>
               <div className="flex flex-col">
-                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Verbal Diary</span>
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors flex items-center gap-1">
+                  Verbal Diary {!hasValidReceipt && <span className="text-[8px] px-1 bg-amber-500/20 text-amber-400 rounded-sm font-normal">PRO</span>}
+                </span>
                 <span className="text-[9px] text-gray-400">Record audio notes.</span>
               </div>
             </button>
 
-            {/* Button 3: Receipts */}
+            {/* Button 3: Receipts (GATED) */}
             <button
               onClick={async () => {
                 await triggerHaptic();
-                setIsReceiptsOpen(true);
                 setIsSidebarOpen(false);
+                handlePremiumAction(() => {
+                  setIsReceiptsOpen(true);
+                });
               }}
               className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
             >
               <span className="text-base">🧾</span>
               <div className="flex flex-col">
-                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Business Receipts</span>
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors flex items-center gap-1">
+                  Business Receipts {!hasValidReceipt && <span className="text-[8px] px-1 bg-amber-500/20 text-amber-400 rounded-sm font-normal">PRO</span>}
+                </span>
                 <span className="text-[9px] text-gray-400">Manage tax expenses.</span>
               </div>
             </button>
@@ -1562,30 +1538,32 @@ export default function App() {
           </div>
 
           {/* Section 3: Premium Access */}
-          <div className="flex flex-col gap-2 font-mono">
-            <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider mb-0.5">
-              💎 Premium Access
-            </span>
-            
-            <button
-              onClick={async () => {
-                await triggerHaptic();
-                alert("Sign Up for Premium coming soon! Thank you for your interest!");
-                setIsSidebarOpen(false);
-              }}
-              className="w-full p-3 rounded-md border border-amber-500/40 bg-gradient-to-br from-amber-950/30 to-black/50 hover:from-amber-950/50 hover:to-amber-900/30 text-left transition-all active:translate-y-0.5 group cursor-pointer flex flex-col gap-1 shadow-[0_0_15px_rgba(245,158,11,0.05)] hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-xs text-amber-400 group-hover:text-amber-300 transition-colors uppercase tracking-wider">
-                  Sign Up for Premium
-                </span>
-                <span className="text-amber-500 group-hover:text-amber-300 text-[10px] pl-1 transition-colors">❯</span>
-              </div>
-              <span className="text-[9px] text-gray-400 leading-normal">
-                Unlock multi-device cloud backup and unlimited workspace extensions.
+          {!hasValidReceipt && (
+            <div className="flex flex-col gap-2 font-mono animate-fadeIn">
+              <span className="text-[10px] text-amber-400 font-black uppercase tracking-wider mb-0.5">
+                💎 Premium Access
               </span>
-            </button>
-          </div>
+              
+              <button
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsUpgradeModalOpen(true);
+                  setIsSidebarOpen(false);
+                }}
+                className="w-full p-3 rounded-md border border-amber-500/40 bg-gradient-to-br from-amber-950/30 to-black/50 hover:from-amber-950/50 hover:to-amber-900/30 text-left transition-all active:translate-y-0.5 group cursor-pointer flex flex-col gap-1 shadow-[0_0_15px_rgba(245,158,11,0.05)] hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-amber-400 group-hover:text-amber-300 transition-colors uppercase tracking-wider">
+                    Upgrade to Premium
+                  </span>
+                  <span className="text-amber-500 group-hover:text-amber-300 text-[10px] pl-1 transition-colors font-sans">❯</span>
+                </div>
+                <span className="text-[9px] text-gray-400 leading-normal">
+                  Unlock multi-device cloud backup and premium workspace expansions.
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Footer */}
@@ -1637,8 +1615,28 @@ export default function App() {
             {config.name}
           </h1>
         </div>
+
+        {showLanguageInHeader && (
+          <div className="flex items-center gap-1.5 animate-fadeIn">
+            <span className="text-[10px] font-bold text-gray-400 font-mono hidden sm:inline">🌐 LANGUAGE:</span>
+            <select
+              value={currentLanguage}
+              onChange={async (e) => {
+                await triggerHaptic();
+                setCurrentLanguage(e.target.value as any);
+              }}
+              className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-md text-[10px] text-white py-1.5 px-2 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
+            >
+              <option value="en">🇺🇸 EN</option>
+              <option value="es">🇪🇸 ES</option>
+              <option value="fr">🇫🇷 FR</option>
+              <option value="de">🇩🇪 DE</option>
+            </select>
+          </div>
+        )}
       </header>
-        <div className="grid grid-cols-1 gap-6 flex-grow items-start">
+      <main className="flex-grow overflow-y-auto no-scrollbar pr-0.5">
+        <div className="grid grid-cols-1 gap-6 items-start">
         
         {/* COL 1 & 2: THE BRUTAL KANBAN BOARD */}
         <div className="w-full grid grid-cols-1 gap-4">
@@ -2018,6 +2016,8 @@ export default function App() {
 
       </div>
 
+    </main>
+
       {/* FOOTER NOTCH GAP */}
       <footer className="text-center font-mono text-[9px] text-gray-600 border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-6 pt-4">
         {config.name} &bull; MDEx Workspace App Factory Engine &bull; Standard Multi-tenant Hybrid Sandbox
@@ -2103,6 +2103,337 @@ export default function App() {
                 className="px-4 py-1 bg-[var(--color-dark-tertiary,#3D3D3D)] text-white text-[10px] font-bold font-mono uppercase rounded hover:bg-opacity-80"
               >
                 Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚙️ UNIFIED SETTINGS MODAL */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="w-full max-w-lg bento-box p-6 bg-[var(--color-dark-bg,#282828)] text-white flex flex-col gap-4 font-mono text-xs max-h-[90vh] overflow-y-auto no-scrollbar">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              <h3 className="font-black text-sm uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-1.5">
+                ⚙️ {t('settings')}
+              </h3>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsSettingsOpen(false);
+                }}
+                className="w-6 h-6 rounded-full border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white flex items-center justify-center font-bold text-xs transition-all cursor-pointer text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Brutalist Tab Bar */}
+            <div className="grid grid-cols-4 gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              {(['appearance', 'language', 'sync', 'admin'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setActiveSettingsTab(tab);
+                  }}
+                  className={`py-2 px-1 text-[9px] font-black uppercase text-center border transition-all cursor-pointer truncate ${
+                    activeSettingsTab === tab
+                      ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white shadow-sm'
+                      : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
+                  }`}
+                >
+                  {tab === 'appearance' && '🎨 Style'}
+                  {tab === 'language' && '🌐 Lang'}
+                  {tab === 'sync' && '☁️ Sync'}
+                  {tab === 'admin' && '🛠️ Admin'}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Contents */}
+            <div className="flex-grow flex flex-col gap-4 py-2 min-h-[220px]">
+              {/* STYLE TAB */}
+              {activeSettingsTab === 'appearance' && (
+                <div className="flex flex-col gap-4 animate-fadeIn">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-gray-400 uppercase font-black">{t('theme')}</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setThemeMode('dark');
+                        }}
+                        className={`p-3 border text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer ${
+                          themeMode === 'dark'
+                            ? 'border-[var(--color-accent,#DF5504)] bg-black/40 text-white'
+                            : 'border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/10 text-gray-500 hover:border-gray-600'
+                        }`}
+                      >
+                        <span className="font-bold text-[10px] uppercase">🌙 Dark Mode</span>
+                        <span className="text-[8px] text-gray-500">Classic high-contrast brutalist design</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setThemeMode('light');
+                        }}
+                        className={`p-3 border text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer ${
+                          themeMode === 'light'
+                            ? 'border-[var(--color-accent,#DF5504)] bg-white/10 text-white'
+                            : 'border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/10 text-gray-500 hover:border-gray-600'
+                        }`}
+                      >
+                        <span className="font-bold text-[10px] uppercase">☀️ Light Mode</span>
+                        <span className="text-[8px] text-gray-500">Premium contrast white theme</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-gray-400 uppercase font-black">{t('textSize')}</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['standard', 'large', 'xlarge'] as const).map((scale) => (
+                        <button
+                          key={scale}
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setTextScale(scale);
+                          }}
+                          className={`py-2 px-1 text-center border rounded-sm font-bold text-[10px] uppercase transition-all cursor-pointer ${
+                            textScale === scale
+                              ? 'border-[var(--color-accent,#DF5504)] bg-black/40 text-[var(--color-accent,#DF5504)]'
+                              : 'border-[var(--color-dark-tertiary,#3D3D3D)] bg-black/10 text-gray-400 hover:border-gray-600'
+                          }`}
+                        >
+                          {scale === 'standard' && 'Standard'}
+                          {scale === 'large' && 'Large'}
+                          {scale === 'xlarge' && 'X-Large'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* LANGUAGE TAB */}
+              {activeSettingsTab === 'language' && (
+                <div className="flex flex-col gap-4 animate-fadeIn">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-gray-400 uppercase font-black">{t('langSelection')}</label>
+                    <select
+                      value={currentLanguage}
+                      onChange={async (e) => {
+                        await triggerHaptic();
+                        setCurrentLanguage(e.target.value as any);
+                      }}
+                      className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded p-2.5 text-xs text-white font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] cursor-pointer animate-none"
+                    >
+                      <option value="en">🇺🇸 English (US)</option>
+                      <option value="es">🇪🇸 Español (ES)</option>
+                      <option value="fr">🇫🇷 Français (FR)</option>
+                      <option value="de">🇩🇪 Deutsch (DE)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 pt-3 mt-1">
+                    <div className="flex flex-col gap-0.5 pr-2">
+                      <span className="font-bold text-[10px] text-white">Header Language Selector</span>
+                      <span className="text-[8px] text-gray-500">Show a quick language dropdown in the top-right header</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setShowLanguageInHeader(!showLanguageInHeader);
+                      }}
+                      className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
+                        showLanguageInHeader ? 'bg-[var(--color-accent,#DF5504)]' : 'bg-[var(--color-dark-tertiary,#3D3D3D)]'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          showLanguageInHeader ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* SYNC TAB */}
+              {activeSettingsTab === 'sync' && (
+                <div className="flex flex-col gap-3 animate-fadeIn">
+                  <div className="p-3 bg-black/20 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-sm flex flex-col gap-1">
+                    <span className="text-gray-400 text-[10px] uppercase font-black">💾 Storage Engine</span>
+                    <span className="text-white font-bold text-[10px]">Capacitor Preferences & LocalStorage</span>
+                    <p className="text-[8px] text-gray-500 leading-relaxed mt-1">
+                      MTRAx lite is private-by-design. All your board cards, focus sessions, and receipts remain completely offline inside your native platform secure storage.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 mt-1">
+                    <label className="text-[10px] text-gray-400 uppercase font-black">Sync & Export Operations</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Export Data Button */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          handlePremiumAction(() => {
+                            setActiveMenuModal('backup');
+                            setIsSettingsOpen(false);
+                          });
+                        }}
+                        className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
+                      >
+                        <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">💾 Export Backup</span>
+                        <span className="text-[8px] text-gray-500">Download Excel-compatible spreadsheet</span>
+                      </button>
+
+                      {/* iCloud Sync Button */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          handlePremiumAction(() => {
+                            setActiveMenuModal('sync');
+                            setIsSettingsOpen(false);
+                          });
+                        }}
+                        className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
+                      >
+                        <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">☁️ iCloud Sync</span>
+                        <span className="text-[8px] text-gray-500">Enable Apple Cloud sync services</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ADMIN TAB */}
+              {activeSettingsTab === 'admin' && (
+                <div className="flex flex-col gap-3 animate-fadeIn">
+                  <div className="p-3 bg-red-950/20 border border-red-900/30 rounded-sm">
+                    <span className="text-red-400 font-black text-[10px] uppercase">🛠️ {t('advancedAdmin')}</span>
+                    <p className="text-[8px] text-gray-500 leading-relaxed mt-1">
+                      Developer and diagnostic tools for verifying native Capacitor capabilities, haptics, and custom labels.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setEditingLabelId(null);
+                        setLabelFormText('');
+                        setLabelFormColor('#DF5504');
+                        setIsGlobalLabelModalOpen(true);
+                        setIsSettingsOpen(false);
+                      }}
+                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
+                    >
+                      <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">🏷️ Label Studio</span>
+                      <span className="text-[8px] text-gray-500">Manage categories and colors</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setActiveMenuModal('diagnostics');
+                        setIsSettingsOpen(false);
+                      }}
+                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
+                    >
+                      <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">⚡ Diagnostics</span>
+                      <span className="text-[8px] text-gray-500">Run native API platform tests</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-3 flex justify-end flex-shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsSettingsOpen(false);
+                }}
+                className="px-4 py-2 bg-[var(--color-accent,#DF5504)] hover:opacity-90 active:translate-y-0.5 text-white text-[10px] font-black uppercase rounded-sm transition-all shadow-sm cursor-pointer"
+              >
+                ✓ Apply Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 💎 PREMIUM UPGRADE MODAL */}
+      {isUpgradeModalOpen && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-[60] animate-fadeIn">
+          <div className="w-full max-w-md bento-box p-6 bg-[var(--color-dark-bg,#282828)] border-2 border-amber-500 text-white flex flex-col gap-5 font-mono text-xs">
+            <div className="flex justify-between items-center border-b border-amber-500/20 pb-3">
+              <h3 className="font-black text-sm uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                👑 MTRAx Premium
+              </h3>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIsUpgradeModalOpen(false);
+                }}
+                className="w-6 h-6 rounded-full border border-amber-500/30 hover:border-amber-400 flex items-center justify-center font-bold text-xs transition-all cursor-pointer text-amber-500 hover:text-amber-400"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-2xl self-center mb-1 animate-pulse">
+                👑
+              </div>
+              <p className="text-gray-200 text-center font-bold text-xs">
+                Unlock Lifetime Professional Access
+              </p>
+              <p className="text-gray-400 text-center text-[10px] leading-relaxed">
+                {t('upgradeDesc')}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2.5 mt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  alert("Thank you for purchasing MTRAx Premium! [Simulated Purchase Successful]");
+                  setHasValidReceipt(true);
+                  setIsUpgradeModalOpen(false);
+                }}
+                className="w-full py-3.5 bg-gradient-to-r from-amber-600 to-amber-400 hover:from-amber-500 hover:to-amber-300 text-white font-black uppercase text-[11px] tracking-wider transition-all rounded-sm shadow-md cursor-pointer active:translate-y-0.5 text-center"
+              >
+                🛒 Purchase Lifetime - $9.99
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setHasValidReceipt(true);
+                  setIsUpgradeModalOpen(false);
+                }}
+                className="text-center text-[9px] text-gray-500 hover:text-amber-400 uppercase font-black tracking-widest transition-colors py-1 mt-1 cursor-pointer"
+              >
+                [Dev Bypass: Simulate App Store Receipt]
               </button>
             </div>
           </div>
@@ -4339,7 +4670,7 @@ export default function App() {
                       showToast("⚠️ No checked study logs to share!");
                       return;
                     }
-                    let emailBody = "TRIAGE LITE - STUDY FOCUS SESSIONS SUMMARY\n";
+                    let emailBody = "MTRAX LITE - STUDY FOCUS SESSIONS SUMMARY\n";
                     emailBody += "=========================================\n\n";
                     const totalSeconds = includedCards.reduce((sum, c) => sum + (c.timeSpent || 0), 0);
                     const totalHours = Math.floor(totalSeconds / 3600);
@@ -4369,9 +4700,9 @@ export default function App() {
                       }
                     });
                     
-                    emailBody += "\n\nGenerated via Triage Lite Board on " + new Date().toLocaleString() + "\n";
+                    emailBody += "\n\nGenerated via MTRAx lite Board on " + new Date().toLocaleString() + "\n";
                     
-                    const mailtoUrl = `mailto:?subject=${encodeURIComponent("Triage Lite - Study Focus Session Logs")}&body=${encodeURIComponent(emailBody)}`;
+                    const mailtoUrl = `mailto:?subject=${encodeURIComponent("MTRAx lite - Study Focus Session Logs")}&body=${encodeURIComponent(emailBody)}`;
                     
                     // Copy to clipboard as a powerful cross-platform backup!
                     let copied = false;
@@ -4965,7 +5296,7 @@ export default function App() {
                   } else {
                     filtered = calendarEvents.filter((evt) => {
                       if (calendarFilterType === 'triage') {
-                        return evt.title && evt.title.includes('📌 [Triage Lite]');
+                        return evt.title && evt.title.includes('📌 [MTRAx lite]');
                       }
                       return true;
                     });
@@ -5014,7 +5345,7 @@ export default function App() {
                                     const selectedReceipts = receipts.filter(r => selectedCalendarItemIds.includes(r.id));
                                     if (selectedReceipts.length === 0) return;
 
-                                    let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                                    let report = `MTRAX LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
                                     report += `BATCH CLAIM REPORT: ${selectedReceipts.length} SELECTED CLAIMS\n`;
                                     report += `TOTAL RECLAIMABLE AMOUNT: $${selectedReceipts.reduce((acc, r) => acc + r.amount, 0).toFixed(2)}\n\n`;
                                     report += `ITEMIZED BUSINESS CLAIMS LIST:\n`;
@@ -5031,9 +5362,9 @@ export default function App() {
                                       report += `----------------------------------------\n`;
                                     });
 
-                                    report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipts are on file.`;
+                                    report += `\n\nCompiled on MTRAx lite. Secure, date-stamped digital receipts are on file.`;
 
-                                    const subject = encodeURIComponent(`Triage Expense Claims: ${selectedReceipts.length} Selected Items`);
+                                    const subject = encodeURIComponent(`MTRAx Expense Claims: ${selectedReceipts.length} Selected Items`);
                                     const body = encodeURIComponent(report);
                                     window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
                                     showToast("📧 Opening Mail client with compiled claims...");
@@ -5116,7 +5447,7 @@ export default function App() {
                       )}
 
                       {filtered.map((evt, idx) => {
-                        const isTriageEvent = evt.title && evt.title.includes('📌 [Triage Lite]');
+                        const isTriageEvent = evt.title && evt.title.includes('📌 [MTRAx lite]');
                         const isDiaryLog = !!evt.isDiaryLog;
                         const isReceiptLog = !!evt.isReceiptLog;
                         const start = evt.startDate ? new Date(evt.startDate) : null;
@@ -5244,13 +5575,13 @@ export default function App() {
                                       onClick={async () => {
                                         await triggerHaptic();
                                         if (!employerEmail) {
-                                          showToast("⚠️ Please specify an Employer's Email first in settings or the Receipts form!");
+                                        showToast("⚠️ Please specify an Employer's Email first in settings or the Receipts form!");
                                           return;
                                         }
                                         const cTime = start ? start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
                                         const cDate = start ? start.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
                                         
-                                        let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                                        let report = `MTRAx lite EXPENSE RECLAIM REPORT\n========================================\n\n`;
                                         report += `INDIVIDUAL CLAIM DETAIL:\n`;
                                         report += `----------------------------------------\n`;
                                         if (cDate) report += `Date: ${cDate} (${cTime})\n`;
@@ -5263,9 +5594,9 @@ export default function App() {
                                           report += `Assigned Kanban Card: ${linkedCard.title}\n`;
                                         }
                                         report += `----------------------------------------\n`;
-                                        report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipt is on file.`;
+                                        report += `\n\nCompiled on MTRAx lite. Secure, date-stamped digital receipt is on file.`;
 
-                                        const subject = encodeURIComponent(`Triage Expense Claim: ${evt.title.replace('Claim filed for: ', '')} ($${evt.amount !== undefined ? evt.amount.toFixed(2) : '0.00'})`);
+                                        const subject = encodeURIComponent(`MTRAx Expense Claim: ${evt.title.replace('Claim filed for: ', '')} ($${evt.amount !== undefined ? evt.amount.toFixed(2) : '0.00'})`);
                                         const body = encodeURIComponent(report);
                                         window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
                                         showToast("📧 Opening Mail client for this claim...");
@@ -5349,7 +5680,7 @@ export default function App() {
                           const rangeLabel = calendarRangeDays === 0 ? `for ${formattedDate}` : `for period starting ${formattedDate}`;
 
                           // Assemble ASCII business claim table
-                          let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                          let report = `MTRAX LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
                           report += `CLAIM RANGE: ${rangeLabel.toUpperCase()}\n`;
                           report += `TOTAL RECLAIMABLE AMOUNT: $${filteredClaims.reduce((acc, r) => acc + r.amount, 0).toFixed(2)}\n\n`;
                           report += `ITEMIZED BUSINESS CLAIMS LIST:\n`;
@@ -5364,9 +5695,9 @@ export default function App() {
                             report += `----------------------------------------\n`;
                           });
 
-                          report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipts are on file.`;
+                          report += `\n\nCompiled on MTRAx lite. Secure, date-stamped digital receipts are on file.`;
 
-                          const subject = encodeURIComponent(`Triage Expense Claims: ${formattedDate}`);
+                          const subject = encodeURIComponent(`MTRAx Expense Claims: ${formattedDate}`);
                           const body = encodeURIComponent(report);
                           window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
                           showToast("📧 Compiling and opening Mail client...");
@@ -5808,7 +6139,7 @@ export default function App() {
                     }
 
                     // Assemble ASCII business claim table for all receipts
-                    let report = `TRIAGE LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
+                    let report = `MTRAX LITE EXPENSE RECLAIM REPORT\n========================================\n\n`;
                     report += `TOTAL RECLAIMABLE AMOUNT: $${receipts.reduce((acc, r) => acc + r.amount, 0).toFixed(2)}\n\n`;
                     report += `ITEMIZED BUSINESS CLAIMS LIST:\n`;
                     report += `----------------------------------------\n`;
@@ -5823,9 +6154,9 @@ export default function App() {
                       report += `----------------------------------------\n`;
                     });
 
-                    report += `\n\nCompiled on Triage Lite. Secure, date-stamped digital receipts are on file.`;
+                    report += `\n\nCompiled on MTRAx lite. Secure, date-stamped digital receipts are on file.`;
 
-                    const subject = encodeURIComponent(`Triage Expense Claims: Summary Report`);
+                    const subject = encodeURIComponent(`MTRAx Expense Claims: Summary Report`);
                     const body = encodeURIComponent(report);
                     window.open(`mailto:${employerEmail}?subject=${subject}&body=${body}`, '_self');
                     showToast("📧 Compiling and opening Mail client...");

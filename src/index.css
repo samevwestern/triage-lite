@@ -130,3 +130,100 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   filter: invert(41%) sepia(85%) saturate(2250%) hue-rotate(5deg) brightness(90%) contrast(101%);
   cursor: pointer;
 }
+
+/* 🎨 Sleek Brutalist Light Mode Design */
+.theme-light {
+  --color-dark-bg: #F3F4F6 !important;         /* Warm light canvas background */
+  --color-dark-secondary: #FFFFFF !important;  /* Crisp white bento box background */
+  --color-dark-tertiary: #E5E7EB !important;   /* Soft grey hover state */
+  --color-shadow: #111827 !important;          /* Sharp dark offset shadow for contrast */
+  background-color: #F3F4F6 !important;
+  color: #111827 !important;
+}
+
+.theme-light body {
+  background-color: #F3F4F6 !important;
+  color: #111827 !important;
+}
+
+.theme-light .bg-\[var\(--color-dark-bg\,\#282828\)\],
+.theme-light .bg-\[var\(--color-dark-bg\)\],
+.theme-light .bg-\[\#282828\],
+.theme-light .bg-black\/50,
+.theme-light .bg-black\/60 {
+  background-color: #F3F4F6 !important;
+}
+
+.theme-light .bento-box,
+.theme-light .bg-\[var\(--color-dark-secondary\,\#333333\)\],
+.theme-light .bg-\[var\(--color-dark-secondary\)\],
+.theme-light .bg-black\/40 {
+  background-color: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+  box-shadow: 2px 2px 0px 0px #111827 !important;
+}
+
+.theme-light .border-\[var\(--color-dark-tertiary\,\#3D3D3D\)\],
+.theme-light .border-\[var\(--color-dark-tertiary\)\],
+.theme-light .border-white\/10 {
+  border-color: #E5E7EB !important;
+}
+
+.theme-light .text-white,
+.theme-light .text-white\/90 {
+  color: #111827 !important;
+}
+
+.theme-light .text-gray-400,
+.theme-light .text-gray-500,
+.theme-light .text-\[\#8892b0\] {
+  color: #4B5563 !important;
+}
+
+.theme-light .text-gray-600 {
+  color: #6B7280 !important;
+}
+
+.theme-light select,
+.theme-light input,
+.theme-light textarea {
+  background-color: #F9FAFB !important;
+  color: #111827 !important;
+  border-color: #D1D5DB !important;
+}
+
+.theme-light .bg-black\/20 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.theme-light .hover\:bg-\[var\(--color-dark-tertiary\,\#3D3D3D\)\]:hover,
+.theme-light .hover\:bg-\[var\(--color-dark-tertiary\)\]:hover,
+.theme-light .hover\:bg-black\/40:hover {
+  background-color: #F3F4F6 !important;
+}
+
+.theme-light .hover\:text-white:hover {
+  color: #111827 !important;
+}
+
+/* 📊 Accessibility text scaling overrides */
+.font-scale-large .text-\[9px\] { font-size: 11px !important; }
+.font-scale-large .text-\[10px\] { font-size: 12px !important; }
+.font-scale-large .text-\[11px\] { font-size: 13px !important; }
+.font-scale-large .text-xs { font-size: 0.9rem !important; }
+.font-scale-large .text-sm { font-size: 1rem !important; }
+.font-scale-large .text-base { font-size: 1.15rem !important; }
+.font-scale-large .text-lg { font-size: 1.3rem !important; }
+.font-scale-large .text-xl { font-size: 1.5rem !important; }
+.font-scale-large .text-2xl { font-size: 1.8rem !important; }
+
+.font-scale-xlarge .text-\[9px\] { font-size: 13px !important; }
+.font-scale-xlarge .text-\[10px\] { font-size: 14px !important; }
+.font-scale-xlarge .text-\[11px\] { font-size: 15px !important; }
+.font-scale-xlarge .text-xs { font-size: 1.05rem !important; }
+.font-scale-xlarge .text-sm { font-size: 1.15rem !important; }
+.font-scale-xlarge .text-base { font-size: 1.3rem !important; }
+.font-scale-xlarge .text-lg { font-size: 1.5rem !important; }
+.font-scale-xlarge .text-xl { font-size: 1.8rem !important; }
+.font-scale-xlarge .text-2xl { font-size: 2.1rem !important; }
+
