@@ -73,23 +73,46 @@ npx cap run ios
 ```
 *Capacitor will compile the project and open a virtual iPhone on your Mac screen.*
 
-### Step 4: Run on a Physical iPhone
-To compile Triage Lite onto your actual phone:
-1.  **Launch Xcode with the generated project:**
-    ```bash
-    npx cap open ios
-    ```
-2.  **Configure Team & Signing Certificates in Xcode:**
-    *   In the left sidebar of Xcode, select the topmost project file (`App`).
-    *   Go to **Signing & Capabilities**.
-    *   Check **"Automatically manage signing"**.
-    *   Select your Apple ID account in the **Team** dropdown (A free Apple personal developer profile works fine!).
-3.  **Deploy to Device:**
-    *   Plug your iPhone into your Mac via USB.
-    *   Trust the computer on your iPhone screen.
-    *   In Xcode's top toolbar, select your physical iPhone as the target device instead of a simulator.
-    *   Click the **Play (Build)** button.
-    *   *On your iPhone:* Go to **Settings > General > VPN & Device Management** and trust your Developer profile to allow the app to boot.
+### Step 4: Run on a Physical iPhone (Deploy to iOS)
+To compile and deploy **MTRAx lite** directly onto your physical iPhone:
+
+1. **Launch Xcode Workspace:**
+   Run our designated open command from your terminal to launch the workspace inside Xcode:
+   ```bash
+   npm run cap:open
+   ```
+   *This automatically launches Xcode and loads the native `ios/App/App.xcworkspace`.*
+
+2. **Configure Automatic Provisioning & Signing:**
+   * In Xcode's left-hand sidebar navigation hierarchy, select the topmost project root node named **`App`**.
+   * Click the **Signing & Capabilities** tab in the main center pane.
+   * Check **"Automatically manage signing"**.
+   * In the **Team** dropdown menu, select your Apple ID / Developer Profile (a free personal Apple ID works perfectly!).
+
+3. **Select Your Physical iPhone Target:**
+   * Connect your iPhone to your Mac via a USB or USB-C cable.
+   * *On your iPhone screen:* Tap **"Trust This Computer"** and enter your passcode.
+   * In Xcode's top toolbar, click the device/simulator destination dropdown (to the right of the Play button) and select your **physical iPhone** under the "iOS Devices" section.
+
+4. **Build and Sideload:**
+   * Click the **Play button (▶)** in the top-left toolbar, or press **`⌘ + R`** (Command + R).
+   * Xcode will compile the code, bundle the custom-padded home screen icon assets, and sideload the application onto your iPhone.
+
+5. **Authorize Developer Certificate (First-Time Launch Only):**
+   * *On your iPhone:* The app icon will appear on your screen, but tapping it will show an "Untrusted Developer" alert.
+   * Open your iPhone's **Settings** app.
+   * Navigate to **General > VPN & Device Management**.
+   * Tap on your personal developer certificate listed under the **Developer App** section.
+   * Tap **Trust [Your Email Profile]** and confirm.
+   * Squeeze your new home screen app icon to play haptic ticks and launch your premium planner!
+
+> [!TIP]
+> **Subsequent Development Iterations:**
+> Whenever you modify React TypeScript code inside `src/`, simply compile and sync by running:
+> ```bash
+> npm run build && npm run cap:sync
+> ```
+> Then return to Xcode and press **`⌘ + R`** to instantly deploy the latest edits onto your plugged-in iPhone!
 
 ---
 
@@ -182,3 +205,15 @@ Before pushing to production, review these key operational points verified by th
 *   **Vibration Blocked on Simulator:** Native Apple haptics (`triggerHaptic`) require a physical iOS device to vibrate. The simulator will run without crashing but will not vibrate.
 *   **Network IP Blocks (Physical iPhone):** When testing on a physical iPhone, the API base URL in `.env` cannot be `localhost`. You must change `VITE_BACKEND_BASE_URL` to point to your Mac's local network IP address (e.g., `http://192.168.1.104:3000`).
 *   **iOS Safe Margin Glitches:** If top-bar content overlaps the battery/wifi status bar, verify that the `viewport-fit=cover` meta is active in `index.html` and that your parent div uses the `ios-safe-top` padding utility.
+
+---
+
+## ✦ Third-Party Open-Source Software Inclusions
+
+To deliver frictionless and secure on-device operations, **MTRAx lite** includes the following open-source software packages under high-permissibility licenses:
+
+### 1. jsQR
+*   **Purpose**: De facto industry standard library used for real-time video frame QR scanning and decoding on mobile devices.
+*   **License**: **Apache License 2.0** (Permits unrestricted commercial use, modification, and integration in proprietary codebases with zero royalties).
+*   **Attributes**: 100% Client-side, zero external dependencies, 40KB ultra-light payload, and offline-ready.
+*   **Implementation Flow**: Captures camera video streams at 5 FPS on a background `<canvas>` and auto-decodes PC server IPs to trigger automatic zero-interaction database sync handshakes over Wi-Fi or USB connection cables.

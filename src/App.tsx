@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCapacitor } from './hooks/useCapacitor';
+import { useFilesystem } from './hooks/useFilesystem';
 import { config } from './factory-config';
 import { CapacitorCalendar } from '@ebarooni/capacitor-calendar';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Camera, CameraResultType } from '@capacitor/camera';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import { Ocr } from '@capacitor-community/image-to-text';
+import { App as CapApp } from '@capacitor/app';
 
 
 export interface ChecklistItem {
@@ -33,6 +35,7 @@ export interface FileAttachment {
   size?: number; // Size in bytes
   mimeType?: string;
   dataUrl?: string; // Standard base64 representation or absolute cloud/drive URL string!
+  filePath?: string; // Physical sandbox filesystem path (if saved locally)
   addedAt: number;
 }
 
@@ -68,6 +71,8 @@ export interface Card {
   notifyLocalPanel?: boolean;
   notifyCalendarAlarm?: boolean;
   notifyEmailReminder?: boolean;
+  isArchived?: boolean;
+  updatedAt?: number;
 }
 
 interface List {
@@ -118,6 +123,7 @@ const POMODORO_PRESETS: Record<
 
 export default function App() {
   const { isNative, getStorage, setStorage, triggerHaptic } = useCapacitor();
+  const { saveFile, readFile, deleteFile } = useFilesystem();
   const recognitionRef = useRef<any>(null);
 
   // Native Integration Wrappers
@@ -363,7 +369,7 @@ export default function App() {
         notifications: [
           {
             id: numericId,
-            title: "⏰ Triage Task Due Now!",
+            title: "⏰ MTRAx Task Due Now!",
             body: `"${card.title}" has reached its scheduled due date!`,
             schedule: { at: new Date(card.dueDate) },
             sound: 'default',
@@ -428,13 +434,7 @@ export default function App() {
   }, []);
 
   // Application State
-  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'es' | 'fr' | 'de'>(() => {
-    return (localStorage.getItem('triage_language') as 'en' | 'es' | 'fr' | 'de') || 'en';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('triage_language', currentLanguage);
-  }, [currentLanguage]);
+  const currentLanguage = 'en' as const;
 
   const translations = {
     en: {
@@ -687,6 +687,68 @@ export default function App() {
   
   // Card Editing Modal State
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<Card | null>(null);
+  const [incomingSharedCard, setIncomingSharedCard] = useState<Card | null>(null);
+  const [isShareAcknowledgementChecked, setIsShareAcknowledgementChecked] = useState(false);
+  const [pendingNavigationAction, setPendingNavigationAction] = useState<(() => void) | null>(null);
+
+  // Helper to determine if the Card Edit Modal has unsaved changes compared to state
+  const hasUnsavedCardChanges = (): boolean => {
+    if (!selectedCardForEdit) return false;
+    
+    // Find the original card in our active board state
+    const originalCard = cards.find(c => c.id === selectedCardForEdit.id);
+    if (!originalCard) {
+      // It's a new card. It has changes if either Title or Description are not empty
+      return !!selectedCardForEdit.title?.trim() || !!selectedCardForEdit.description?.trim();
+    }
+    
+    // Check basic properties
+    if (selectedCardForEdit.title !== originalCard.title) return true;
+    if ((selectedCardForEdit.description || '') !== (originalCard.description || '')) return true;
+    if (selectedCardForEdit.listId !== originalCard.listId) return true;
+    if (selectedCardForEdit.dueDate !== originalCard.dueDate) return true;
+    if (selectedCardForEdit.notifyInApp !== originalCard.notifyInApp) return true;
+    if (selectedCardForEdit.notifyLocalPanel !== originalCard.notifyLocalPanel) return true;
+    if (selectedCardForEdit.notifyCalendarAlarm !== originalCard.notifyCalendarAlarm) return true;
+    if (selectedCardForEdit.notifyEmailReminder !== originalCard.notifyEmailReminder) return true;
+    
+    // Check categories/labels
+    const originalLabels = originalCard.labelIds || [];
+    const currentLabels = selectedCardForEdit.labelIds || [];
+    if (originalLabels.length !== currentLabels.length) return true;
+    if (originalLabels.some(id => !currentLabels.includes(id))) return true;
+    
+    // Check checklists
+    const originalChecklists = originalCard.checklists || [];
+    const currentChecklists = selectedCardForEdit.checklists || [];
+    if (originalChecklists.length !== currentChecklists.length) return true;
+    
+    for (let i = 0; i < originalChecklists.length; i++) {
+      const origCl = originalChecklists[i];
+      const currCl = currentChecklists[i];
+      if (origCl.items.length !== currCl.items.length) return true;
+      for (let j = 0; j < origCl.items.length; j++) {
+        const origItem = origCl.items[j];
+        const currItem = currCl.items[j];
+        if (origItem.text !== currItem.text) return true;
+        if (origItem.isChecked !== currItem.isChecked) return true;
+        if (origItem.dueDate !== currItem.dueDate) return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // Guardian function to intercept navigation if card is dirty
+  const navigateWithCheck = (action: () => void) => {
+    if (hasUnsavedCardChanges()) {
+      setPendingNavigationAction(() => action);
+    } else {
+      action();
+    }
+  };
+
+  const isReadOnly = selectedCardForEdit ? (selectedCardForEdit.isArchived || selectedCardForEdit.listId === 'done') : false;
   const [isLabelManagerOpen, setIsLabelManagerOpen] = useState(false);
   const [lightboxFile, setLightboxFile] = useState<FileAttachment | null>(null);
   
@@ -697,9 +759,10 @@ export default function App() {
   const [newCloudLinkUrl, setNewCloudLinkUrl] = useState('');
   const [academicSearchQuery, setAcademicSearchQuery] = useState('');
   const [academicEngine, setAcademicEngine] = useState('scholar');
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [editingTaskText, setEditingTaskText] = useState('');
-  const [inlineNewTaskText, setInlineNewTaskText] = useState('');
+  const [subTaskModalItem, setSubTaskModalItem] = useState<ChecklistItem | null>(null);
+  const [subTaskModalText, setSubTaskModalText] = useState('');
+  const [subTaskModalDueDate, setSubTaskModalDueDate] = useState<number | null>(null);
+  const [focusedChecklistItemId, setFocusedChecklistItemId] = useState<string | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListVal, setNewListVal] = useState('');
   const [draggedOverCardId, setDraggedOverCardId] = useState<string | null>(null);
@@ -715,7 +778,7 @@ export default function App() {
   const [isCalendarAgendaOpen, setIsCalendarAgendaOpen] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [calendarRangeDays, setCalendarRangeDays] = useState<number>(30);
-  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'triage' | 'diary' | 'receipts'>('all');
+  const [calendarFilterType, setCalendarFilterType] = useState<'all' | 'mtrax' | 'diary' | 'receipts'>('all');
   const [calendarStartDate, setCalendarStartDate] = useState<string>(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -757,11 +820,22 @@ export default function App() {
   const [showCalendarHelp, setShowCalendarHelp] = useState(false);
   const [isDashboardHelpOpen, setIsDashboardHelpOpen] = useState(false);
   const [isCardHelpOpen, setIsCardHelpOpen] = useState(false);
+  const [isSessionHistoryGuideOpen, setIsSessionHistoryGuideOpen] = useState(false);
+  const [isChecklistHelpOpen, setIsChecklistHelpOpen] = useState(false);
+  const [isChecklistModalOpen, setIsChecklistModalOpen] = useState(false);
+  const [isLabelHelpOpen, setIsLabelHelpOpen] = useState(false);
+  const [isListDropdownOpen, setIsListDropdownOpen] = useState(false);
+  const [isCreatingListInline, setIsCreatingListInline] = useState(false);
+  const [inlineNewListName, setInlineNewListName] = useState('');
   const [isAlertsHelpOpen, setIsAlertsHelpOpen] = useState(false);
   const [isAlertStudioHelpOpen, setIsAlertStudioHelpOpen] = useState(false);
   const [isDocsHelpOpen, setIsDocsHelpOpen] = useState(false);
   const [isDocStudioOpen, setIsDocStudioOpen] = useState(false);
   const [isReceiptStudioOpen, setIsReceiptStudioOpen] = useState(false);
+  const [isArchiveStudioOpen, setIsArchiveStudioOpen] = useState(false);
+  const [isArchiveStudioHelpOpen, setIsArchiveStudioHelpOpen] = useState(false);
+  const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
+  const [archiveFilterTab, setArchiveFilterTab] = useState<'all' | 'active' | 'completed' | 'archived'>('all');
   const [isReceiptsLinkHelpOpen, setIsReceiptsLinkHelpOpen] = useState(false);
   const [showBackupHelp, setShowBackupHelp] = useState(false);
   const [showSyncHelp, setShowSyncHelp] = useState(false);
@@ -776,7 +850,7 @@ export default function App() {
   const [pomodoroEnableNotifications, setPomodoroEnableNotifications] = useState(true);
   const [pomodoroEnableHaptics, setPomodoroEnableHaptics] = useState(true);
   const [pomodoroEnableTimeSensitive, setPomodoroEnableTimeSensitive] = useState(true);
-  const [checklistItemAlarmEditingId, setChecklistItemAlarmEditingId] = useState<string | null>(null);
+
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -816,7 +890,7 @@ export default function App() {
   };
   
   // Phase 2: Standalone Paid App Architecture (Remove Guest Walls)
-  const [isConnected, setIsConnected] = useState(false);
+  const isConnected = false;
 
   // Monetization Guard State
   const [hasValidReceipt, setHasValidReceipt] = useState<boolean | null>(null);
@@ -830,17 +904,14 @@ export default function App() {
 
   // Unified Settings and Accessibility States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'appearance' | 'language' | 'sync' | 'admin'>('appearance');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'appearance' | 'sync' | 'admin'>('appearance');
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('mtrax_theme_mode') as 'dark' | 'light') || 'dark';
   });
   const [textScale, setTextScale] = useState<'standard' | 'large' | 'xlarge'>(() => {
     return (localStorage.getItem('mtrax_text_scale') as 'standard' | 'large' | 'xlarge') || 'standard';
   });
-  const [showLanguageInHeader, setShowLanguageInHeader] = useState<boolean>(() => {
-    const saved = localStorage.getItem('mtrax_show_lang_header');
-    return saved !== null ? saved === 'true' : true;
-  });
+
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Apply Theme effects
@@ -864,14 +935,43 @@ export default function App() {
     }
   }, [textScale]);
 
-  // Apply Header Language Visibility effect
+
+
+  // Automatically scroll containers to top on navigation/state changes
   useEffect(() => {
-    localStorage.setItem('mtrax_show_lang_header', String(showLanguageInHeader));
-  }, [showLanguageInHeader]);
+    window.scrollTo(0, 0);
+
+    const resetScroll = () => {
+      const scrollableElements = document.querySelectorAll('.overflow-y-auto, .overflow-y-scroll, [class*="overflow-y-"]');
+      scrollableElements.forEach(el => {
+        el.scrollTop = 0;
+      });
+    };
+
+    resetScroll();
+    const timer = setTimeout(resetScroll, 50);
+    return () => clearTimeout(timer);
+  }, [
+    isArchiveStudioOpen,
+    isDocStudioOpen,
+    isReceiptStudioOpen,
+    isCalendarAgendaOpen,
+    isNotificationStudioOpen,
+    isSettingsOpen,
+    isDiaryOpen,
+    isReceiptsOpen,
+    isTimerModalOpen,
+    isSessionLogOpen,
+    isChecklistModalOpen,
+    archiveFilterTab,
+    archiveSearchQuery,
+    selectedCardForEdit ? selectedCardForEdit.id : null
+  ]);
 
   // Premium feature guard helper
   const handlePremiumAction = (action: () => void) => {
-    if (hasValidReceipt) {
+    const hasOfflineCert = localStorage.getItem('mtrax_offline_certificate') === 'true';
+    if (hasValidReceipt || receipts.length > 0 || hasOfflineCert) {
       action();
     } else {
       setIsUpgradeModalOpen(true);
@@ -887,17 +987,40 @@ export default function App() {
 
 
 
+
+
   // Simulated Native StoreKit Receipt Verification
   useEffect(() => {
     const verifyPurchase = async () => {
       console.log("[StoreKit] Requesting cryptographically signed receipt from iOS...");
+      
+      const storageKeyReceipts = `factory_app_${config.id}_receipts`;
+      const savedReceipts = await getStorage(storageKeyReceipts);
+      const parsedReceipts = savedReceipts ? JSON.parse(savedReceipts) : [];
+
+      // DEV BYPASS: Auto-grant premium certificate if running on localhost, 127.0.0.1, or local subnet sub-domains
+      const isDevHost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' || 
+                        window.location.hostname.startsWith('192.168.') || 
+                        window.location.hostname.startsWith('172.20.');
+      const isDevMode = isDevHost;
+
+      if (isDevMode && localStorage.getItem('mtrax_offline_certificate') !== 'true') {
+        localStorage.setItem('mtrax_offline_certificate', 'true');
+        console.log("[MTRAx Dev Bypass] Local network detected. Pre-authorizing Premium Offline Certificate!");
+      }
+
+      const hasOfflineCert = localStorage.getItem('mtrax_offline_certificate') === 'true';
+
       // Simulate network/OS verification delay
       setTimeout(() => {
-        // For local web development, we default to false to show the paywall,
-        // allowing the dev to manually bypass it. In production native builds, 
-        // this validates against window.Capacitor.Plugins.StoreKit
-        setHasValidReceipt(false); 
-      }, 1200);
+        if (hasOfflineCert || parsedReceipts.length > 0) {
+          console.log("[StoreKit] Offline certificate validated successfully. Premium features active.");
+          setHasValidReceipt(true);
+        } else {
+          setHasValidReceipt(false); 
+        }
+      }, 400); // Shorter load duration for developers
     };
     verifyPurchase();
   }, []);
@@ -910,7 +1033,7 @@ export default function App() {
     // 2. Route to appropriate cloud backend
     if (isConnected) {
       // ENTERPRISE PATH: Sync directly with MySQL endpoints
-      console.log(`[Enterprise Sync] Payload routed to api.triage.mdex.com for key: ${key}`);
+      console.log(`[Enterprise Sync] Payload routed to api.mtrax.mdex.com for key: ${key}`);
       // Simulated REST Call: PUT /api/alphav1/cards/:id
     } else {
       // STANDALONE PATH: Sync with Apple iCloud
@@ -928,6 +1051,27 @@ export default function App() {
   };
 
 
+
+  // File rehydration for native and indexedDB previews
+  useEffect(() => {
+    if (lightboxFile && typeof lightboxFile.filePath === 'string') {
+      const path = lightboxFile.filePath;
+      // Rehydrate the web url on opening the lightbox if we saved a physical file
+      (async () => {
+        try {
+          const resolved = await readFile(path);
+          if (resolved) {
+            setLightboxFile({
+              ...lightboxFile,
+              dataUrl: resolved.webUrl
+            });
+          }
+        } catch (e) {
+          console.error("Failed to rehydrate lightbox file preview URL", e);
+        }
+      })();
+    }
+  }, [lightboxFile?.id]);
 
   // Loading persisted state on start
   useEffect(() => {
@@ -952,7 +1096,14 @@ export default function App() {
 
       const storageKeyReceipts = `factory_app_${config.id}_receipts`;
       const savedReceipts = await getStorage(storageKeyReceipts);
-      if (savedReceipts) setReceipts(JSON.parse(savedReceipts));
+      if (savedReceipts) {
+        const parsed = JSON.parse(savedReceipts);
+        setReceipts(parsed);
+        if (parsed.length > 0) {
+          localStorage.setItem('mtrax_offline_certificate', 'true');
+          setHasValidReceipt(true);
+        }
+      }
 
       const storageKeyVoiceLogs = `factory_app_${config.id}_voice_logs`;
       const savedVoiceLogs = await getStorage(storageKeyVoiceLogs);
@@ -979,6 +1130,10 @@ export default function App() {
   const saveReceipts = async (newReceipts: typeof receipts) => {
     setReceipts(newReceipts);
     await syncData(`factory_app_${config.id}_receipts`, newReceipts);
+    if (newReceipts.length > 0) {
+      localStorage.setItem('mtrax_offline_certificate', 'true');
+      setHasValidReceipt(true);
+    }
   };
 
   const saveVoiceLogs = async (newLogs: typeof voiceLogs) => {
@@ -1141,6 +1296,55 @@ export default function App() {
     selectedCardIdRef.current = selectedCardForEdit ? selectedCardForEdit.id : null;
   }, [selectedCardForEdit?.id]);
 
+  // Native iOS Custom URL Protocol Listener (mtrax://import?card=<base64>)
+  useEffect(() => {
+    const setupDeepLinkListener = async () => {
+      const handleAppUrlOpen = (event: any) => {
+        try {
+          const urlStr = event.url;
+          if (!urlStr) return;
+          
+          // Parse the incoming URL
+          const parsedUrl = new URL(urlStr);
+          if (parsedUrl.protocol === 'mtrax:' && parsedUrl.host === 'import') {
+            const cardData = parsedUrl.searchParams.get('card');
+            if (cardData) {
+              // Decode base64 to standard JSON string securely (handles emojis perfectly)
+              const decodedStr = decodeURIComponent(escape(window.atob(cardData)));
+              const cardObj = JSON.parse(decodedStr);
+              if (cardObj && cardObj.id && cardObj.title) {
+                setIncomingSharedCard(cardObj);
+                setIsShareAcknowledgementChecked(false);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse incoming deep-link card payload:', error);
+        }
+      };
+
+      // Add the listener
+      const listener = await CapApp.addListener('appUrlOpen', handleAppUrlOpen);
+
+      // Check if the app was launched by a deep link initially
+      const launchUrlObj = await CapApp.getLaunchUrl();
+      if (launchUrlObj && launchUrlObj.url) {
+        handleAppUrlOpen({ url: launchUrlObj.url });
+      }
+
+      return () => {
+        listener.remove();
+      };
+    };
+
+    const cleanupPromise = setupDeepLinkListener();
+    return () => {
+      cleanupPromise.then(cleanup => {
+        if (typeof cleanup === 'function') cleanup();
+      });
+    };
+  }, []);
+
   // Automatic Screen-Open Card Focus Timer Thread
   useEffect(() => {
     let interval: any = null;
@@ -1275,35 +1479,6 @@ export default function App() {
     });
   };
 
-  const handleMovePosition = async (cardId: string, direction: 'up' | 'down') => {
-    await triggerHaptic();
-    setCards(prevCards => {
-      const targetCard = prevCards.find(c => c.id === cardId);
-      if (!targetCard) return prevCards;
-
-      const listId = targetCard.listId;
-      const listCards = prevCards.filter(c => c.listId === listId);
-      const cardIdxInList = listCards.findIndex(c => c.id === cardId);
-
-      if (direction === 'up' && cardIdxInList === 0) return prevCards;
-      if (direction === 'down' && cardIdxInList === listCards.length - 1) return prevCards;
-
-      const swapWithIdx = direction === 'up' ? cardIdxInList - 1 : cardIdxInList + 1;
-      const swapWithCard = listCards[swapWithIdx];
-
-      const targetAbsIdx = prevCards.findIndex(c => c.id === cardId);
-      const swapWithAbsIdx = prevCards.findIndex(c => c.id === swapWithCard.id);
-
-      const updated = [...prevCards];
-      const temp = updated[targetAbsIdx];
-      updated[targetAbsIdx] = updated[swapWithAbsIdx];
-      updated[swapWithAbsIdx] = temp;
-
-      syncData(`factory_app_${config.id}_cards`, updated);
-      return updated;
-    });
-  };
-
   const handleReorderCard = async (draggedId: string, targetId: string) => {
     await triggerHaptic();
     setCards(prevCards => {
@@ -1347,22 +1522,221 @@ export default function App() {
     });
   };
 
-  const handleExportCSV = () => {
-    const headers = 'Card ID,List,Title,Description,Time Spent (Seconds),Due Date,Completion Date\n';
+  const handleExportCSV = async () => {
+    const headers = 'Card ID,List Name,Title,Description,Time Spent (Seconds),Due Date,Completion Date,Category Labels,Sub-Task Checklists,Active Alarms,Archived\n';
+    
     const rows = cards.map(c => {
+      // 1. Resolve board column name
+      const listObj = lists.find(l => l.id === c.listId);
+      const listName = listObj ? listObj.name : 'Unknown';
+      
+      // 2. Resolve Category Labels
+      const labelNames = (c.labelIds || [])
+        .map(id => {
+          const found = labels.find(l => l.id === id);
+          return found ? found.text : '';
+        })
+        .filter(Boolean)
+        .join(', ');
+        
+      // 3. Resolve Sub-Task Checklists
+      const checklistStrings: string[] = [];
+      let taskIndex = 1;
+      (c.checklists || []).forEach(cl => {
+        cl.items.forEach(item => {
+          const checkbox = item.isChecked ? '[✔]' : '[ ]';
+          checklistStrings.push(`${taskIndex}. ${checkbox} ${item.text}`);
+          taskIndex++;
+        });
+      });
+      const checklistSerialized = checklistStrings.join(', ');
+
+      // 4. Resolve Active Alarms
+      const alarmStrings: string[] = [];
+      if (c.dueDate) {
+        alarmStrings.push(`Card Due: ${new Date(c.dueDate).toLocaleString()}`);
+      }
+      (c.checklists || []).forEach(cl => {
+        cl.items.forEach(item => {
+          if (item.dueDate) {
+            alarmStrings.push(`Sub-task '${item.text}' Alarm: ${new Date(item.dueDate).toLocaleString()}`);
+          }
+        });
+      });
+      const alarmsSerialized = alarmStrings.join(' | ');
+
+      // 5. Format dates
       const dueDateStr = c.dueDate ? new Date(c.dueDate).toISOString().split('T')[0] : '';
       const completedAtStr = c.completedAt ? new Date(c.completedAt).toISOString().split('T')[0] : '';
-      return `"${c.id}","${c.listId}","${c.title}","${c.description || ''}",${c.timeSpent || 0},"${dueDateStr}","${completedAtStr}"`;
+
+      // Escape fields to prevent CSV injection or formatting breakage
+      const escapeCsv = (str: string) => `"${str.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+
+      return `${escapeCsv(c.id)},${escapeCsv(listName)},${escapeCsv(c.title)},${escapeCsv(c.description || '')},${c.timeSpent || 0},${escapeCsv(dueDateStr)},${escapeCsv(completedAtStr)},${escapeCsv(labelNames)},${escapeCsv(checklistSerialized)},${escapeCsv(alarmsSerialized)},"${c.isArchived ? 'Yes' : 'No'}"`;
     }).join('\n');
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    
+    const csvContent = headers + rows;
+    const filename = `${config.id}_tasks_export.csv`;
+    
+    try {
+      const file = new File([csvContent], filename, { type: 'text/csv' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'MTRAx Tasks Export',
+          text: 'Here is your rich CSV backup export from MTRAx lt.'
+        });
+        showToast("📤 Share sheet opened successfully!");
+        return;
+      }
+    } catch (e) {
+      console.warn("Web Share API files sharing not supported/failed:", e);
+    }
+
+    // Web Fallback
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${config.id}_tasks_export.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const handleExportFullBackup = async () => {
+    const backupPackage = {
+      backupVersion: 1,
+      timestamp: Date.now(),
+      appId: "mtrax-lite",
+      data: {
+        cards,
+        lists,
+        receipts,
+        voiceLogs,
+        labels,
+        employerEmail
+      }
+    };
+    const jsonString = JSON.stringify(backupPackage, null, 2);
+    const filename = `mtrax_full_backup_${Date.now()}.json`;
+
+    try {
+      const file = new File([jsonString], filename, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'MTRAx Full Backup',
+          text: 'Lossless JSON backup for full-state database restoration.'
+        });
+        showToast("📤 Backup share sheet opened!");
+        return;
+      }
+    } catch (e) {
+      console.warn("Share API not supported/failed:", e);
+    }
+
+    // Web Fallback
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestoreFullBackup = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const jsonText = evt.target?.result as string;
+          const backup = JSON.parse(jsonText);
+
+          // Schema validation check
+          if (!backup || (backup.appId !== 'mtrax-lite' && backup.appId !== 'triage-lite') || !backup.data) {
+            alert('Invalid backup file structure! Ensure this is a valid MTRAx backup JSON file.');
+            return;
+          }
+
+          const confirmRestore = window.confirm(
+            '⚠️ WARNING: This will overwrite your current board, categories, tax receipts, settings, and verbal diaries with the backup data. This action cannot be undone.\n\nDo you want to proceed?'
+          );
+          if (!confirmRestore) return;
+
+          await triggerHaptic();
+
+          const data = backup.data;
+          
+          // Save and overwrite all states permanently
+          if (Array.isArray(data.cards)) {
+            setCards(data.cards);
+            await syncData(`factory_app_${config.id}_cards`, data.cards);
+          }
+          if (Array.isArray(data.lists)) {
+            setLists(data.lists);
+            await syncData(`factory_app_${config.id}_lists`, data.lists);
+          }
+          if (Array.isArray(data.receipts)) {
+            setReceipts(data.receipts);
+            await syncData(`factory_app_${config.id}_receipts`, data.receipts);
+          }
+          if (Array.isArray(data.voiceLogs)) {
+            setVoiceLogs(data.voiceLogs);
+            await syncData(`factory_app_${config.id}_voice_logs`, data.voiceLogs);
+          }
+          if (Array.isArray(data.labels)) {
+            setLabels(data.labels);
+            await syncData(`factory_app_${config.id}_labels`, data.labels);
+          }
+          if (typeof data.employerEmail === 'string') {
+            setEmployerEmail(data.employerEmail);
+            await syncData(`factory_app_${config.id}_employer_email`, data.employerEmail);
+          }
+
+          showToast("⚡ Full memory restore complete!");
+          alert("✔ Backup restored successfully! The application will now reload.");
+          window.location.reload();
+        } catch (err) {
+          console.error(err);
+          alert('Failed to parse backup file! Error: ' + (err as Error).message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const handleArchiveCard = async (cardId: string, archive: boolean) => {
+    await triggerHaptic();
+    const updated = cards.map(c => c.id === cardId ? { ...c, isArchived: archive } : c);
+    await saveCards(updated);
+    showToast(archive ? "📦 Card successfully archived!" : "📥 Card restored to board!");
+  };
+
+  const handleRecallCard = async (cardId: string) => {
+    await triggerHaptic();
+    const updated = cards.map(c => c.id === cardId ? { ...c, listId: 'todo', completedAt: null, isArchived: false } : c);
+    await saveCards(updated);
+    showToast("↩️ Card recalled and moved to To Do!");
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    await triggerHaptic();
+    if (window.confirm("⚠️ Are you sure you want to permanently delete this card? This cannot be undone!")) {
+      const updated = cards.filter(c => c.id !== cardId);
+      await saveCards(updated);
+      showToast("🗑️ Card permanently deleted!");
+      return true;
+    }
+    return false;
+  };
   // MONETIZATION GUARDS: Wait for receipt check at startup, but don't block layout
   if (hasValidReceipt === null) {
     return (
@@ -1423,6 +1797,7 @@ export default function App() {
               </div>
               <span className="text-gray-500 group-hover:text-white text-xs pl-1 font-sans">❯</span>
             </button>
+
           </div>
 
           {/* Section 2: Interactive Quick Tools */}
@@ -1535,8 +1910,23 @@ export default function App() {
                 <span className="text-[9px] text-gray-400">Import attachments.</span>
               </div>
             </button>
-          </div>
 
+            {/* Button 7: Archive Studio */}
+            <button
+              onClick={async () => {
+                await triggerHaptic();
+                setIsArchiveStudioOpen(true);
+                setIsSidebarOpen(false);
+              }}
+              className="w-full p-2.5 bento-box bg-black/40 hover:bg-[var(--color-dark-tertiary,#3D3D3D)] flex items-center gap-3 text-left transition-all active:translate-y-0.5 group cursor-pointer"
+            >
+              <span className="text-base">📦</span>
+              <div className="flex flex-col">
+                <span className="font-bold text-[11px] text-white group-hover:text-[var(--color-accent,#DF5504)] transition-colors">Archive Studio</span>
+                <span className="text-[9px] text-gray-400">Recall completed/archived cards.</span>
+              </div>
+            </button>
+          </div>
           {/* Section 3: Premium Access */}
           {!hasValidReceipt && (
             <div className="flex flex-col gap-2 font-mono animate-fadeIn">
@@ -1584,56 +1974,63 @@ export default function App() {
         />
       )}
       
-      {/* HEADER SECTION */}
-      <header className="flex items-center justify-between border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6">
-        <div className="flex items-center gap-3">
-          {/* Suited Minimalist Hamburger Menu Button */}
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsSidebarOpen(!isSidebarOpen);
-            }}
-            className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
-            title="Open Menu"
-          >
-            ☰
-          </button>
+      {/* 🏷️ STATE-OF-THE-ART MTRAX APP TITLE HEADER */}
+      <div className="flex items-center justify-start px-1 mb-3.5 gap-3 select-none flex-shrink-0">
+        {/* Beautifully Embedded Triage SVG Logo on the Far Left */}
+        <svg id="a" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140.05 129.41" className="w-8 h-8 sm:w-9 sm:h-9 hover:scale-105 transition-transform cursor-pointer">
+          <title>Triage Workspace Logo</title>
+          <path d="M11.9,73.79v41.65h38.55v-41.65H11.9ZM43.8,86.4c-3.4,2.4-6.4,5.3-9.1,8.6-2.4,3-4.5,6.4-6.2,9.9l-1.7,3.5-9.8-11.2,3.8-3.4,4.8,5.5c1.4-2.5,3-5,4.8-7.2l.2-.3c2.9-3.7,6.3-6.9,10.1-9.6l.8-.6h.1l3,4.2-.8.6Z" fill="#df5504" />
+          <polygon points="83.05 116.21 77.75 113.61 77.85 128.71 106.35 129 106.35 127.71 83.05 116.21 83.05 116.21" fill="#df5504" />
+          <path d="M106.35,121.51v-13.2c5.1,1.1,11.1,2.4,11.1,2.4l-18.2-8.9h0c0,.1-21.5-10.4-21.5-10.4v16.2l-8.5-4.3v2.1l5.6,2.8v1.9l17.2,8.5,18.7,9.2h0l3.3,1.6v-1.9l-17.2-8.7h0l-.4-.2v-2l9.9,5v-.1Z" fill="#df5504" />
+          <polygon points="140.05 50.23 140.05 48.33 134.35 45.43 134.35 35.83 100.05 35.83 86.75 29.13 86.75 31.23 95.95 35.83 95.85 35.83 101.95 38.93 101.95 38.83 117.15 46.53 117.15 46.53 134.35 55.03 134.35 49.43 120.65 42.63 120.65 40.53 122.85 41.63 122.85 41.73 140.05 50.23" fill="#df5504" />
+          <rect x="59.84" y="85.16" width="13.33" height="3.14" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <polygon points="102.9 17 102.9 20.1 120.6 20.1 120.6 28.6 123.7 28.6 123.7 17 102.9 17" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <rect x="86.75" y="17" width="17.68" height="3.1" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <polygon points="121.55 70.16 121.55 85.2 110.85 85.2 110.85 88.3 124.65 88.3 124.65 70.16 121.55 70.16" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <rect x="2.89" y="1.58" width="83.86" height="7.61" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <polygon points="41.6 122.98 41.5 122.98 36.54 122.98 3.7 122.98 3.7 89.71 3.7 85.18 3.7 82.08 .5 82.08 .5 126.18 44.6 126.18 44.6 122.98 41.6 122.98" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <rect x="3.3" y="79.29" width="3.1" height="8.7" transform="translate(88.48, 78.79) rotate(90)" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <rect x="41.5" y="116.11" width="3.1" height="8.7" transform="translate(86.1, 240.92) rotate(180)" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <polygon points="4.85 7.8 4.04 7.8 4.04 3.7 4.85 3.7 4.85 .5 .94 .5 .94 64.3 4.14 64.3 4.14 61.2 4.14 58.5 4.14 10.9 4.85 10.9 4.85 7.8" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <path d="M11.9.5v3.2h73.3v4.1H11.9v3.1h73.4v6.1H26v44.2h-14.1v3.1h14v8.1H8.7v9.8h.1v34.3h44v-28.2h11.8v-3.1h-11.8v-12.8h-23.8V20.1h59.4V.5H11.9ZM49.7,75.5v37.8H11.9v-37.8h37.8Z" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <rect x="1.78" y="61.23" width="11.92" height="3.07" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <rect x="1.78" y="7.8" width="13.96" height="3.04" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <rect x="1.78" y=".5" width="16.51" height="3.2" fill="#df5504" stroke="#df5504" strokeMiterlimit="10" />
+          <polygon points="119.35 49.43 119.15 49.43 101.95 40.93 91.65 35.73 50.45 35.73 50.45 65.13 76 65.13 78.15 65.13 106.85 65.13 108.63 65.13 134.55 65.13 134.55 57.13 119.35 49.43" fill="#df5504" />
+          <path d="M77.85,65.13v8.87c-1-.2-13-2.8-13-2.8l13.1,6.1,16.2,8,.7,2.4-16.9-8.3v1.9l28.6,13.9v-30.07h-28.7Z" fill="#df5504" />
+        </svg>
 
-          {/* Minimalist Dashboard Help/Runbook icon */}
-          <button
-            onClick={async () => {
-              await triggerHaptic();
-              setIsDashboardHelpOpen(true);
-            }}
-            className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
-            title="Dashboard Runbook"
-          >
-            ❓
-          </button>
+        {/* Brand Badge in Orange on the Right of Logo (Case Sensitive MTRAx lite) */}
+        <span className="text-[11px] sm:text-xs font-black tracking-wider bg-[#DF5504]/10 border border-[#DF5504]/25 text-[var(--color-accent,#DF5504)] px-2.5 py-1 rounded-sm font-mono select-none">
+          MTRAx lite
+        </span>
+      </div>
 
-          <h1 className="text-xl sm:text-2xl font-black uppercase text-white tracking-wider pl-1">
-            {config.name}
-          </h1>
-        </div>
+      {/* HEADER SECTION (CONTROL ICON BAR) */}
+      <header className="flex items-center justify-start gap-3 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 mb-6 flex-shrink-0">
+        {/* Suited Minimalist Hamburger Menu Button */}
+        <button
+          onClick={async () => {
+            await triggerHaptic();
+            setIsSidebarOpen(!isSidebarOpen);
+          }}
+          className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
+          title="Open Menu"
+        >
+          ☰
+        </button>
 
-        {showLanguageInHeader && (
-          <div className="flex items-center gap-1.5 animate-fadeIn">
-            <span className="text-[10px] font-bold text-gray-400 font-mono hidden sm:inline">🌐 LANGUAGE:</span>
-            <select
-              value={currentLanguage}
-              onChange={async (e) => {
-                await triggerHaptic();
-                setCurrentLanguage(e.target.value as any);
-              }}
-              className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-md text-[10px] text-white py-1.5 px-2 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
-            >
-              <option value="en">🇺🇸 EN</option>
-              <option value="es">🇪🇸 ES</option>
-              <option value="fr">🇫🇷 FR</option>
-              <option value="de">🇩🇪 DE</option>
-            </select>
-          </div>
-        )}
+        {/* Minimalist Dashboard Help/Runbook icon */}
+        <button
+          onClick={async () => {
+            await triggerHaptic();
+            setIsDashboardHelpOpen(true);
+          }}
+          className="w-9 h-9 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-[var(--color-accent,#DF5504)] text-white flex items-center justify-center text-sm font-black transition-all hover:scale-105 active:scale-95 cursor-pointer flex-shrink-0 hover:text-[var(--color-accent,#DF5504)] hover:shadow-[0_0_10px_rgba(223,85,4,0.3)]"
+          title="Dashboard Runbook"
+        >
+          ❓
+        </button>
       </header>
       <main className="flex-grow overflow-y-auto no-scrollbar pr-0.5">
         <div className="grid grid-cols-1 gap-6 items-start">
@@ -1822,12 +2219,12 @@ export default function App() {
                     </button>
                   </div>
                   <span className="text-[10px] text-gray-400 uppercase tracking-wide">
-                    # of cards: {cards.filter(c => c.listId === list.id).length}
+                    # of cards: {cards.filter(c => c.listId === list.id && !c.isArchived).length}
                   </span>
                 </div>
 
                 <div className="flex flex-col gap-3 min-h-[200px]">
-                  {cards.filter(c => c.listId === list.id).map(card => (
+                  {cards.filter(c => c.listId === list.id && !c.isArchived).map(card => (
                     <div 
                       key={card.id} 
                       draggable
@@ -1949,58 +2346,8 @@ export default function App() {
                       </div>
 
                       {/* Timer details inside the card */}
-                      <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-3 pt-2 flex justify-between items-center font-mono">
+                      <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] mt-3 pt-2 flex items-center font-mono">
                         <span className="text-[10px] text-[var(--color-accent,#DF5504)]">⏱ {Math.floor((card.timeSpent || 0) / 60)}m spent</span>
-                        {/* Card Move Dropdown Box */}
-                        <div 
-                          className="relative" 
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onTouchStart={(e) => e.stopPropagation()}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onDragStart={(e) => e.stopPropagation()}
-                        >
-                          <select
-                            value=""
-                            onChange={async (e) => {
-                              const val = e.target.value;
-                              if (val === 'move-up') {
-                                await handleMovePosition(card.id, 'up');
-                              } else if (val === 'move-down') {
-                                await handleMovePosition(card.id, 'down');
-                              } else if (val) {
-                                console.log('Moving card', card.id, 'to list', val);
-                                await triggerHaptic();
-                                handleMoveCard(card.id, val);
-                              }
-                            }}
-                            className="text-[10px] bento-btn bg-[var(--color-accent,#DF5504)] text-white px-2 py-1 font-bold uppercase rounded cursor-pointer border-2 border-[#E96213] shadow-[2px_2px_0px_0px_rgba(223,85,4,0.3)] hover:translate-y-[-0.5px] active:translate-y-[0.5px] transition-transform select-none outline-none font-sans appearance-none pr-5 relative"
-                            style={{
-                              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 10 6'><path fill='white' d='M0 0l5 5 5-5z'/></svg>")`,
-                              backgroundRepeat: 'no-repeat',
-                              backgroundPosition: 'right 6px center',
-                              backgroundSize: '8px 5px'
-                            }}
-                          >
-                            <option value="" disabled hidden>
-                              Move ▼
-                            </option>
-                            <option value="move-up" className="text-white bg-[#282828] font-bold font-mono text-[10px]">
-                              ▲ MOVE UP
-                            </option>
-                            <option value="move-down" className="text-white bg-[#282828] font-bold font-mono text-[10px]">
-                              ▼ MOVE DOWN
-                            </option>
-                            <option value="" disabled className="text-gray-500 bg-[#282828] font-bold font-mono text-[10px]">
-                              ──────────────
-                            </option>
-                            {lists.map(l => (
-                              <option key={l.id} value={l.id} className="text-white bg-[#282828] font-bold font-mono text-[10px]">
-                                TO: {l.name.toUpperCase()}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -2131,8 +2478,8 @@ export default function App() {
             </div>
 
             {/* Brutalist Tab Bar */}
-            <div className="grid grid-cols-4 gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
-              {(['appearance', 'language', 'sync', 'admin'] as const).map((tab) => (
+            <div className="grid grid-cols-3 gap-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 flex-shrink-0">
+              {(['appearance', 'sync', 'admin'] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -2147,7 +2494,6 @@ export default function App() {
                   }`}
                 >
                   {tab === 'appearance' && '🎨 Style'}
-                  {tab === 'language' && '🌐 Lang'}
                   {tab === 'sync' && '☁️ Sync'}
                   {tab === 'admin' && '🛠️ Admin'}
                 </button>
@@ -2222,50 +2568,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* LANGUAGE TAB */}
-              {activeSettingsTab === 'language' && (
-                <div className="flex flex-col gap-4 animate-fadeIn">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] text-gray-400 uppercase font-black">{t('langSelection')}</label>
-                    <select
-                      value={currentLanguage}
-                      onChange={async (e) => {
-                        await triggerHaptic();
-                        setCurrentLanguage(e.target.value as any);
-                      }}
-                      className="bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded p-2.5 text-xs text-white font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] cursor-pointer animate-none"
-                    >
-                      <option value="en">🇺🇸 English (US)</option>
-                      <option value="es">🇪🇸 Español (ES)</option>
-                      <option value="fr">🇫🇷 Français (FR)</option>
-                      <option value="de">🇩🇪 Deutsch (DE)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 pt-3 mt-1">
-                    <div className="flex flex-col gap-0.5 pr-2">
-                      <span className="font-bold text-[10px] text-white">Header Language Selector</span>
-                      <span className="text-[8px] text-gray-500">Show a quick language dropdown in the top-right header</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await triggerHaptic();
-                        setShowLanguageInHeader(!showLanguageInHeader);
-                      }}
-                      className={`w-10 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
-                        showLanguageInHeader ? 'bg-[var(--color-accent,#DF5504)]' : 'bg-[var(--color-dark-tertiary,#3D3D3D)]'
-                      }`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                          showLanguageInHeader ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* SYNC TAB */}
               {activeSettingsTab === 'sync' && (
@@ -2323,27 +2625,11 @@ export default function App() {
                   <div className="p-3 bg-red-950/20 border border-red-900/30 rounded-sm">
                     <span className="text-red-400 font-black text-[10px] uppercase">🛠️ {t('advancedAdmin')}</span>
                     <p className="text-[8px] text-gray-500 leading-relaxed mt-1">
-                      Developer and diagnostic tools for verifying native Capacitor capabilities, haptics, and custom labels.
+                      Developer and diagnostic tools for verifying native Capacitor capabilities and haptics.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await triggerHaptic();
-                        setEditingLabelId(null);
-                        setLabelFormText('');
-                        setLabelFormColor('#DF5504');
-                        setIsGlobalLabelModalOpen(true);
-                        setIsSettingsOpen(false);
-                      }}
-                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
-                    >
-                      <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">🏷️ Label Studio</span>
-                      <span className="text-[8px] text-gray-500">Manage categories and colors</span>
-                    </button>
-
+                  <div className="flex flex-col gap-2">
                     <button
                       type="button"
                       onClick={async () => {
@@ -2351,7 +2637,7 @@ export default function App() {
                         setActiveMenuModal('diagnostics');
                         setIsSettingsOpen(false);
                       }}
-                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group"
+                      className="p-3 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-500 bg-black/40 text-left flex flex-col gap-1 rounded-sm transition-all cursor-pointer group w-full"
                     >
                       <span className="font-bold text-[10px] text-white group-hover:text-[var(--color-accent,#DF5504)]">⚡ Diagnostics</span>
                       <span className="text-[8px] text-gray-500">Run native API platform tests</span>
@@ -2514,9 +2800,31 @@ export default function App() {
                   await triggerHaptic();
                   handleExportCSV();
                 }}
-                className="w-full py-2.5 bento-btn bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 font-bold uppercase text-[10px] rounded transition-all"
+                className="w-full py-2.5 bento-btn bg-black/40 border border-gray-600/30 text-white hover:border-[var(--color-accent,#DF5504)] font-bold uppercase text-[10px] rounded transition-all flex items-center justify-center gap-1.5"
               >
-                Export CSV for Excel
+                📊 Export CSV for Excel
+              </button>
+
+              <button 
+                onClick={async () => {
+                  await triggerHaptic();
+                  handleExportFullBackup();
+                }}
+                className="w-full py-2.5 bento-btn bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 font-bold uppercase text-[10px] rounded transition-all flex items-center justify-center gap-1.5 shadow-md"
+              >
+                👑 Export Full JSON Backup (Lossless)
+              </button>
+
+
+
+              <button 
+                onClick={async () => {
+                  await triggerHaptic();
+                  handleRestoreFullBackup();
+                }}
+                className="w-full py-2.5 border border-[var(--color-accent,#DF5504)] bg-transparent text-[var(--color-accent,#DF5504)] hover:bg-[var(--color-accent,#DF5504)]/10 font-bold text-[10px] uppercase rounded transition-all flex items-center justify-center gap-1.5"
+              >
+                📥 Import JSON Backup (Restore)
               </button>
               
               <button 
@@ -2527,14 +2835,16 @@ export default function App() {
                     window.location.reload();
                   }
                 }}
-                className="w-full py-2.5 border border-red-500/30 bg-[var(--color-dark-bg,#282828)] text-red-400 hover:bg-red-900/10 font-bold text-[10px] uppercase rounded transition-all"
+                className="w-full py-2 py-2 border border-red-500/30 bg-[var(--color-dark-bg,#282828)] text-red-400 hover:bg-red-900/10 font-bold text-[9px] uppercase rounded transition-all flex items-center justify-center gap-1.5 mt-2"
               >
-                Reset App Database
+                ⚠️ Reset App Database
               </button>
             </div>
           </div>
         </div>
       )}
+
+
 
       {activeMenuModal === 'sync' && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
@@ -2601,43 +2911,17 @@ export default function App() {
 
             <div>
               <h4 className="font-bold text-white uppercase text-xs mb-2 flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2">
-                {isConnected ? '☁️ Triage Enterprise SQL Sync' : '🍏 Apple iCloud Backup & Sync'}
+                🍏 Apple iCloud Backup & Sync
               </h4>
-              {isConnected ? (
-                <div className="space-y-3 mt-3">
-                  <p className="text-gray-400 text-[10px] leading-relaxed">
-                    Connected to <strong className="text-white">Triage MySQL Database</strong>. You are viewing a simplified, action-focused board reference.
-                  </p>
-                  <div className="p-2 bg-green-950/30 border border-green-500/30 text-green-400 text-[9px] font-bold shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]">
-                    ✓ REAL-TIME ENTERPRISE SYNC ACTIVE
-                  </div>
+              <div className="space-y-3 mt-3">
+                <p className="text-gray-400 text-[10px] leading-relaxed">
+                  Your standalone boards, checklists, and focus habits are automatically backed up and synchronized across your Apple devices using <strong className="text-white">iCloud</strong>.
+                </p>
+                <div className="p-2 bg-blue-950/30 border border-blue-500/30 text-blue-400 text-[9px] font-bold shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]">
+                  ✓ APPLE CLOUD SYNC ACTIVE
                 </div>
-              ) : (
-                <div className="space-y-3 mt-3">
-                  <p className="text-gray-400 text-[10px] leading-relaxed">
-                    Your standalone boards, checklists, and focus habits are automatically backed up and synchronized across your Apple devices using <strong className="text-white">iCloud</strong>.
-                  </p>
-                  <div className="p-2 bg-blue-950/30 border border-blue-500/30 text-blue-400 text-[9px] font-bold shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]">
-                    ✓ APPLE CLOUD SYNC ACTIVE
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
-
-            <button 
-              onClick={async () => { 
-                await triggerHaptic(); 
-                if (isConnected) {
-                  setIsConnected(false);
-                } else {
-                  const connect = window.confirm('Link Triage Enterprise Account? (Mock action)');
-                  if (connect) setIsConnected(true);
-                }
-              }}
-              className={`w-full py-2.5 mt-2 rounded border border-[var(--color-dark-tertiary,#3D3D3D)] ${isConnected ? 'bg-[var(--color-dark-bg,#282828)] text-green-400 border-green-500/30' : 'bento-btn text-white'} text-[10px] font-bold uppercase tracking-wider transition-all`}
-            >
-              {isConnected ? '✓ Linked Triage Account' : 'Link Triage Account'}
-            </button>
           </div>
         </div>
       )}
@@ -2965,12 +3249,28 @@ export default function App() {
       {/* CUSTOM BRUTALIST DETAIL MODAL */}
       {selectedCardForEdit && (
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="w-full max-w-md bento-box p-6 text-white max-h-[90vh] overflow-y-auto">
+            <div className={`w-full max-w-md bento-box p-4 sm:p-5.5 text-white max-h-[90vh] overflow-y-auto ${isReadOnly ? 'border-amber-600/50' : ''}`}>
+              {isReadOnly && (
+                <div className="mb-4 p-2.5 bg-amber-950/40 border border-amber-800/50 rounded flex items-center gap-2 text-amber-300 font-mono text-[9px] uppercase tracking-wider leading-none animate-pulse">
+                  <span>🔒 READ-ONLY MODE. Recall this card to active board to edit!</span>
+                </div>
+              )}
+              <div 
+                className={isReadOnly ? "pointer-events-none opacity-85 select-none" : ""}
+                onClickCapture={async (e) => {
+                  if (isReadOnly) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await triggerHaptic();
+                    showToast("⚠️ This card is read-only. Recall to active board to edit!");
+                  }
+                }}
+              >
             {/* Header */}
-            <div className="flex flex-col gap-2 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-3 mb-4">
+            <div className="flex flex-col gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2 mb-2.5">
               <div className="flex justify-between items-center">
                 <h3 className="font-black text-xs font-mono uppercase tracking-wider text-gray-400">
-                  Card details
+                  Card Title
                 </h3>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -2990,16 +3290,30 @@ export default function App() {
                   </button>
 
                   <button 
-                    onClick={() => {
-                      setSelectedCardForEdit(null);
-                      setIsLabelManagerOpen(false);
-                      setIsCardHelpOpen(false);
+                    onClick={async () => {
+                      await triggerHaptic();
+                      navigateWithCheck(() => {
+                        setSelectedCardForEdit(null);
+                        setIsLabelManagerOpen(false);
+                        setIsCardHelpOpen(false);
+                      });
                     }}
                     className="text-gray-400 hover:text-white font-black text-lg p-1 border-none bg-transparent cursor-pointer"
                   >
                     &times;
                   </button>
                 </div>
+              </div>
+
+              {/* Title input field directly under the Card Title label header */}
+              <div className="mt-1">
+                <input 
+                  type="text"
+                  value={selectedCardForEdit.title}
+                  onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, title: e.target.value })}
+                  className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]"
+                  placeholder="Enter task title..."
+                />
               </div>
 
               {/* Dynamic Interactive Card Help Panel */}
@@ -3035,33 +3349,107 @@ export default function App() {
                     <p>
                       🌐 <strong className="text-white font-mono">CLOUD STORAGE LINKS:</strong> Paste external folder links from Google Drive, Apple iCloud, or OneDrive for instant access.
                     </p>
+                    <div className="border-t border-blue-900/30 pt-2 mt-1.5 flex flex-col gap-1.5">
+                      <span className="font-extrabold text-blue-400 font-mono text-[9px] uppercase tracking-wide">📦 Archiving vs. 🗑️ Deletion Lifecycles</span>
+                      <p>
+                        • <strong className="text-white font-mono">ARCHIVE:</strong> Sets <code className="text-blue-200">isArchived: true</code>. The card is hidden from active columns but remains 100% intact on-device. All linked files, labels, checklist items, and OS alarms are preserved. Viewable/restorable in Archive Studio.
+                      </p>
+                      <p>
+                        • <strong className="text-white font-mono">DELETE:</strong> Permanently purges the card. Large document & image attachments (Base64) stored on the card are instantly erased from disk to save space. Scheduled OS checklist alarms are cancelled, while independent Verbal Diaries & Receipts remain preserved with their card links safely reverted to Unassigned.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Inputs */}
-            <div className="flex flex-col gap-4">
-              {/* Active Focus Session Widget - High-fidelity Orange Button */}
-              <button
-                type="button"
-                onClick={async () => {
-                  await triggerHaptic();
-                  setIsCardSessionLogExpanded(prev => !prev);
-                }}
-                className={`w-full p-3.5 bento-btn rounded-lg flex justify-between items-center font-mono transition-all text-left uppercase font-black cursor-pointer border-2 ${
-                  isCardSessionLogExpanded
-                    ? 'bg-black/45 border-[var(--color-accent,#DF5504)] text-white shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]'
-                    : 'bg-[#DF5504] border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]'
-                }`}
-              >
-                <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <span>⏱️</span> {isCardSessionLogExpanded ? 'Hide Session History' : 'View Session History'}
-                </span>
-                <div className={`text-xs font-black font-mono ${isCardSessionLogExpanded ? 'text-[var(--color-accent,#DF5504)]' : 'text-white'}`}>
-                  {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
+            <div className="flex flex-col gap-2.5">
+              {/* ⏱️ Session History Section */}
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Session History</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {/* Stopwatch Toggle button */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsCardSessionLogExpanded(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isCardSessionLogExpanded 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
+                      }`}
+                      title="Toggle Session Log View"
+                    >
+                      <span className="text-sm">⏱️</span>
+                    </button>
+
+                    {/* Guide button */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsSessionHistoryGuideOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isSessionHistoryGuideOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
+                      }`}
+                      title="Session History Guide"
+                    >
+                      <span className="text-red-500 font-extrabold text-base">?</span>
+                    </button>
+                  </div>
+
+                  {/* Total Focus Time Badge Button */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsCardSessionLogExpanded(prev => !prev);
+                    }}
+                    className={`px-3.5 py-1.5 border-2 rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                      isCardSessionLogExpanded
+                        ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                        : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)]/80 text-[var(--color-accent,#DF5504)]'
+                    }`}
+                    title="Toggle Session Log View"
+                  >
+                    <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Focus Time:</span>
+                    <span>
+                      {Math.floor((selectedCardForEdit.timeSpent || 0) / 3600)}h {Math.floor(((selectedCardForEdit.timeSpent || 0) % 3600) / 60)}m {((selectedCardForEdit.timeSpent || 0) % 60)}s
+                    </span>
+                  </button>
                 </div>
-              </button>
+
+                {/* Inline sliding ⏱️ Session History Guide panel */}
+                {isSessionHistoryGuideOpen && (
+                  <div className="mt-2.5 p-3.5 bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left">
+                    <div className="font-bold text-[10px] uppercase text-indigo-400 border-b border-indigo-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                      <span>⏱️ Focus Session Log Guide</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsSessionHistoryGuideOpen(false)}
+                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                      >
+                        Hide ×
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5 font-sans">
+                      <p>
+                        📈 <strong className="text-white font-mono">AUTOMATIC RECORDING:</strong> Starts recording study durations seamlessly whenever you hit the stopwatch icon on the board.
+                      </p>
+                      <p>
+                        📝 <strong className="text-white font-mono">INDIVIDUAL SESSIONS:</strong> Click the stopwatch button above to expand the history log where you can audit or prune individual study runs.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Expandable High-Fidelity Session Log List matching global popup style */}
               {isCardSessionLogExpanded && (
@@ -3140,388 +3528,488 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Title</label>
-                  <input 
-                    type="text"
-                    value={selectedCardForEdit.title}
-                    onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, title: e.target.value })}
-                    className="w-full bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">List Column</label>
-                  <div className="flex flex-wrap gap-1.5 p-1 bg-black/25 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded min-h-[38px] items-center">
-                    {lists.map((l) => {
-                      const isActive = selectedCardForEdit.listId === l.id;
-                      return (
-                        <button
-                          key={l.id}
-                          type="button"
-                          onClick={async () => {
-                            await triggerHaptic();
-                            setSelectedCardForEdit({ ...selectedCardForEdit, listId: l.id });
-                          }}
-                          className={`flex-grow h-7 px-2.5 rounded text-[9px] font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none outline-none ${
-                            isActive
-                              ? 'bg-[var(--color-accent,#DF5504)] text-white shadow-[1px_1px_2px_0px_rgba(0,0,0,0.3)] hover:opacity-95'
-                              : 'bg-[var(--color-dark-bg,#282828)] text-gray-400 hover:text-white hover:bg-black/30'
-                          }`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full transition-transform duration-300 ${isActive ? 'bg-white scale-125' : 'bg-gray-600'}`} />
-                          <span>{l.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Active Labels List Display (Under Title, Above Description) */}
-              {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(id => labels.find(l => l.id === id)).filter(Boolean).length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 min-h-[22px] -mt-1">
-                  {selectedCardForEdit.labelIds.map(labelId => {
-                    const labelObj = labels.find(l => l.id === labelId);
-                    if (!labelObj) return null;
-                    return (
-                      <span 
-                        key={labelId}
-                        className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)]"
-                        style={{ backgroundColor: labelObj.color }}
-                      >
-                        {labelObj.text}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-mono font-bold uppercase text-gray-400 mb-1">Description</label>
+              {/* Description Section */}
+              <div className="border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                <label className="block text-[10px] font-mono font-bold uppercase text-gray-400 mb-0.5">Description</label>
                 <textarea 
                   value={selectedCardForEdit.description || ''}
                   onChange={(e) => setSelectedCardForEdit({ ...selectedCardForEdit, description: e.target.value })}
-                  className="w-full h-20 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-sm font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded"
+                  className="w-full h-14 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 text-xs font-mono text-white focus:border-[var(--color-accent,#DF5504)] rounded shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]"
                 />
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await triggerHaptic();
-                      setIsNotificationStudioOpen(true);
-                    }}
-                    className="text-xs font-mono font-bold uppercase text-gray-400 hover:text-white flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer transition-colors"
-                    title="Open Alerts & Tasks Alarm Studio"
-                  >
-                    <span>📋 Checklist & Tasks</span>
-                    <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-black">⚙️</span>
-                  </button>
-                </div>
-                
-                {/* Drag-resizable and scrollable checklist viewport container */}
-                <div className="w-full resize-y overflow-auto min-h-[120px] h-36 bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2 rounded flex flex-col focus-within:border-[var(--color-accent,#DF5504)] transition-all">
-                  <div className="flex-grow flex flex-col gap-1.5 overflow-y-auto pr-1">
-                    {/* Inline Task Creator Row (Dynamic '+' Row) - Now positioned at the very top */}
-                    <div className="flex items-center gap-2 bg-black/10 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px] focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/20 transition-all mb-1.5">
-                      <span className="text-[12px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
-                      <input 
-                        type="text"
-                        placeholder="New task... (Press Enter)"
-                        value={inlineNewTaskText}
-                        onChange={(e) => setInlineNewTaskText(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (inlineNewTaskText.trim()) {
-                              await triggerHaptic();
-                              const newItem = {
-                                id: 'item-' + Date.now(),
-                                text: inlineNewTaskText.trim(),
-                                isChecked: false
-                              };
-                              const currentChecklists = selectedCardForEdit.checklists || [];
-                              let updatedChecklists = [];
-                              if (currentChecklists.length === 0) {
-                                updatedChecklists = [{
-                                  id: 'cl-' + Date.now(),
-                                  items: [newItem]
-                                }];
-                              } else {
-                                updatedChecklists = currentChecklists.map((cl, idx) => {
-                                  if (idx === 0) {
-                                    return {
-                                      ...cl,
-                                      items: [...cl.items, newItem]
-                                    };
-                                  }
-                                  return cl;
-                                });
-                              }
-                              setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                              setInlineNewTaskText('');
-                            }
-                          }
+              {/* Redesigned Compact Labels Section */}
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Labels</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {/* Open Board Label Studio Modal */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setEditingLabelId(null);
+                        setLabelFormText('');
+                        setLabelFormColor('#DF5504');
+                        setIsGlobalLabelModalOpen(true);
+                      }}
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 border-transparent text-gray-400 hover:text-white hover:border-gray-500/30 hover:scale-105"
+                      title="Open Board Label Studio"
+                    >
+                      <span className="text-sm">🏷️</span>
+                    </button>
+
+                    {/* Labels Guide Toggle */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsLabelHelpOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isLabelHelpOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
+                      }`}
+                      title="Labels Guide"
+                    >
+                      <span className="text-red-500 font-extrabold text-base">❓</span>
+                    </button>
+
+                    {/* Toggle tag board drawer to select existing labels */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsLabelManagerOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isLabelManagerOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-green-500 hover:border-gray-500/30'
+                      }`}
+                      title="Add/Allocate Labels"
+                    >
+                      <span className="text-sm font-bold text-green-500">＋</span>
+                    </button>
+                  </div>
+
+                  {/* Active Labels Tally Badge Button */}
+                  {(() => {
+                    const labelsCount = selectedCardForEdit.labelIds?.length || 0;
+                    return (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsLabelManagerOpen(prev => !prev);
                         }}
-                        className="bg-transparent text-white border-none focus:outline-none placeholder-gray-500 text-[11px] font-mono flex-grow"
-                      />
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isLabelManagerOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Label Manager"
+                      >
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Tags:</span>
+                        <span>{labelsCount}</span>
+                      </button>
+                    );
+                  })()}
+                </div>
+
+                {/* Active Labels Badges List */}
+                {selectedCardForEdit.labelIds && selectedCardForEdit.labelIds.map(id => labels.find(l => l.id === id)).filter(Boolean).length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {selectedCardForEdit.labelIds.map(labelId => {
+                      const labelObj = labels.find(l => l.id === labelId);
+                      if (!labelObj) return null;
+                      return (
+                        <span 
+                          key={labelId}
+                          className="text-[9px] font-black text-white uppercase px-1.5 py-0.5 rounded border border-white/10 shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)] animate-fadeIn"
+                          style={{ backgroundColor: labelObj.color }}
+                        >
+                          {labelObj.text}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Labels Guide Panel */}
+                {isLabelHelpOpen && (
+                  <div className="mt-2.5 p-3.5 bg-violet-950/70 border border-violet-800/50 text-violet-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left font-sans">
+                    <div className="font-bold text-[10px] uppercase text-violet-400 border-b border-violet-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                      <span>🏷️ Labels & Tags Guide</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsLabelHelpOpen(false)}
+                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black font-mono"
+                      >
+                        Hide ×
+                      </button>
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                      <p>
+                        🏷️ <strong className="text-white font-mono">TAG ALLOCATIONS:</strong> Assign label tags to filter, group, and track tasks on your board. Clicking labels on the main board filters viewports.
+                      </p>
+                      <p>
+                        ＋ <strong className="text-white font-mono">CUSTOM LABELS:</strong> Select "Create New Label..." from the dropdown to design custom colors and names for your labels globally.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-                    {/* Render active tasks - Sorted so incomplete/active tasks come first */}
-                    {(() => {
-                      const sortedChecklistItems = selectedCardForEdit.checklists?.[0]?.items 
-                        ? [...selectedCardForEdit.checklists[0].items].sort((a, b) => (a.isChecked ? 1 : 0) - (b.isChecked ? 1 : 0))
-                        : [];
-                      
-                      return sortedChecklistItems.map(item => {
-                        const isEditing = editingTaskId === item.id;
+                {/* Collapsible Label Selector Dropdown (Interactive Tag Board) */}
+                {isLabelManagerOpen && (
+                  <div className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2.5 rounded mt-2.5 animate-fadeIn flex flex-col gap-2 font-mono text-xs text-left shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]">
+                    <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1">
+                      <span className="font-bold text-[9px] uppercase text-gray-400">Board Labels Dashboard</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsLabelManagerOpen(false);
+                        }}
+                        className="text-[9px] text-gray-400 hover:text-white cursor-pointer"
+                      >
+                        Close ×
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {labels.map(lbl => {
+                        const isAssigned = selectedCardForEdit.labelIds?.includes(lbl.id);
                         return (
-                          <div key={item.id} className="flex flex-col gap-1.5 bg-black/20 hover:bg-black/35 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-1.5 rounded font-mono text-[11px]">
-                            <div className="flex justify-between items-center gap-2">
-                              {isEditing ? (
-                                /* Inline Edit Input Field */
-                                <div className="flex items-center gap-1.5 flex-grow">
-                                  <span className="text-gray-500">✏️</span>
-                                  <input 
-                                    type="text"
-                                    value={editingTaskText}
-                                    onChange={(e) => setEditingTaskText(e.target.value)}
-                                    onKeyDown={async (e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        if (editingTaskText.trim()) {
-                                          await triggerHaptic();
-                                          const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                            if (idx === 0) {
-                                              return {
-                                                ...cl,
-                                                items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
-                                              };
-                                            }
-                                            return cl;
-                                          }) || [];
-                                          setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                          setEditingTaskId(null);
-                                        }
-                                      } else if (e.key === 'Escape') {
-                                        setEditingTaskId(null);
-                                      }
-                                    }}
-                                    onBlur={async () => {
-                                      if (editingTaskText.trim()) {
-                                        const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                          if (idx === 0) {
-                                            return {
-                                              ...cl,
-                                              items: cl.items.map(it => it.id === item.id ? { ...it, text: editingTaskText.trim() } : it)
-                                            };
-                                          }
-                                          return cl;
-                                        }) || [];
-                                        setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                      }
-                                      setEditingTaskId(null);
-                                    }}
-                                    className="bg-black/40 border border-[var(--color-accent,#DF5504)] px-1.5 py-0.5 text-[11px] text-white rounded font-mono flex-grow focus:outline-none"
-                                    autoFocus
-                                  />
-                                </div>
-                              ) : (
-                                /* Read-only Checklist Row */
-                                <label className="flex items-center gap-2 cursor-pointer flex-grow select-none overflow-hidden">
-                                  <input 
-                                    type="checkbox"
-                                    checked={item.isChecked}
-                                    onChange={async () => {
-                                      await triggerHaptic();
-                                      const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                        if (idx === 0) {
-                                          return {
-                                            ...cl,
-                                            items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
-                                          };
-                                        }
-                                        return cl;
-                                      }) || [];
-                                      setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                    }}
-                                    className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-3.5 h-3.5 cursor-pointer"
-                                  />
-                                  <span className={`text-white transition-all truncate ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
-                                    {item.text}
-                                  </span>
-                                </label>
-                              )}
-                              
-                              {/* Row Actions Drawer */}
-                              <div className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0">
-                                {!isEditing && (
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      await triggerHaptic();
-                                      setEditingTaskId(item.id);
-                                      setEditingTaskText(item.text);
-                                    }}
-                                    className="text-gray-400 hover:text-white font-mono text-[10px] transition-colors cursor-pointer"
-                                    title="Rename subtask"
-                                  >
-                                    ✏️
-                                  </button>
-                                )}
-
-                                {/* ⏰ Checklist Alarm Toggle Button */}
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await triggerHaptic();
-                                    if (checklistItemAlarmEditingId === item.id) {
-                                      setChecklistItemAlarmEditingId(null);
-                                    } else {
-                                      setChecklistItemAlarmEditingId(item.id);
-                                    }
-                                  }}
-                                  className={`font-mono text-[10px] transition-colors cursor-pointer ${
-                                    item.dueDate ? 'text-[var(--color-accent,#DF5504)] font-black' : 'text-gray-400 hover:text-white'
-                                  }`}
-                                  title={item.dueDate ? "Change checklist alarm" : "Schedule checklist alarm"}
-                                >
-                                  {item.dueDate ? '⏰' : '🔔'}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await triggerHaptic();
-                                    if (item.dueDate) {
-                                      await cancelChecklistItemAlarm(item);
-                                    }
-                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                      if (idx === 0) {
-                                        return {
-                                          ...cl,
-                                          items: cl.items.filter(it => it.id !== item.id)
-                                        };
-                                      }
-                                      return cl;
-                                    }) || [];
-                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                  }}
-                                  className="text-red-500 hover:text-red-400 font-bold transition-colors cursor-pointer"
-                                  title="Delete subtask"
-                                >
-                                  🗑️
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Render Scheduled Alarm Text Badge */}
-                            {item.dueDate && (
-                              <div className="flex items-center justify-between text-[9px] text-[var(--color-accent,#DF5504)] font-bold pl-5 font-mono select-none">
-                                <span className="flex items-center gap-1">
-                                  ⏰ Alarm: {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await triggerHaptic();
-                                    await cancelChecklistItemAlarm(item);
-                                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                      if (idx === 0) {
-                                        return {
-                                          ...cl,
-                                          items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: undefined } : it)
-                                        };
-                                      }
-                                      return cl;
-                                    }) || [];
-                                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                    showToast("🗑️ Checklist alarm removed!");
-                                  }}
-                                  className="text-gray-500 hover:text-white font-black pl-2 border-none bg-transparent cursor-pointer"
-                                  title="Remove alarm"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            )}
-
-                            {/* 📅 Inline Checklist Item Datetime Picker Drawer */}
-                            {checklistItemAlarmEditingId === item.id && (
-                              <div className="pl-5 mt-1 pb-1 flex flex-col gap-1.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30 pt-1.5 animate-fadeIn text-left">
-                                <span className="text-[8px] uppercase tracking-wider text-gray-500 font-bold">Configure Sub-Task Alarm</span>
-                                <div className="flex items-center gap-1.5 w-full">
-                                  <input
-                                    type="datetime-local"
-                                    value={formatTimestampToDatetimeLocal(item.dueDate)}
-                                    onChange={async (e) => {
-                                      const parsed = e.target.value ? Date.parse(e.target.value) : null;
-                                      const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
-                                        if (idx === 0) {
-                                          return {
-                                            ...cl,
-                                            items: cl.items.map(it => it.id === item.id ? { ...it, dueDate: parsed } : it)
-                                          };
-                                        }
-                                        return cl;
-                                      }) || [];
-                                      setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
-                                    }}
-                                    className="flex-grow bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] px-1.5 py-1 text-[9px] text-white rounded font-mono focus:border-[var(--color-accent,#DF5504)]"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      await triggerHaptic();
-                                      if (item.dueDate) {
-                                        await scheduleChecklistItemAlarm(selectedCardForEdit.title, item);
-                                        showToast("⏰ Sub-task alarm scheduled!");
-                                      }
-                                      setChecklistItemAlarmEditingId(null);
-                                    }}
-                                    className="px-2 py-1 bento-btn text-white text-[9px] font-bold uppercase rounded cursor-pointer"
-                                  >
-                                    Save
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            key={lbl.id}
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              const currentIds = selectedCardForEdit.labelIds || [];
+                              const nextIds = isAssigned 
+                                ? currentIds.filter(id => id !== lbl.id) 
+                                : [...currentIds, lbl.id];
+                              setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
+                            }}
+                            className={`text-[9px] font-black px-2 py-1 rounded border transition-all flex items-center gap-1 cursor-pointer ${
+                              isAssigned 
+                                ? 'border-white scale-105 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)]' 
+                                : 'border-transparent opacity-50 hover:opacity-100'
+                            }`}
+                            style={{ backgroundColor: lbl.color, color: 'white' }}
+                          >
+                            {lbl.text} {isAssigned ? '✓' : '＋'}
+                          </button>
                         );
-                      });
+                      })}
+                    </div>
+                    <div className="flex justify-start mt-1 pt-1.5 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/30">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setEditingLabelId(null);
+                          setLabelFormText('');
+                          setLabelFormColor('#DF5504');
+                          setIsGlobalLabelModalOpen(true);
+                        }}
+                        className="text-[9px] text-[var(--color-accent,#DF5504)] font-bold uppercase hover:underline cursor-pointer"
+                      >
+                        ＋ Create New Custom Label Type
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* List Column Selection Dropdown */}
+              <div className="relative border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                <span className="block text-[10px] font-mono font-bold uppercase text-gray-400 mb-0.5">List</span>
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 p-0.5 bg-black/25 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded min-h-[32px] flex-grow">
+                    {(() => {
+                      const activeList = lists.find(l => l.id === selectedCardForEdit.listId);
+                      return (
+                        <div className="flex items-center justify-between w-full px-2">
+                          <span className="text-[11px] font-black font-mono uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent,#DF5504)] animate-pulse" />
+                            {activeList?.name || 'Unassigned'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              setIsListDropdownOpen(prev => !prev);
+                              setIsCreatingListInline(false);
+                              setInlineNewListName('');
+                            }}
+                            className={`w-7 h-7 rounded flex items-center justify-center font-black transition-all cursor-pointer border bg-[#222222] ${
+                              isListDropdownOpen 
+                                ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.5)]' 
+                                : 'border-[#2C2C2C] shadow-[2px_2px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] text-gray-400'
+                            }`}
+                            title="Choose list column"
+                          >
+                            <span className="text-[10px] transform transition-transform duration-200" style={{ transform: isListDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+                          </button>
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
+
+                {/* Absolute-positioned Dropdown Menu with high z-index */}
+                {isListDropdownOpen && (
+                  <div className="absolute right-0 left-0 mt-1 bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-dark-tertiary,#3D3D3D)] rounded-lg shadow-[4px_4px_0px_0px_#000] z-[150] overflow-hidden max-h-60 overflow-y-auto animate-fadeIn font-mono text-xs text-left p-1.5 flex flex-col gap-1">
+                    <span className="text-[9px] uppercase font-bold text-gray-400 px-2 py-1 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 mb-1">Move to Column:</span>
+                    {lists.filter(l => l.id !== selectedCardForEdit.listId).map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setSelectedCardForEdit({ ...selectedCardForEdit, listId: l.id });
+                          setIsListDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded hover:bg-black/30 text-white font-bold text-[10px] uppercase transition-all flex items-center gap-2 border-none bg-transparent cursor-pointer"
+                      >
+                        <span className="w-1 h-1 rounded-full bg-gray-500" />
+                        {l.name}
+                      </button>
+                    ))}
+
+                    {lists.filter(l => l.id !== selectedCardForEdit.listId).length === 0 && (
+                      <span className="text-[9px] text-gray-500 italic px-2.5 py-1">No other columns.</span>
+                    )}
+
+                    <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 mt-1 pt-1">
+                      {isCreatingListInline ? (
+                        <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded-lg">
+                          <input
+                            type="text"
+                            placeholder="New Column Name..."
+                            value={inlineNewListName}
+                            onChange={(e) => setInlineNewListName(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const trimmed = inlineNewListName.trim();
+                                if (trimmed) {
+                                  await triggerHaptic();
+                                  const newId = `list-${Date.now()}`;
+                                  const newList = { id: newId, name: trimmed };
+                                  const updatedLists = [...lists, newList];
+                                  await saveLists(updatedLists);
+                                  setSelectedCardForEdit({ ...selectedCardForEdit, listId: newId });
+                                  setInlineNewListName('');
+                                  setIsCreatingListInline(false);
+                                  setIsListDropdownOpen(false);
+                                  showToast(`🚀 Column "${trimmed}" created & assigned!`);
+                                }
+                              }
+                            }}
+                            className="flex-grow bg-transparent text-white border-none focus:outline-none placeholder-gray-500 text-[10px] font-mono px-1 py-1"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await triggerHaptic();
+                              const trimmed = inlineNewListName.trim();
+                              if (trimmed) {
+                                const newId = `list-${Date.now()}`;
+                                const newList = { id: newId, name: trimmed };
+                                const updatedLists = [...lists, newList];
+                                await saveLists(updatedLists);
+                                setSelectedCardForEdit({ ...selectedCardForEdit, listId: newId });
+                                setInlineNewListName('');
+                                setIsCreatingListInline(false);
+                                setIsListDropdownOpen(false);
+                                showToast(`🚀 Column "${trimmed}" created & assigned!`);
+                              } else {
+                                setIsCreatingListInline(false);
+                              }
+                            }}
+                            className="px-2 py-1 bg-[var(--color-accent,#DF5504)] text-white text-[9px] font-bold rounded uppercase cursor-pointer border-none"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setIsCreatingListInline(true);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded hover:bg-black/30 text-[var(--color-accent,#DF5504)] font-black text-[9px] uppercase tracking-wider transition-all flex items-center gap-1 border-none bg-transparent cursor-pointer"
+                        >
+                          ＋ Add New List Column
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Checklist & Tasks Section */}
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Checklist & Tasks</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {/* Open roomy checklist sub-modal */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsChecklistModalOpen(true);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isChecklistModalOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
+                      }`}
+                      title="Open Checklist Manager"
+                    >
+                      <span className="text-sm">📋</span>
+                    </button>
+
+                    {/* Checklist help guide */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsChecklistHelpOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isChecklistHelpOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
+                      }`}
+                      title="Checklist Guide"
+                    >
+                      <span className="text-red-500 font-extrabold text-base">❓</span>
+                    </button>
+                  </div>
+
+                  {/* Tasks Complete Tally Badge Button */}
+                  {(() => {
+                    const totalTasks = selectedCardForEdit.checklists?.[0]?.items?.length || 0;
+                    const completedTasks = selectedCardForEdit.checklists?.[0]?.items?.filter(it => it.isChecked).length || 0;
+                    return (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsChecklistModalOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isChecklistModalOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Checklist Manager"
+                      >
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Tasks:</span>
+                        <span>{completedTasks}/{totalTasks}</span>
+                      </button>
+                    );
+                  })()}
+                </div>
+
+                {/* Sliding Checklist Help Guide Panel */}
+                {isChecklistHelpOpen && (
+                  <div className="mt-2.5 p-3.5 bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left font-sans">
+                    <div className="font-bold text-[10px] uppercase text-indigo-400 border-b border-indigo-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                      <span>📋 Checklist & Tasks Guide</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsChecklistHelpOpen(false)}
+                        className="text-[9px] hover:text-white cursor-pointer uppercase font-black font-mono"
+                      >
+                        Hide ×
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <p>
+                        📋 <strong className="text-white font-mono">ROOMY SUB-TASKS:</strong> Click the clipboard button to open a roomy sub-task editor overlay containing a streamlined add-new bar, sub-task list, inline checkbox toggles, edits, and deletions.
+                      </p>
+                      <p>
+                        ⏰ <strong className="text-white font-mono">ALARMS & REMINDERS:</strong> Tap the pencil icon next to any sub-task inside the manager to schedule a custom lead-time reminder alert.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
 
-              {/* 🔔 NOTIFICATION & ALERT STUDIO POPUP TRIGGER */}
-              <div className="flex gap-2 items-center mt-2.5 w-full">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await triggerHaptic();
-                    setIsAlertsHelpOpen(!isAlertsHelpOpen);
-                  }}
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
-                  title="Alerts Guide"
-                >
-                  <span className="text-red-500 font-extrabold text-base">?</span>
-                </button>
+              {/* Notifications & Alert Studio Row */}
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Notifications</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {/* Trigger alarm studio modal */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsNotificationStudioOpen(true);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isNotificationStudioOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
+                      }`}
+                      title="Open Notification & Alert Studio"
+                    >
+                      <span className="text-sm">🔔</span>
+                    </button>
 
-                <button 
-                  type="button"
-                  onClick={async () => {
-                    await triggerHaptic();
-                    setIsNotificationStudioOpen(true);
-                  }}
-                  className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
-                >
-                  <span>Configure Alerts & Notifications</span>
-                </button>
+                    {/* Sliding alerts help guide toggle */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsAlertsHelpOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isAlertsHelpOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
+                      }`}
+                      title="Alerts Guide"
+                    >
+                      <span className="text-red-500 font-extrabold text-base">❓</span>
+                    </button>
+                  </div>
+
+                  {/* Active Alarms Tally Badge Button */}
+                  {(() => {
+                    const primaryAlertCount = selectedCardForEdit.dueDate ? 1 : 0;
+                    const subtaskAlertCount = selectedCardForEdit.checklists?.[0]?.items?.filter(it => it.dueDate).length || 0;
+                    const totalAlarms = primaryAlertCount + subtaskAlertCount;
+                    return (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsNotificationStudioOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isNotificationStudioOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Alert Studio"
+                      >
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Alarms:</span>
+                        <span>{totalAlarms}</span>
+                      </button>
+                    );
+                  })()}
+                </div>
               </div>
 
               {/* Expandable Notification Help Info Block */}
@@ -3555,129 +4043,70 @@ export default function App() {
                 </div>
               )}
 
-              {/* Active Selected Labels Header (Repositioned below Alerts & Notifications) */}
-              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-                {/* Unified Labels Bar (Matches Alerts and Document layout format) */}
-                <div className="flex gap-2 items-center w-full">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await triggerHaptic();
-                      setIsLabelManagerOpen(!isLabelManagerOpen);
-                    }}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
-                    title="Label Manager Guide"
-                  >
-                    <span className="text-red-500 font-extrabold text-base">?</span>
-                  </button>
 
-                  {/* Wide Orange Action Dropdown Trigger */}
-                  <div className="relative flex-grow h-10 sm:h-11">
-                    <select
-                      value=""
-                      onChange={async (e) => {
-                        const val = e.target.value;
-                        if (val === 'add-new') {
-                          await triggerHaptic();
-                          setEditingLabelId(null);
-                          setLabelFormText('');
-                          setLabelFormColor('#DF5504');
-                          setIsGlobalLabelModalOpen(true);
-                        } else if (val) {
-                          await triggerHaptic();
-                          const labelId = val;
-                          const currentIds = selectedCardForEdit.labelIds || [];
-                          const nextIds = currentIds.includes(labelId)
-                            ? currentIds.filter(id => id !== labelId)
-                            : [...currentIds, labelId];
-                          setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
-                        }
-                        e.target.value = ''; // Reset select box
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 font-mono text-[9px]"
-                    >
-                      <option value="">🏷️ Add Label</option>
-                      {labels.map(lbl => {
-                        const hasLabel = selectedCardForEdit.labelIds?.includes(lbl.id);
-                        return (
-                          <option key={lbl.id} value={lbl.id} className="text-white bg-[#282828]">
-                            {lbl.text} {hasLabel ? '✓' : ''}
-                          </option>
-                        );
-                      })}
-                      <option value="add-new" className="text-[var(--color-accent,#DF5504)] font-bold font-mono bg-[#282828]">
-                        ＋ ADD NEW LABEL...
-                      </option>
-                    </select>
-                    <button
-                      type="button"
-                      className="w-full h-full text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
-                    >
-                      <span>{isLabelManagerOpen ? 'Close Label Editor' : 'Manage Card Labels ▼'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Collapsible Label Selector Dropdown (Adjacent Drawer) */}
-              {isLabelManagerOpen && (
-                <div className="bg-[var(--color-dark-bg,#282828)] border border-[var(--color-dark-tertiary,#3D3D3D)] p-2.5 rounded mt-2 animate-fadeIn flex flex-col gap-2 font-mono text-xs">
-                  <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-1">
-                    <span className="font-bold text-[9px] uppercase text-gray-400">Toggle Card Labels (Active Only)</span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-1.5">
-                    {labels.filter(lbl => selectedCardForEdit.labelIds?.includes(lbl.id)).map(lbl => {
-                      return (
-                        <button
-                          key={lbl.id}
-                          type="button"
-                          onClick={async () => {
-                            await triggerHaptic();
-                            const currentIds = selectedCardForEdit.labelIds || [];
-                            const nextIds = currentIds.filter(id => id !== lbl.id);
-                            setSelectedCardForEdit({ ...selectedCardForEdit, labelIds: nextIds });
-                          }}
-                          className="text-[9px] font-black px-1.5 py-0.5 border border-white scale-105 shadow-[1px_1px_0px_0px_var(--color-shadow,#BCBCBC)] transition-all rounded flex items-center gap-1"
-                          style={{ backgroundColor: lbl.color, color: 'white' }}
-                        >
-                          {lbl.text} ✓
-                        </button>
-                      );
-                    })}
-                    {(!selectedCardForEdit.labelIds || selectedCardForEdit.labelIds.filter(id => labels.some(l => l.id === id)).length === 0) && (
-                      <span className="text-[9px] text-gray-500 italic">No active labels assigned. Use the dropdown above to add one.</span>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* 📁 DOCUMENT & RESOURCE STUDIO */}
-              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-                <div className="flex gap-2 items-center w-full mb-2.5">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await triggerHaptic();
-                      setIsDocsHelpOpen(!isDocsHelpOpen);
-                    }}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
-                    title="Documents Guide"
-                  >
-                    <span className="text-red-500 font-extrabold text-base">?</span>
-                  </button>
+              <div className="flex flex-col gap-0.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Document & Resource Studio</span>
+                <div className="flex items-center justify-between gap-2 mb-2.5 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    {/* Toggle Document Studio Panel expansion */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsDocStudioOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isDocStudioOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500/30'
+                      }`}
+                      title="Toggle Document Studio Vault"
+                    >
+                      <span className="text-sm">📁</span>
+                    </button>
 
-                  <button 
-                    type="button"
-                    onClick={async () => {
-                      await triggerHaptic();
-                      setIsDocStudioOpen(!isDocStudioOpen);
-                    }}
-                    className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
-                  >
-                    <span>Document & Resource Studio</span>
-                    <span className="text-[10px] ml-1 transition-transform" style={{ transform: isDocStudioOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-                  </button>
+                    {/* Toggle Document Studio Guide */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsDocsHelpOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isDocsHelpOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
+                      }`}
+                      title="Documents Guide"
+                    >
+                      <span className="text-red-500 font-extrabold text-base">❓</span>
+                    </button>
+                  </div>
+
+                  {/* Document Count Tally Badge Button */}
+                  {(() => {
+                    const docCount = (selectedCardForEdit.attachments?.length || 0) + (selectedCardForEdit.resources?.length || 0);
+                    return (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsDocStudioOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isDocStudioOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Document Studio"
+                      >
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Docs:</span>
+                        <span>{docCount}</span>
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Expandable Document Help Info Block */}
@@ -3715,11 +4144,179 @@ export default function App() {
                 {isDocStudioOpen && (
                   <div className="flex flex-col gap-3 mt-1.5 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 animate-fadeIn">
                   
+                  {/* 📁 Unified Document & Resource Index (Only visible if attachments exist) */}
+                  {(() => {
+                    const submissionAttachments = selectedCardForEdit.attachments?.filter(a => a.type === 'submission') || [];
+                    const supportingAttachments = selectedCardForEdit.attachments?.filter(a => a.type === 'supporting') || [];
+                    const citations = selectedCardForEdit.resources || [];
+                    const cloudLinks = selectedCardForEdit.attachments?.filter(a => a.type === 'cloud_link') || [];
+                    const totalItems = submissionAttachments.length + supportingAttachments.length + citations.length + cloudLinks.length;
+
+                    if (totalItems === 0) return null;
+
+                    return (
+                      <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2.5 text-left animate-fadeIn">
+                        <div className="flex justify-between items-center pb-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--color-accent,#DF5504)] flex items-center gap-1.5">
+                            <span>📁 Unified Document & Resource Index</span>
+                          </span>
+                          <span className="px-1.5 py-0.5 bg-[var(--color-accent,#DF5504)]/20 border border-[var(--color-accent,#DF5504)]/40 rounded-full text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold">
+                            {totalItems} Item{totalItems > 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        {/* Tidy List of launchable links */}
+                        <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
+                          {/* Submissions */}
+                          {submissionAttachments.map(file => (
+                            <button
+                              key={file.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                setLightboxFile(file);
+                              }}
+                              className="w-full text-left p-1.5 bg-[#1F1610] hover:bg-[#2C1D15] border border-orange-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-[var(--color-accent,#DF5504)]">
+                                🏆 [Submission] {file.name}
+                              </span>
+                              <span className="text-gray-500 text-[8px] flex-shrink-0">
+                                {Math.round((file.size || 0) / 1024)} KB ↗
+                              </span>
+                            </button>
+                          ))}
+
+                          {/* Supporting Files */}
+                          {supportingAttachments.map(file => (
+                            <button
+                              key={file.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                setLightboxFile(file);
+                              }}
+                              className="w-full text-left p-1.5 bg-[#12191F] hover:bg-[#1A2631] border border-blue-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-blue-400">
+                                🖇️ [Supporting] {file.name}
+                              </span>
+                              <span className="text-gray-500 text-[8px] flex-shrink-0">
+                                {Math.round((file.size || 0) / 1024)} KB ↗
+                              </span>
+                            </button>
+                          ))}
+
+                          {/* Citations */}
+                          {citations.map(cit => (
+                            <button
+                              key={cit.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                window.open(cit.url, '_blank');
+                              }}
+                              className="w-full text-left p-1.5 bg-[#18111F] hover:bg-[#241A2E] border border-purple-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-purple-400">
+                                📚 [Citation] {cit.title}
+                              </span>
+                              <span className="text-gray-500 text-[7px] truncate max-w-[100px] flex-shrink-0">
+                                {cit.url} ↗
+                              </span>
+                            </button>
+                          ))}
+
+                          {/* Cloud Links */}
+                          {cloudLinks.map(link => (
+                            <button
+                              key={link.id}
+                              type="button"
+                              onClick={async () => {
+                                await triggerHaptic();
+                                window.open(link.dataUrl, '_blank');
+                              }}
+                              className="w-full text-left p-1.5 bg-[#111F16] hover:bg-[#1B2F22] border border-green-950/40 rounded flex justify-between items-center gap-2 font-mono text-[9px] transition-colors cursor-pointer group"
+                            >
+                              <span className="truncate text-white font-bold group-hover:text-green-400">
+                                🌐 [Cloud Link] {link.name}
+                              </span>
+                              <span className="text-gray-500 text-[7px] truncate max-w-[100px] flex-shrink-0">
+                                {link.dataUrl} ↗
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Email Export Button */}
+                        <a
+                          href={`mailto:?subject=${encodeURIComponent(`Document Index Export: ${selectedCardForEdit.title}`)}&body=${encodeURIComponent(
+                            (() => {
+                              const bodyLines = [
+                                `Document and Resource Index for Task: "${selectedCardForEdit.title}"`,
+                                `========================================================\n`,
+                                `Total items: ${totalItems}\n`
+                              ];
+
+                              if (submissionAttachments.length > 0) {
+                                bodyLines.push(`🏆 CENTRAL SUBMISSIONS:`);
+                                submissionAttachments.forEach(a => {
+                                  bodyLines.push(`- ${a.name} (${Math.round((a.size || 0)/1024)} KB)`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              if (supportingAttachments.length > 0) {
+                                bodyLines.push(`🖇️ SUPPORTING DOCUMENTS:`);
+                                supportingAttachments.forEach(a => {
+                                  bodyLines.push(`- ${a.name} (${Math.round((a.size || 0)/1024)} KB)`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              if (citations.length > 0) {
+                                bodyLines.push(`📚 BIBLIOGRAPHY & CITATIONS:`);
+                                citations.forEach(c => {
+                                  bodyLines.push(`- ${c.title} : ${c.url}`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              if (cloudLinks.length > 0) {
+                                bodyLines.push(`🌐 CLOUD & DRIVE SHARED LINKS:`);
+                                cloudLinks.forEach(l => {
+                                  bodyLines.push(`- ${l.name} : ${l.dataUrl}`);
+                                });
+                                bodyLines.push('');
+                              }
+
+                              bodyLines.push(`----------------------------------------`);
+                              bodyLines.push(`Generated via MTRAx lite.`);
+                              return bodyLines.join('\n');
+                            })()
+                          )}`}
+                          onClick={async () => {
+                            await triggerHaptic();
+                            showToast("📧 Preparing index export email...");
+                          }}
+                          className="w-full text-center py-2 bg-[var(--color-accent,#DF5504)] text-white hover:opacity-90 font-bold uppercase text-[9px] tracking-wider rounded transition-all cursor-pointer block flex items-center justify-center gap-1.5"
+                        >
+                          <span>📬</span> Export Document Index via Email
+                        </a>
+                      </div>
+                    );
+                  })()}
+                  
                   {/* 1. CENTRAL SUBMISSION PORTAL */}
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">🏆 Central Submission Portal</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.attachments?.filter(a => a.type === 'submission').length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       {selectedCardForEdit.attachments?.find(a => a.type === 'submission') ? (
@@ -3750,6 +4347,9 @@ export default function App() {
                                   type="button"
                                   onClick={async () => {
                                     await triggerHaptic();
+                                    if (subFile.filePath) {
+                                      await deleteFile(subFile.filePath);
+                                    }
                                     const nextAttachments = selectedCardForEdit.attachments?.filter(a => a.id !== subFile.id) || [];
                                     setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
                                   }}
@@ -3774,12 +4374,13 @@ export default function App() {
                                 const file = e.target.files?.[0];
                                 if (file) {
                                   await triggerHaptic();
-                                  if (file.size > 1.5 * 1024 * 1024) {
-                                    alert('File size exceeds 1.5MB limit. Please attach a smaller compressed file.');
+                                  if (file.size > 50 * 1024 * 1024) {
+                                    alert('File size exceeds 50MB. Please attach a smaller compressed file.');
                                     return;
                                   }
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
+                                  try {
+                                    showToast("💾 Saving to native high-capacity filesystem...");
+                                    const { filePath, webUrl } = await saveFile(`${Date.now()}_${file.name}`, file);
                                     const nextAttachments = [
                                       ...(selectedCardForEdit.attachments || []),
                                       {
@@ -3788,13 +4389,17 @@ export default function App() {
                                         type: 'submission',
                                         size: file.size,
                                         mimeType: file.type,
-                                        dataUrl: event.target?.result as string,
+                                        filePath,
+                                        dataUrl: webUrl,
                                         addedAt: Date.now()
                                       } as FileAttachment
                                     ];
                                     setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
-                                  };
-                                  reader.readAsDataURL(file);
+                                    showToast("✓ Stored natively in app sandbox!");
+                                  } catch (error) {
+                                    console.error('File storage error:', error);
+                                    alert('Failed to store document in local sandbox.');
+                                  }
                                 }
                               }}
                             />
@@ -3808,7 +4413,12 @@ export default function App() {
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">🖇️ Supporting File Vault</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.attachments?.filter(a => a.type === 'supporting').length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       <div className="max-h-32 overflow-y-auto flex flex-col gap-1.5 pr-1">
@@ -3834,6 +4444,9 @@ export default function App() {
                                   type="button"
                                   onClick={async () => {
                                     await triggerHaptic();
+                                    if (file.filePath) {
+                                      await deleteFile(file.filePath);
+                                    }
                                     const nextAttachments = selectedCardForEdit.attachments?.filter(a => a.id !== file.id) || [];
                                     setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
                                   }}
@@ -3856,12 +4469,13 @@ export default function App() {
                             const file = e.target.files?.[0];
                             if (file) {
                               await triggerHaptic();
-                              if (file.size > 1.5 * 1024 * 1024) {
-                                alert('File size exceeds 1.5MB limit. Please attach a smaller compressed file.');
+                              if (file.size > 50 * 1024 * 1024) {
+                                alert('File size exceeds 50MB. Please attach a smaller compressed file.');
                                 return;
                               }
-                              const reader = new FileReader();
-                              reader.onload = (event) => {
+                              try {
+                                showToast("💾 Saving to native high-capacity filesystem...");
+                                const { filePath, webUrl } = await saveFile(`${Date.now()}_${file.name}`, file);
                                 const nextAttachments = [
                                   ...(selectedCardForEdit.attachments || []),
                                   {
@@ -3870,13 +4484,17 @@ export default function App() {
                                     type: 'supporting',
                                     size: file.size,
                                     mimeType: file.type,
-                                    dataUrl: event.target?.result as string,
+                                    filePath,
+                                    dataUrl: webUrl,
                                     addedAt: Date.now()
                                   } as FileAttachment
                                 ];
                                 setSelectedCardForEdit({ ...selectedCardForEdit, attachments: nextAttachments });
-                              };
-                              reader.readAsDataURL(file);
+                                showToast("✓ Stored natively in app sandbox!");
+                              } catch (error) {
+                                console.error('File storage error:', error);
+                                alert('Failed to store document in local sandbox.');
+                              }
                             }
                           }}
                         />
@@ -3888,7 +4506,12 @@ export default function App() {
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">📚 Bibliography & Citations</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.resources?.length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       {/* 🔍 RESEARCH & SEARCH ENGINE PORTAL */}
@@ -4059,11 +4682,30 @@ export default function App() {
                               const rows = (selectedCardForEdit.resources || [])
                                 .map(r => `"${r.title.replace(/"/g, '""')}","${r.url.replace(/"/g, '""')}"`)
                                 .join('\n');
-                              const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+                              
+                              const csvContent = headers + rows;
+                              const filename = `citations_${selectedCardForEdit.id}.csv`;
+
+                              try {
+                                const file = new File([csvContent], filename, { type: 'text/csv' });
+                                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                                  await navigator.share({
+                                    files: [file],
+                                    title: 'Citations Export',
+                                    text: `Resource citations for card ${selectedCardForEdit.title}`
+                                  });
+                                  showToast("📤 Share sheet opened successfully!");
+                                  return;
+                                }
+                              } catch (e) {
+                                console.warn("Web Share API files sharing not supported/failed:", e);
+                              }
+
+                              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                               const url = URL.createObjectURL(blob);
                               const a = document.createElement('a');
                               a.href = url;
-                              a.download = `citations_${selectedCardForEdit.id}.csv`;
+                              a.download = filename;
                               a.click();
                               URL.revokeObjectURL(url);
                             }}
@@ -4080,7 +4722,12 @@ export default function App() {
                   <details className="group border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] rounded p-2 overflow-hidden transition-all">
                     <summary className="font-bold font-mono text-[10px] uppercase tracking-wider text-white cursor-pointer list-none flex justify-between items-center select-none">
                       <span className="flex items-center gap-1.5">🌐 Cloud & Drives Links</span>
-                      <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-[#DF5504]/10 border border-[var(--color-accent,#DF5504)]/30 rounded-md text-[var(--color-accent,#DF5504)] text-[8px] font-mono font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.3)]">
+                          {selectedCardForEdit.attachments?.filter(a => a.type === 'cloud_link').length || 0}
+                        </span>
+                        <span className="text-gray-500 transition-transform group-open:rotate-180">▼</span>
+                      </div>
                     </summary>
                     <div className="mt-2.5 pt-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40 text-xs flex flex-col gap-2">
                       <div className="flex flex-col gap-1.5 font-mono">
@@ -4187,31 +4834,80 @@ export default function App() {
               </div>
 
               {/* 🧾 ASSOCIATED BUSINESS CLAIMS & RECEIPTS STUDIO */}
-              <div className="border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-4 mt-2">
-                <div className="flex gap-2 items-center w-full mb-2.5">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await triggerHaptic();
-                      setIsReceiptsLinkHelpOpen(!isReceiptsLinkHelpOpen);
-                    }}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer flex-shrink-0 bg-[#222222] border-2 border-[#2C2C2C] shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2]"
-                    title="Receipts Linking Guide"
-                  >
-                    <span className="text-red-500 font-extrabold text-base">?</span>
-                  </button>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-400">Receipts</span>
+                <div className="flex items-center justify-between gap-2 mb-2.5 mt-1">
+                  <div className="flex items-center gap-1.5">
+                    {/* Launch global Receipts modal */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsReceiptsOpen(true);
+                      }}
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent border-transparent text-gray-400 hover:text-white hover:border-gray-500/30 hover:scale-105"
+                      title="Launch Global Receipts Tracker"
+                    >
+                      <span className="text-sm">🧾</span>
+                    </button>
 
-                  <button 
-                    type="button"
-                    onClick={async () => {
-                      await triggerHaptic();
-                      setIsReceiptStudioOpen(!isReceiptStudioOpen);
-                    }}
-                    className="flex-grow h-10 sm:h-11 text-xs font-mono font-black tracking-wider uppercase flex items-center justify-center gap-2 rounded-lg transition-all bg-[#DF5504] border-2 border-[#E96213] text-white shadow-[3px_3px_0px_0px_#A2A2A2] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_#A2A2A2] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_#A2A2A2] cursor-pointer"
-                  >
-                    <span>Business Claims & Receipts ({receipts.filter(r => r.cardId === selectedCardForEdit.id).length})</span>
-                    <span className="text-[10px] ml-1 transition-transform" style={{ transform: isReceiptStudioOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-                  </button>
+                    {/* Toggle Receipts Guide */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsReceiptsLinkHelpOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isReceiptsLinkHelpOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-red-500 hover:border-gray-500/30'
+                      }`}
+                      title="Receipts Guide"
+                    >
+                      <span className="text-red-500 font-extrabold text-base">❓</span>
+                    </button>
+
+                    {/* Toggle Local Linking Panel */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setIsReceiptStudioOpen(prev => !prev);
+                      }}
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-lg flex items-center justify-center font-black transition-all cursor-pointer border-2 bg-transparent hover:scale-105 ${
+                        isReceiptStudioOpen 
+                          ? 'border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.2)]' 
+                          : 'border-transparent text-green-500 hover:border-gray-500/30'
+                      }`}
+                      title="Toggle Local Linker Panel"
+                    >
+                      <span className="text-sm">＋</span>
+                    </button>
+                  </div>
+
+                  {/* Claims Tally Badge Button */}
+                  {(() => {
+                    const claimCount = receipts.filter(r => r.cardId === selectedCardForEdit.id).length;
+                    return (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setIsReceiptStudioOpen(prev => !prev);
+                        }}
+                        className={`px-3 py-1.5 border rounded-lg font-black font-mono text-xs flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.4)] transition-all active:translate-y-0.5 cursor-pointer ${
+                          isReceiptStudioOpen
+                            ? 'bg-[var(--color-accent,#DF5504)]/20 border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)] shadow-[0_0_10px_rgba(223,85,4,0.15)]'
+                            : 'bg-[#DF5504]/10 border-[var(--color-accent,#DF5504)]/40 hover:border-[var(--color-accent,#DF5504)] text-[var(--color-accent,#DF5504)]'
+                        }`}
+                        title="Toggle Claims Linker"
+                      >
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">Claims:</span>
+                        <span>{claimCount}</span>
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {isReceiptsLinkHelpOpen && (
@@ -4317,52 +5013,807 @@ export default function App() {
               </div>
             </div>
 
+              </div>
+
             {/* Actions */}
-            <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
-              <button 
-                onClick={() => {
-                  setSelectedCardForEdit(null);
-                  setIsLabelManagerOpen(false);
-                  setIsCardSessionLogExpanded(false);
-                }}
-                className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={async () => {
-                  if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
+            <div className="flex flex-col sm:flex-row gap-3 justify-between mt-4 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]">
+              {/* Left Actions: Delete, Archive, and Share */}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const deleted = await handleDeleteCard(selectedCardForEdit.id);
+                    if (deleted) {
+                      setSelectedCardForEdit(null);
+                      setIsLabelManagerOpen(false);
+                      setIsCardSessionLogExpanded(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 border-2 border-red-900 bg-red-950/40 hover:bg-red-900/60 text-red-300 font-bold text-xs uppercase rounded transition-colors cursor-pointer"
+                  title="Permanently delete task card"
+                >
+                  🗑️ Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const currentlyArchived = !!selectedCardForEdit.isArchived;
+                    await handleArchiveCard(selectedCardForEdit.id, !currentlyArchived);
+                    setSelectedCardForEdit(null);
+                    setIsLabelManagerOpen(false);
+                    setIsCardSessionLogExpanded(false);
+                  }}
+                  className="px-3 py-1.5 border-2 border-amber-900 bg-amber-950/20 hover:bg-amber-900/40 text-amber-300 font-bold text-xs uppercase rounded transition-colors cursor-pointer"
+                >
+                  {selectedCardForEdit.isArchived ? "📥 Restore" : "📦 Archive"}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
                     await triggerHaptic();
+                    try {
+                      // Compact the card object to keep the URL extremely short and clean
+                      const compactCard = {
+                        id: selectedCardForEdit.id,
+                        title: selectedCardForEdit.title,
+                        description: selectedCardForEdit.description || '',
+                        checklists: selectedCardForEdit.checklists || [],
+                        labelIds: selectedCardForEdit.labelIds || []
+                      };
+                      
+                      // Base64 encode securely (supports UTF-8 emojis/characters perfectly)
+                      const jsonStr = JSON.stringify(compactCard);
+                      const base64Payload = window.btoa(unescape(encodeURIComponent(jsonStr)));
+                      const shareUrl = `mtrax://import?card=${base64Payload}`;
+                      
+                      // Trigger native Share Sheet
+                      const shareData = {
+                        title: `Share Card: ${selectedCardForEdit.title}`,
+                        text: `Import this task card directly into your MTRAx lite board:`,
+                        url: shareUrl
+                      };
+                      
+                      // If web client fallback, copy to clipboard
+                      if (navigator.share) {
+                        await navigator.share(shareData);
+                      } else {
+                        await navigator.clipboard.writeText(shareUrl);
+                        showToast("📋 Copied custom import link to clipboard!");
+                      }
+                    } catch (err) {
+                      console.error("Failed to share card deep link:", err);
+                      showToast("⚠️ Failed to generate card share link");
+                    }
+                  }}
+                  className="px-3 py-1.5 border-2 border-indigo-900 bg-indigo-950/20 hover:bg-indigo-900/40 text-indigo-300 font-bold text-xs uppercase rounded transition-colors cursor-pointer"
+                  title="Share card as custom link via Messages"
+                >
+                  📤 Share Link
+                </button>
+              </div>
+
+              {/* Right Actions: Cancel & Save */}
+              <div className="flex gap-2 justify-end">
+                {isReadOnly ? (
+                  <button 
+                    onClick={async () => {
+                      await triggerHaptic();
+                      navigateWithCheck(() => {
+                        setSelectedCardForEdit(null);
+                        setIsLabelManagerOpen(false);
+                        setIsCardSessionLogExpanded(false);
+                      });
+                    }}
+                    className="px-5 py-2 bg-gray-600 hover:bg-gray-500 text-white font-bold text-xs uppercase rounded cursor-pointer transition-colors"
+                  >
+                    Close Viewer
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      onClick={async () => {
+                        await triggerHaptic();
+                        navigateWithCheck(() => {
+                          setSelectedCardForEdit(null);
+                          setIsLabelManagerOpen(false);
+                          setIsCardSessionLogExpanded(false);
+                        });
+                      }}
+                      className="px-4 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white font-bold text-xs uppercase rounded cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
+                          await triggerHaptic();
+                          showToast("⚠️ Task title is required to save the card!");
+                          return;
+                        }
+                        if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
+                          await triggerHaptic();
+                          showToast("⚠️ Task description is empty! Please write a summary.");
+                          return;
+                        }
+                        await triggerHaptic();
+                        const exists = cards.some(c => c.id === selectedCardForEdit.id);
+                        const updatedCards = exists 
+                          ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
+                          : [...cards, selectedCardForEdit];
+                        await saveCards(updatedCards);
+
+                        // Phase 5: Trigger Native iOS Integrations
+                        if (isNative && selectedCardForEdit.dueDate) {
+                          await scheduleLocalAlarm(selectedCardForEdit);
+                          await syncToAppleCalendar(selectedCardForEdit);
+                        }
+
+                        setSelectedCardForEdit(null);
+                        setIsLabelManagerOpen(false);
+                        setIsCardSessionLogExpanded(false);
+                      }}
+                      className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
+                    >
+                      Save Changes
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ UNSAVED CHANGES CONTROLLER OVERLAY MODAL */}
+      {pendingNavigationAction && selectedCardForEdit && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[260] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-sm bg-[#181818] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 text-left">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2.5">
+              <span className="text-amber-500 font-black uppercase flex items-center gap-1.5 text-[11px] tracking-wider animate-pulse">
+                ⚠️ UNSAVED CHANGES DETECTED
+              </span>
+            </div>
+
+            {/* Warning Body */}
+            <div className="text-gray-300 leading-relaxed text-[11px] flex flex-col gap-2">
+              <span>You have modified <strong>"{selectedCardForEdit.title || 'this task card'}"</strong> but have not saved your changes yet.</span>
+              <span className="text-gray-400 font-bold uppercase text-[9px]">Would you like to save or discard these modifications before switching screens?</span>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+              {/* Option A: Save & Proceed */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  if (!selectedCardForEdit.title || !selectedCardForEdit.title.trim()) {
                     showToast("⚠️ Task title is required to save the card!");
                     return;
                   }
-                  if (!selectedCardForEdit.description || !selectedCardForEdit.description.trim()) {
-                    await triggerHaptic();
-                    showToast("⚠️ Task description is empty! Please write a summary.");
-                    return;
-                  }
-                  await triggerHaptic();
+                  
+                  // Save the current card state
                   const exists = cards.some(c => c.id === selectedCardForEdit.id);
                   const updatedCards = exists 
                     ? cards.map(c => c.id === selectedCardForEdit.id ? selectedCardForEdit : c)
                     : [...cards, selectedCardForEdit];
                   await saveCards(updatedCards);
-
-                  // Phase 5: Trigger Native iOS Integrations
-                  if (isNative && selectedCardForEdit.dueDate) {
-                    await scheduleLocalAlarm(selectedCardForEdit);
-                    await syncToAppleCalendar(selectedCardForEdit);
-                  }
-
+                  showToast("💾 Saved changes successfully!");
+                  
+                  // Reset modal states
                   setSelectedCardForEdit(null);
                   setIsLabelManagerOpen(false);
+                  setIsCardHelpOpen(false);
                   setIsCardSessionLogExpanded(false);
+
+                  // Execute the delayed navigation callback
+                  const action = pendingNavigationAction;
+                  setPendingNavigationAction(null);
+                  action();
                 }}
-                className="px-4 py-1.5 bento-btn text-white hover:opacity-90 font-bold text-xs uppercase rounded cursor-pointer"
+                className="w-full px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase text-[10px] tracking-wider rounded transition-colors cursor-pointer text-center shadow-[2px_2px_0px_0px_#000] active:translate-y-0.5"
               >
-                Save Changes
+                💾 Save Changes & Proceed
+              </button>
+
+              {/* Option B: Discard & Proceed */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  // Reset modal states without saving
+                  setSelectedCardForEdit(null);
+                  setIsLabelManagerOpen(false);
+                  setIsCardHelpOpen(false);
+                  setIsCardSessionLogExpanded(false);
+
+                  // Execute the delayed navigation callback
+                  const action = pendingNavigationAction;
+                  setPendingNavigationAction(null);
+                  action();
+                }}
+                className="w-full px-3 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/30 font-bold uppercase text-[10px] tracking-wider rounded transition-colors cursor-pointer text-center active:translate-y-0.5"
+              >
+                🗑️ Discard Changes
+              </button>
+
+              {/* Option C: Keep Editing (Cancel Navigation) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  // Simply cancel navigation
+                  setPendingNavigationAction(null);
+                }}
+                className="w-full py-1.5 bg-transparent hover:bg-white/5 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 font-mono text-[9px] uppercase rounded transition-colors cursor-pointer text-center"
+              >
+                ✕ Keep Editing
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📥 DEEP-LINK CARD IMPORT & VERSIONING OVERLAY MODAL */}
+      {incomingSharedCard && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[300] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-[#181818] border-2 border-amber-600/80 p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 text-left">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-amber-600/40 pb-2.5">
+              <span className="text-amber-500 font-black uppercase flex items-center gap-1.5 text-[11px] tracking-wider animate-pulse">
+                ⚠️ MANDATORY PRIVACY DISCLAIMER
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIncomingSharedCard(null);
+                  setIsShareAcknowledgementChecked(false);
+                }}
+                className="text-gray-400 hover:text-white transition-colors border-none bg-transparent cursor-pointer font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Alert/Warning Body */}
+            <div className="flex flex-col gap-3 text-gray-300 leading-relaxed text-[11px]">
+              <div className="p-2.5 bg-amber-950/20 border border-amber-800/40 rounded flex flex-col gap-1.5 text-amber-300">
+                <span className="font-extrabold uppercase tracking-wide text-xs">🔒 PRIVATE-BY-DESIGN OFFLINE MODE</span>
+                <span>MTRAx lite has <strong>NO server</strong> infrastructure. We do not track, capture, store, or intercept your data. Any card you share or receive is processed locally on-device.</span>
+              </div>
+
+              <div className="p-2.5 bg-indigo-950/20 border border-indigo-800/40 rounded flex flex-col gap-1.5 text-indigo-300">
+                <span className="font-extrabold uppercase tracking-wide text-xs">📝 STATIC SNAPSHOT, NOT A LIVE SHARE</span>
+                <span>This is a <strong>one-time static clone</strong> of the card at the exact moment it was sent. Your edits will <strong>not</strong> affect the sender, and future changes they make will not sync to your device.</span>
+              </div>
+
+              {/* Version Control Logic */}
+              {(() => {
+                const existingCard = cards.find(c => c.id === incomingSharedCard.id);
+                if (existingCard) {
+                  return (
+                    <div className="p-3 bg-red-950/30 border border-red-800/50 rounded flex flex-col gap-2 text-red-300">
+                      <span className="font-extrabold uppercase tracking-wide text-xs">🔄 CARD VERSION DETECTED</span>
+                      <span>You already have a version of <strong>"{existingCard.title}"</strong> on your board (currently in column: <em>{lists.find(l => l.id === existingCard.listId)?.name || 'Unassigned'}</em>).</span>
+                      <span className="text-gray-400 text-[10px]">Tapping <strong>"Overwrite / Update"</strong> will safely replace your local copy with the incoming one, preserving its current board list column position.</span>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="p-3 bg-green-950/20 border border-green-800/40 rounded flex flex-col gap-1.5 text-green-300">
+                      <span className="font-extrabold uppercase tracking-wide text-xs">🆕 NEW CARD IMPORT DETECTED</span>
+                      <span>Card title: <strong>"{incomingSharedCard.title}"</strong> will be added as a brand new task under your <strong>"{lists[0]?.name || 'To Do'}"</strong> column list.</span>
+                    </div>
+                  );
+                }
+              })()}
+
+              {/* Mandatory Checklist Acknowledge */}
+              <label className="flex items-start gap-2.5 mt-2 p-2 bg-black/30 border border-[var(--color-dark-tertiary,#3D3D3D)]/40 rounded cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isShareAcknowledgementChecked}
+                  onChange={(e) => setIsShareAcknowledgementChecked(e.target.checked)}
+                  className="mt-0.5 rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] cursor-pointer"
+                />
+                <span className="text-gray-400 font-bold text-[10px] uppercase leading-snug">
+                  I acknowledge this is an offline snapshot, not a live sync, and that MTRAx lite does not host or sync my data.
+                </span>
+              </label>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col gap-2 mt-2 pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/40">
+              {(() => {
+                const existingCard = cards.find(c => c.id === incomingSharedCard.id);
+                if (existingCard) {
+                  return (
+                    <div className="flex gap-2 w-full justify-between">
+                      <button
+                        type="button"
+                        disabled={!isShareAcknowledgementChecked}
+                        onClick={async () => {
+                          await triggerHaptic();
+                          // Overwrite existing card, preserving current listId
+                          const updatedCards = cards.map(c => 
+                            c.id === incomingSharedCard.id 
+                              ? { ...incomingSharedCard, listId: c.listId } // Keep current local column
+                              : c
+                          );
+                          await saveCards(updatedCards);
+                          showToast("🔄 Successfully updated existing card!");
+                          setIncomingSharedCard(null);
+                          setIsShareAcknowledgementChecked(false);
+                        }}
+                        className={`flex-grow px-3 py-2 border-2 border-red-900 bg-red-950/40 text-red-300 font-black uppercase text-[10px] tracking-wider rounded transition-opacity cursor-pointer ${!isShareAcknowledgementChecked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-red-900/60 active:translate-y-0.5'}`}
+                      >
+                        🔄 Overwrite / Update
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isShareAcknowledgementChecked}
+                        onClick={async () => {
+                          await triggerHaptic();
+                          // Duplicate with a brand new random UUID
+                          const duplicateCard = {
+                            ...incomingSharedCard,
+                            id: `card_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                            listId: lists[0]?.id || 'todo'
+                          };
+                          await saveCards([...cards, duplicateCard]);
+                          showToast("👯 Imported as separate duplicate card!");
+                          setIncomingSharedCard(null);
+                          setIsShareAcknowledgementChecked(false);
+                        }}
+                        className={`flex-grow px-3 py-2 border-2 border-indigo-900 bg-indigo-950/20 text-indigo-300 font-black uppercase text-[10px] tracking-wider rounded transition-opacity cursor-pointer ${!isShareAcknowledgementChecked ? 'opacity-30 cursor-not-allowed' : 'hover:bg-indigo-900/40 active:translate-y-0.5'}`}
+                      >
+                        👯 Import as Duplicate
+                      </button>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <button
+                      type="button"
+                      disabled={!isShareAcknowledgementChecked}
+                      onClick={async () => {
+                        await triggerHaptic();
+                        // Import new card, place in first list column
+                        const newCard = {
+                          ...incomingSharedCard,
+                          listId: lists[0]?.id || 'todo'
+                        };
+                        await saveCards([...cards, newCard]);
+                        showToast("📥 Successfully imported new task card!");
+                        setIncomingSharedCard(null);
+                        setIsShareAcknowledgementChecked(false);
+                      }}
+                      className={`w-full px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-black uppercase text-xs tracking-wider rounded transition-opacity cursor-pointer flex justify-center items-center gap-1.5 shadow-[4px_4px_0px_0px_#000] active:translate-y-0.5 ${!isShareAcknowledgementChecked ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    >
+                      📥 Acknowledge & Import Card
+                    </button>
+                  );
+                }
+              })()}
+              <button
+                type="button"
+                onClick={async () => {
+                  await triggerHaptic();
+                  setIncomingSharedCard(null);
+                  setIsShareAcknowledgementChecked(false);
+                }}
+                className="w-full py-1.5 bg-transparent hover:bg-white/5 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 font-mono text-[10px] uppercase rounded transition-colors cursor-pointer text-center"
+              >
+                Cancel / Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📋 ROOMY SLEEK CHECKLIST OVERLAY MODAL */}
+      {isChecklistModalOpen && selectedCardForEdit && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[220] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-[#181818] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 text-left">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2.5">
+              <span className="text-white font-black uppercase flex items-center gap-1.5 text-[11px] tracking-wider">
+                📋 Sub-Task Checklist
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChecklistModalOpen(false);
+                  setFocusedChecklistItemId(null);
+                }}
+                className="text-gray-400 hover:text-white font-black text-sm cursor-pointer select-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Sleek Add Task Input Bar at the top */}
+            <div className="flex items-center gap-2 bg-black/35 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 p-2 rounded focus-within:border-[var(--color-accent,#DF5504)] focus-within:bg-black/50 transition-all">
+              <span className="text-[14px] font-black text-[var(--color-accent,#DF5504)] select-none pl-1">＋</span>
+              <input 
+                type="text"
+                placeholder="Add new sub-task... (Press Enter)"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const input = e.target as HTMLInputElement;
+                    const text = input.value.trim();
+                    if (!text) return;
+                    await triggerHaptic();
+
+                    const checklistId = selectedCardForEdit.checklists?.[0]?.id || `cl-${Date.now()}`;
+                    const newItem = {
+                      id: `item-${Date.now()}`,
+                      text,
+                      isChecked: false,
+                      dueDate: null
+                    };
+
+                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                      if (idx === 0) {
+                        return {
+                          ...cl,
+                          items: [...(cl.items || []), newItem]
+                        };
+                      }
+                      return cl;
+                    }) || [{
+                      id: checklistId,
+                      title: "Default",
+                      items: [newItem]
+                    }];
+
+                    setSelectedCardForEdit({
+                      ...selectedCardForEdit,
+                      checklists: updatedChecklists
+                    });
+                    input.value = '';
+                  }
+                }}
+                className="flex-grow bg-transparent border-none p-0 text-[11px] text-white placeholder-gray-500 focus:ring-0 focus:outline-none font-mono"
+              />
+            </div>
+
+            {/* Roomy scrollable Checklist items list */}
+            <div className="flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-1">
+              {(() => {
+                const items = selectedCardForEdit.checklists?.[0]?.items || [];
+                if (items.length === 0) {
+                  return (
+                    <div className="text-center py-8 bg-black/15 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/30 rounded text-gray-500 italic">
+                      No sub-tasks. Type above to add your first task!
+                    </div>
+                  );
+                }
+
+                // Sort checklist items so active ones come first
+                const sortedItems = [...items].sort((a, b) => (a.isChecked ? 1 : 0) - (b.isChecked ? 1 : 0));
+
+                return sortedItems.map(item => {
+                  const isFocused = focusedChecklistItemId === item.id;
+                  return (
+                    <div 
+                      key={item.id}
+                      onClick={async () => {
+                        await triggerHaptic();
+                        setFocusedChecklistItemId(isFocused ? null : item.id);
+                      }}
+                      className={`flex justify-between items-center gap-2 border p-2.5 rounded font-mono text-[11px] transition-all cursor-pointer ${
+                        isFocused 
+                          ? 'border-[var(--color-accent,#DF5504)] bg-black/60 shadow-[0_0_8px_rgba(223,85,4,0.3)]' 
+                          : 'border-[var(--color-dark-tertiary,#3D3D3D)]/40 bg-black/25 hover:bg-black/40'
+                      }`}
+                    >
+                      {/* Checkbox and Text */}
+                      <div className="flex items-center gap-2.5 flex-grow select-none overflow-hidden">
+                        <input 
+                          type="checkbox"
+                          checked={item.isChecked}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={async () => {
+                            await triggerHaptic();
+                            const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                              if (idx === 0) {
+                                  return {
+                                    ...cl,
+                                    items: cl.items.map(it => it.id === item.id ? { ...it, isChecked: !it.isChecked } : it)
+                                  };
+                              }
+                              return cl;
+                            }) || [];
+                            setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                          }}
+                          className="rounded border-[var(--color-dark-tertiary,#3D3D3D)] text-[var(--color-accent,#DF5504)] focus:ring-[var(--color-accent,#DF5504)] bg-black/40 w-4 h-4 cursor-pointer flex-shrink-0"
+                        />
+                        <span className={`text-white transition-all text-[11px] ${
+                          isFocused 
+                            ? 'whitespace-normal break-words overflow-visible' 
+                            : 'truncate'
+                        } ${item.isChecked ? 'line-through text-gray-500' : ''}`}>
+                          {item.text}
+                        </span>
+                      </div>
+
+                      {/* Actions: Edit / Notification / Delete */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {item.dueDate && (
+                          <span className="text-[8px] text-[var(--color-accent,#DF5504)] font-bold px-1.5 py-0.5 bg-[#DF5504]/10 rounded border border-[#DF5504]/25 flex items-center gap-0.5">
+                            ⏰ {new Date(item.dueDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        )}
+
+                        {/* Bell Button (Assign alarm / notifications) */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setSubTaskModalItem(item);
+                            setSubTaskModalText(item.text);
+                            setSubTaskModalDueDate(item.dueDate || null);
+                          }}
+                          className="p-1 text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors text-[10px] cursor-pointer"
+                          title="Assign Date & Time Alarm"
+                        >
+                          🔔
+                        </button>
+
+                        {/* Pencil Edit Button (Edit task text name) */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            setSubTaskModalItem(item);
+                            setSubTaskModalText(item.text);
+                            setSubTaskModalDueDate(item.dueDate || null);
+                          }}
+                          className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors text-[10px] cursor-pointer"
+                          title="Edit Task Name"
+                        >
+                          ✏️
+                        </button>
+
+                        {/* Delete sub-task item */}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerHaptic();
+                            if (confirm(`Delete sub-task "${item.text}"?`)) {
+                              const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                                if (idx === 0) {
+                                  return {
+                                    ...cl,
+                                    items: cl.items.filter(it => it.id !== item.id)
+                                  };
+                                }
+                                return cl;
+                              }) || [];
+                              setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists });
+                            }
+                          }}
+                          className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors text-[10px] cursor-pointer"
+                          title="Delete Subtask"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Close button at the bottom */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsChecklistModalOpen(false);
+                setFocusedChecklistItemId(null);
+              }}
+              className="w-full mt-2 py-2 bg-[var(--color-dark-tertiary,#3D3D3D)] hover:bg-[var(--color-dark-tertiary)]/80 text-white font-bold uppercase rounded text-[10px] tracking-wide cursor-pointer transition-colors"
+            >
+              Close Checklist
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 📝 ROOMY SUB-TASK POPUP EDITOR MODAL */}
+      {subTaskModalItem && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-sm bg-[#1E1E1E] border-2 border-[var(--color-accent,#DF5504)] p-5 rounded-lg shadow-[8px_8px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 text-left animate-fadeIn">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-[var(--color-dark-tertiary,#3D3D3D)]/40 pb-2.5">
+              <span className="text-white font-black uppercase flex items-center gap-1.5 text-[11px] tracking-wider">
+                📝 Manage Sub-Task
+              </span>
+              <button
+                type="button"
+                onClick={() => setSubTaskModalItem(null)}
+                className="text-gray-400 hover:text-white font-black text-xs cursor-pointer select-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Task Description Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Task Name</label>
+              <input 
+                type="text"
+                value={subTaskModalText}
+                onChange={(e) => setSubTaskModalText(e.target.value)}
+                placeholder="Enter sub-task description..."
+                className="w-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded p-2 text-white font-mono text-xs focus:border-[var(--color-accent,#DF5504)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent,#DF5504)]"
+              />
+            </div>
+
+            {/* Alarm/Reminder Section */}
+            <div className="flex flex-col gap-2 bg-black/25 border border-[var(--color-dark-tertiary,#3D3D3D)]/50 p-3 rounded">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide flex items-center gap-1">
+                ⏰ Sub-Task Alarm
+              </span>
+              
+              <div className="flex flex-col gap-1.5 mt-1">
+                <input
+                  type="datetime-local"
+                  value={formatTimestampToDatetimeLocal(subTaskModalDueDate)}
+                  onChange={(e) => {
+                    const parsed = e.target.value ? Date.parse(e.target.value) : null;
+                    setSubTaskModalDueDate(parsed);
+                  }}
+                  className="w-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded p-1.5 text-white font-mono text-[11px] focus:border-[var(--color-accent,#DF5504)] focus:outline-none"
+                />
+              </div>
+
+              {/* Alarm Helper Presets for Premium UX */}
+              <div className="flex flex-wrap gap-1 mt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setSubTaskModalDueDate(Date.now() + 15 * 60 * 1000); // 15 mins
+                  }}
+                  className="px-2 py-1 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-400 rounded text-[9px] text-gray-300 font-bold cursor-pointer"
+                >
+                  +15m
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setSubTaskModalDueDate(Date.now() + 60 * 60 * 1000); // 1 hr
+                  }}
+                  className="px-2 py-1 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-400 rounded text-[9px] text-gray-300 font-bold cursor-pointer"
+                >
+                  +1h
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    tomorrow.setHours(9, 0, 0, 0);
+                    setSubTaskModalDueDate(tomorrow.getTime());
+                  }}
+                  className="px-2 py-1 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-gray-400 rounded text-[9px] text-gray-300 font-bold cursor-pointer"
+                >
+                  Tomorrow (9 AM)
+                </button>
+              </div>
+
+              {subTaskModalDueDate && (
+                <div className="flex justify-between items-center text-[10px] text-[var(--color-accent,#DF5504)] font-bold mt-1 bg-[#DF5504]/5 p-1 rounded border border-[#DF5504]/20">
+                  <span>⏰ Scheduled Alarm</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setSubTaskModalDueDate(null);
+                      showToast("🗑️ Sub-task alarm cleared!");
+                    }}
+                    className="text-red-500 hover:text-red-400 uppercase text-[9px] font-black cursor-pointer"
+                  >
+                    Clear ×
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Bottom Actions */}
+            <div className="flex justify-between items-center gap-2 border-t border-[var(--color-dark-tertiary,#3D3D3D)] pt-3 mt-1">
+              {/* Delete task button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!selectedCardForEdit) return;
+                  await triggerHaptic();
+                  if (subTaskModalItem.dueDate) {
+                    await cancelChecklistItemAlarm(subTaskModalItem);
+                  }
+                  const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                    if (idx === 0) {
+                      return {
+                        ...cl,
+                        items: cl.items.filter(it => it.id !== subTaskModalItem.id)
+                      };
+                    }
+                    return cl;
+                  }) || [];
+                  setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists } as Card);
+                  setSubTaskModalItem(null);
+                  showToast("🗑️ Sub-task deleted successfully");
+                }}
+                className="px-2.5 py-1.5 border border-red-900 bg-red-950/20 hover:bg-red-900/40 text-red-400 font-bold uppercase rounded text-[10px] cursor-pointer"
+                title="Delete this sub-task item"
+              >
+                🗑️ Delete
+              </button>
+
+              <div className="flex gap-1.5">
+                {/* Cancel button */}
+                <button
+                  type="button"
+                  onClick={() => setSubTaskModalItem(null)}
+                  className="px-3 py-1.5 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:bg-white/5 text-white font-bold uppercase rounded text-[10px] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                {/* Save Changes button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selectedCardForEdit) return;
+                    if (!subTaskModalText || !subTaskModalText.trim()) {
+                      await triggerHaptic();
+                      showToast("⚠️ Sub-task description cannot be empty!");
+                      return;
+                    }
+                    await triggerHaptic();
+
+                    // If alarm is defined, cancel previous and set up the new one!
+                    const updatedItem = {
+                      ...subTaskModalItem,
+                      text: subTaskModalText.trim(),
+                      dueDate: subTaskModalDueDate
+                    };
+
+                    // Handle LocalNotification scheduling/cancelling
+                    if (subTaskModalDueDate) {
+                      await scheduleChecklistItemAlarm(selectedCardForEdit.title || '', updatedItem);
+                    } else if (subTaskModalItem.dueDate) {
+                      await cancelChecklistItemAlarm(subTaskModalItem);
+                    }
+
+                    const updatedChecklists = selectedCardForEdit.checklists?.map((cl, idx) => {
+                      if (idx === 0) {
+                        return {
+                          ...cl,
+                          items: cl.items.map(it => it.id === subTaskModalItem.id ? updatedItem : it)
+                        };
+                      }
+                      return cl;
+                    }) || [];
+
+                    setSelectedCardForEdit({ ...selectedCardForEdit, checklists: updatedChecklists } as Card);
+                    setSubTaskModalItem(null);
+                    showToast("💾 Sub-task changes saved!");
+                  }}
+                  className="px-3 py-1.5 bento-btn text-white font-bold uppercase rounded text-[10px] cursor-pointer"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -4645,11 +6096,28 @@ export default function App() {
                       }
                     });
                     const csvContent = csvRows.map(row => row.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
+                    const filename = `mtrax_focus_session_logs_${Date.now()}.csv`;
+
+                    try {
+                      const file = new File([csvContent], filename, { type: 'text/csv' });
+                      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                          files: [file],
+                          title: 'Focus Session Logs Export',
+                          text: 'Here is your exported focus session logs CSV from MTRAx lite.'
+                        });
+                        showToast("📤 Share sheet opened successfully!");
+                        return;
+                      }
+                    } catch (e) {
+                      console.warn("Web Share API files sharing not supported/failed:", e);
+                    }
+
                     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement("a");
                     link.setAttribute("href", url);
-                    link.setAttribute("download", `triage_focus_session_logs_${Date.now()}.csv`);
+                    link.setAttribute("download", filename);
                     link.click();
                     showToast("📥 CSV Export downloaded successfully!");
                   }}
@@ -5023,7 +6491,7 @@ export default function App() {
               </div>
 
               <a
-                href={`mailto:?subject=Triage%20Task%3A%20${encodeURIComponent(selectedCardForEdit.title)}&body=Task%20Details%3A%0A%0A-%20Title%3A%20${encodeURIComponent(selectedCardForEdit.title)}%0A-%20Description%3A%20${encodeURIComponent(selectedCardForEdit.description || 'No description provided')}%0A-%20Due%20Date%3A%20${selectedCardForEdit.dueDate ? encodeURIComponent(new Date(selectedCardForEdit.dueDate).toLocaleString()) : 'Not set'}%0A%0AStay%20Focused!`}
+                href={`mailto:?subject=MTRAx%20Task%3A%20${encodeURIComponent(selectedCardForEdit.title)}&body=Task%20Details%3A%0A%0A-%20Title%3A%20${encodeURIComponent(selectedCardForEdit.title)}%0A-%20Description%3A%20${encodeURIComponent(selectedCardForEdit.description || 'No description provided')}%0A-%20Due%20Date%3A%20${selectedCardForEdit.dueDate ? encodeURIComponent(new Date(selectedCardForEdit.dueDate).toLocaleString()) : 'Not set'}%0A%0AStay%20Focused!`}
                 onClick={async () => {
                   await triggerHaptic();
                   showToast("📧 Opening native mail app...");
@@ -5032,6 +6500,144 @@ export default function App() {
               >
                 <span>📧</span> Send Email Reminder
               </a>
+            </div>
+
+            {/* 🗓️ Card Alarms Agenda Timeline (Calendar List) */}
+            <div className="p-3 bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded flex flex-col gap-2.5 text-left mt-1.5">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-500 flex justify-between items-center w-full">
+                <span>🗓️ Card Alarms Agenda Timeline</span>
+                <span className="text-gray-500 text-[8px]">Chronological</span>
+              </span>
+
+              {(() => {
+                // Gather all alarm entries
+                const agendaItems: Array<{
+                  type: 'primary' | 'subtask';
+                  title: string;
+                  dueDate: number;
+                  originalItem?: ChecklistItem;
+                }> = [];
+
+                if (selectedCardForEdit.dueDate) {
+                  agendaItems.push({
+                    type: 'primary',
+                    title: '🚨 Main Card Deadline alert',
+                    dueDate: selectedCardForEdit.dueDate
+                  });
+                }
+
+                selectedCardForEdit.checklists?.[0]?.items?.forEach(it => {
+                  if (it.dueDate) {
+                    agendaItems.push({
+                      type: 'subtask',
+                      title: `⏰ Sub-task: "${it.text}"`,
+                      dueDate: it.dueDate,
+                      originalItem: it
+                    });
+                  }
+                });
+
+                // Sort chronologically by due date
+                agendaItems.sort((a, b) => a.dueDate - b.dueDate);
+
+                if (agendaItems.length === 0) {
+                  return (
+                    <div className="py-4 text-center text-gray-500 text-[9px] font-mono border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/40 rounded bg-black/20">
+                      🔕 No alarms currently scheduled.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto pr-0.5 no-scrollbar">
+                    {agendaItems.map((item, index) => {
+                      const dateObj = new Date(item.dueDate);
+                      const isExpired = item.dueDate < Date.now();
+                      return (
+                        <div 
+                          key={index}
+                          className={`p-2 bg-[#1A1A1A] border rounded flex justify-between items-center gap-1.5 transition-colors ${
+                            isExpired 
+                              ? 'border-gray-800 opacity-60' 
+                              : item.type === 'primary' 
+                                ? 'border-red-900/40 hover:border-red-900/80 bg-red-950/5' 
+                                : 'border-amber-900/40 hover:border-amber-900/80 bg-amber-950/5'
+                          }`}
+                        >
+                          {/* Left contents */}
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-[10px] text-white font-bold truncate tracking-tight">
+                              {item.title}
+                            </span>
+                            <span className="text-[8px] font-mono text-gray-400">
+                              🗓️ {dateObj.toLocaleDateString()} at {dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {isExpired && <span className="text-red-500 font-bold uppercase ml-1.5">[Expired]</span>}
+                            </span>
+                          </div>
+
+                          {/* Action triggers */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {item.type === 'primary' ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await triggerHaptic();
+                                  // Clear main card due date
+                                  setSelectedCardForEdit({ ...selectedCardForEdit, dueDate: null });
+                                  showToast("🗑️ Main Card alert cleared!");
+                                }}
+                                className="w-5 h-5 rounded bg-black hover:bg-red-950 hover:text-red-400 border border-gray-800 hover:border-red-900/50 flex items-center justify-center font-bold text-[9px] transition-all cursor-pointer"
+                                title="Clear Main Card Alarm"
+                              >
+                                🗑️
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    // Open subtask editor directly on top
+                                    setSubTaskModalItem(item.originalItem!);
+                                  }}
+                                  className="px-1.5 py-0.5 rounded bg-black hover:bg-amber-950 hover:text-amber-400 border border-gray-800 hover:border-amber-900/50 text-[8px] font-bold uppercase transition-all cursor-pointer"
+                                  title="Edit Sub-Task Alarm"
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await triggerHaptic();
+                                    // Cancel notification
+                                    await cancelChecklistItemAlarm(item.originalItem!);
+                                    // Clear due date
+                                    const updatedItem = { ...item.originalItem!, dueDate: undefined };
+                                    const updatedItems = selectedCardForEdit.checklists?.[0]?.items?.map(it => 
+                                      it.id === item.originalItem!.id ? updatedItem : it
+                                    ) || [];
+                                    setSelectedCardForEdit({
+                                      ...selectedCardForEdit,
+                                      checklists: selectedCardForEdit.checklists?.map((cl, i) => 
+                                        i === 0 ? { ...cl, items: updatedItems } : cl
+                                      )
+                                    });
+                                    showToast("🗑️ Sub-task alarm cleared!");
+                                  }}
+                                  className="w-5 h-5 rounded bg-black hover:bg-red-950 hover:text-red-400 border border-gray-800 hover:border-red-900/50 flex items-center justify-center font-bold text-[9px] transition-all cursor-pointer"
+                                  title="Clear Sub-Task Alarm"
+                                >
+                                  🗑️
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Modal Footer */}
@@ -5195,16 +6801,16 @@ export default function App() {
                   <button
                     onClick={async () => {
                       await triggerHaptic();
-                      setCalendarFilterType('triage');
+                      setCalendarFilterType('mtrax');
                       setSelectedCalendarItemIds([]);
                     }}
                     className={`px-2 py-1 rounded text-[9px] uppercase font-bold transition-all border ${
-                      calendarFilterType === 'triage'
+                      calendarFilterType === 'mtrax'
                         ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
                         : 'bg-black/30 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white hover:border-gray-500'
                     }`}
                   >
-                    Triage Only
+                    MTRAx Only
                   </button>
                   <button
                     onClick={async () => {
@@ -5295,7 +6901,7 @@ export default function App() {
                       }));
                   } else {
                     filtered = calendarEvents.filter((evt) => {
-                      if (calendarFilterType === 'triage') {
+                      if (calendarFilterType === 'mtrax') {
                         return evt.title && evt.title.includes('📌 [MTRAx lite]');
                       }
                       return true;
@@ -6239,13 +7845,23 @@ export default function App() {
                   📄 <strong className="text-white font-mono">CARD INTERACTION:</strong> Tap any card's frame to open Card Details (to edit checklist bullets, set alarms, or attach documents). Tap the <strong className="text-[var(--color-accent,#DF5504)]">+</strong> icon in the header bar to create a card in the current column.
                 </p>
                 <p>
-                  🔄 <strong className="text-white font-mono">MOVING CARDS:</strong> Tap the orange <strong className="text-[var(--color-accent,#DF5504)]">MOVE ▾</strong> button in the bottom-right of any card to shift columns. On desktop, click and drag cards directly to any list column.
+                  🔄 <strong className="text-white font-mono">MOVING CARDS:</strong> Tap any card to open Card Details and change its column list location, or use click-and-drag directly on desktop browsers.
                 </p>
                 <p>
                   ⏱️ <strong className="text-white font-mono">TIMERS & INDICATORS:</strong> Spent Timer displays total time spent on this card, updated by active focused study sessions. Task Progress shows percentage progress and next sub-checklist items.
                 </p>
                 <p>
                   🕹️ <strong className="text-white font-mono">GLOBAL TOOLS:</strong> Launch quick tools such as Calendar (agenda timetables), Verbal Journals (audio diaries), Receipts (business claims), and Pomodoro (study timers) directly from the left sidebar drawer.
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-950/20 border border-amber-800/40 rounded flex flex-col gap-1.5 text-amber-200">
+                <p className="font-extrabold text-amber-400 font-mono text-[10px] uppercase tracking-wide">📦 ARCHIVING VS. 🗑️ DELETION LIFECYCLE</p>
+                <p className="leading-relaxed">
+                  • <strong className="text-white font-mono">ARCHIVING CARDS:</strong> Hides cards from active Kanban views but preserves them completely on-device. All checklists, files, categories, and notifications remain active and restorable anytime within the **Archive Studio**.
+                </p>
+                <p className="leading-relaxed">
+                  • <strong className="text-white font-mono">DELETING CARDS:</strong> Permanently purges the card. Large documents/images (Base64) are erased from disk immediately to save space. Scheduled OS checklist alarms are cancelled, while independent **Verbal Diaries** & **Receipts** logs are preserved for tax/records history with their card links safely reverted to unassigned.
                 </p>
               </div>
             </div>
@@ -6850,6 +8466,257 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 📦 BOARD ARCHIVE & RECALL STUDIO OVERLAY */}
+      {isArchiveStudioOpen && (() => {
+        const filteredCards = cards.filter(c => {
+          const query = archiveSearchQuery.trim().toLowerCase();
+          const matchesSearch = c.title.toLowerCase().includes(query) || (c.description || '').toLowerCase().includes(query);
+          
+          if (!matchesSearch) return false;
+          if (archiveFilterTab === 'active') return !c.isArchived && c.listId !== 'done';
+          if (archiveFilterTab === 'completed') return c.listId === 'done' && !c.isArchived;
+          if (archiveFilterTab === 'archived') return !!c.isArchived;
+          return true; // 'all'
+        });
+
+        return (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[190] flex items-center justify-center p-4 animate-fadeIn">
+            <div className="w-full max-w-2xl bg-[var(--color-dark-secondary,#333333)] border-2 border-[var(--color-accent,#DF5504)] p-6 rounded-lg shadow-[12px_12px_0px_0px_#000] font-mono text-xs flex flex-col gap-4 max-h-[85vh]">
+              {/* Header */}
+              <div className="flex justify-between items-center border-b-2 border-[var(--color-dark-tertiary,#3D3D3D)] pb-4 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">📦</span>
+                  <div className="flex flex-col">
+                    <span className="font-black text-sm text-[var(--color-accent,#DF5504)] uppercase tracking-wider">
+                      ARCHIVE & RECALL STUDIO
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      Query, manage, and recall completed or archived items
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsArchiveStudioHelpOpen(!isArchiveStudioHelpOpen);
+                    }}
+                    className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs transition-all cursor-pointer ${
+                      isArchiveStudioHelpOpen
+                        ? 'bg-[var(--color-accent,#DF5504)] border-[var(--color-accent,#DF5504)] text-white'
+                        : 'bg-black/40 border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white'
+                    }`}
+                    title="Archive Studio Runbook Guide"
+                  >
+                    ❓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await triggerHaptic();
+                      setIsArchiveStudioOpen(false);
+                      setIsArchiveStudioHelpOpen(false);
+                      setArchiveSearchQuery('');
+                    }}
+                    className="w-8 h-8 rounded-full bg-black/40 border border-[var(--color-dark-tertiary,#3D3D3D)] hover:border-white text-white flex items-center justify-center text-sm font-black transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Interactive Archive Help Panel */}
+              {isArchiveStudioHelpOpen && (
+                <div className="mt-1 p-3.5 bg-blue-950/70 border border-blue-800/50 text-blue-300 rounded flex flex-col gap-2.5 text-[10px] leading-relaxed animate-fadeIn text-left flex-shrink-0">
+                  <div className="font-bold text-[10px] uppercase text-blue-400 border-b border-blue-900/30 pb-1 flex justify-between items-center font-mono w-full">
+                    <span>🗳️ Archive & Recall Studio Guide</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsArchiveStudioHelpOpen(false)}
+                      className="text-[9px] hover:text-white cursor-pointer uppercase font-black"
+                    >
+                      Hide ×
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[9px]">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-black text-blue-200">📦 ARCHIVE / RESTORE</span>
+                      <span>Hides active cards from primary Kanban boards while fully preserving study stats, logs, and checklists. Tap <b>Restore</b> to return to view.</span>
+                    </div>
+                    <div className="flex flex-col gap-1 border-t sm:border-t-0 sm:border-l border-blue-900/30 pt-2 sm:pt-0 sm:pl-3">
+                      <span className="font-black text-blue-200">↩️ RECALL TO BOARD</span>
+                      <span>Quickly moves any completed or archived task card back into the <b>To Do</b> column, clearing its completion date for immediate re-use.</span>
+                    </div>
+                    <div className="flex flex-col gap-1 border-t sm:border-t-0 sm:border-l border-blue-900/30 pt-2 sm:pt-0 sm:pl-3">
+                      <span className="font-black text-blue-200">🗑️ PERMANENT DELETE</span>
+                      <span>Completely clears the card from device storage. This is irreversible and resets associated study focus history. Requires confirmation.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Search & Filter Controls */}
+              <div className="flex flex-col gap-3 flex-shrink-0">
+                <input
+                  type="text"
+                  placeholder="🔎 Search card titles or summaries..."
+                  value={archiveSearchQuery}
+                  onChange={(e) => setArchiveSearchQuery(e.target.value)}
+                  className="w-full bg-black/55 border border-[var(--color-dark-tertiary,#3D3D3D)] text-white p-3 rounded text-xs font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] placeholder-gray-500"
+                />
+
+                {/* Filter Chips */}
+                <div className="flex gap-2 flex-wrap">
+                  {(['all', 'active', 'completed', 'archived'] as const).map(tab => {
+                    const count = cards.filter(c => {
+                      if (tab === 'active') return !c.isArchived && c.listId !== 'done';
+                      if (tab === 'completed') return c.listId === 'done' && !c.isArchived;
+                      if (tab === 'archived') return !!c.isArchived;
+                      return true;
+                    }).length;
+
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setArchiveFilterTab(tab);
+                        }}
+                        className={`px-3 py-1.5 rounded font-bold uppercase text-[9px] border transition-colors cursor-pointer ${
+                          archiveFilterTab === tab
+                            ? 'bg-[var(--color-accent,#DF5504)] border-transparent text-white'
+                            : 'bg-black/35 border-[var(--color-dark-tertiary,#3D3D3D)] text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {tab === 'all' && `🌐 All (${count})`}
+                        {tab === 'active' && `⚡ Active (${count})`}
+                        {tab === 'completed' && `✅ Completed (${count})`}
+                        {tab === 'archived' && `📦 Archived (${count})`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Scrollable List Area */}
+              <div className="flex-grow overflow-y-auto no-scrollbar flex flex-col gap-2 pr-1 py-1">
+                {filteredCards.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500 gap-2 border border-dashed border-[var(--color-dark-tertiary,#3D3D3D)]/60 rounded-md bg-black/10">
+                    <span className="text-3xl">🗳️</span>
+                    <span className="font-bold uppercase tracking-wider text-[10px]">No cards found</span>
+                    <span className="text-[9px] text-gray-600 max-w-[280px]">
+                      Try resetting filters or searching with a different keyword.
+                    </span>
+                  </div>
+                ) : (
+                  filteredCards.map(card => {
+                    const checklist = card.checklists?.[0];
+                    const completedTasks = checklist?.items.filter(i => i.isChecked).length || 0;
+                    const totalTasks = checklist?.items.length || 0;
+                    const listObj = lists.find(l => l.id === card.listId);
+
+                    return (
+                      <div 
+                        key={card.id}
+                        onClick={async () => {
+                          await triggerHaptic();
+                          setSelectedCardForEdit(card);
+                        }}
+                        className="p-2.5 bg-black/40 border border-[#3D3D3D] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[var(--color-accent,#DF5504)] hover:bg-black/55 transition-all cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 max-w-[65%] truncate">
+                          <span className="font-bold text-xs text-white truncate">{card.title}</span>
+                          {totalTasks > 0 && (
+                            <span className="text-[10px] text-[var(--color-accent,#DF5504)] font-mono font-bold flex-shrink-0">
+                              ({Math.round((completedTasks/totalTasks)*100)}%)
+                            </span>
+                          )}
+                          
+                          {/* Badges */}
+                          <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border border-white/5 flex-shrink-0 ${
+                            card.listId === 'done' 
+                              ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/30' 
+                              : 'bg-blue-950/40 text-blue-400 border-blue-900/30'
+                          }`}>
+                            {listObj?.name || card.listId}
+                          </span>
+
+                          {card.isArchived && (
+                            <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded border border-amber-900/30 bg-amber-950/40 text-amber-400 flex-shrink-0 animate-pulse">
+                              ARCHIVED
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Quick action buttons row */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {/* Recall Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRecallCard(card.id);
+                            }}
+                            className="px-2 py-1 bg-blue-950/30 border border-blue-900/40 hover:bg-blue-900/60 text-blue-300 font-bold text-[8px] uppercase rounded transition-colors cursor-pointer"
+                            title="Recall and send card back to 'To Do' column"
+                          >
+                            ↩️ Recall
+                          </button>
+
+                          {/* Archive/Restore Toggle */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchiveCard(card.id, !card.isArchived);
+                            }}
+                            className="px-2 py-1 bg-amber-950/30 border border-amber-900/40 hover:bg-amber-900/60 text-amber-300 font-bold text-[8px] uppercase rounded transition-colors cursor-pointer"
+                            title={card.isArchived ? "Restore to active Kanban boards" : "Archive and hide from active Kanban boards"}
+                          >
+                            {card.isArchived ? "📥 Restore" : "📦 Archive"}
+                          </button>
+
+                          {/* Complete Delete button */}
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await handleDeleteCard(card.id);
+                            }}
+                            className="w-5 h-5 bg-red-950/30 border border-red-900/40 hover:bg-red-900/60 text-red-300 font-bold text-[8px] uppercase rounded flex items-center justify-center transition-colors cursor-pointer"
+                            title="Delete card permanently from storage"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end pt-3 border-t border-[var(--color-dark-tertiary,#3D3D3D)]/50 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await triggerHaptic();
+                    setIsArchiveStudioOpen(false);
+                    setArchiveSearchQuery('');
+                  }}
+                  className="px-4 py-2 border border-[var(--color-dark-tertiary,#3D3D3D)] bg-[var(--color-dark-bg,#282828)] hover:bg-[var(--color-dark-tertiary)] text-white hover:border-white font-bold rounded transition-colors text-xs uppercase cursor-pointer"
+                >
+                  Close Studio
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Elegant Brutalist Bottom-Floating Toast Notification */}
       {toastMessage && (

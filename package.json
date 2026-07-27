@@ -15,6 +15,7 @@
   "dependencies": {
     "@capacitor-community/image-to-text": "^8.0.0",
     "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor/app": "^6.0.3",
     "@capacitor/camera": "^8.2.1",
     "@capacitor/core": "^6.0.0",
     "@capacitor/filesystem": "^8.1.2",

@@ -2,8 +2,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: "com.mdex.triagelite",
-  appName: "MTRAx lt",
+  appId: "com.mdex.mtraxlite",
+  appName: "MTRAx lite",
   webDir: 'dist',
   server: {
     androidScheme: 'https'
