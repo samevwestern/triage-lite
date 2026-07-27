@@ -434,13 +434,7 @@ export default function App() {
   }, []);
 
   // Application State
-  const [currentLanguage, setCurrentLanguage] = useState<'en' | 'es' | 'fr' | 'de'>(() => {
-    return (localStorage.getItem('mtrax_language') as 'en' | 'es' | 'fr' | 'de') || 'en';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('mtrax_language', currentLanguage);
-  }, [currentLanguage]);
+  const currentLanguage = 'en' as const;
 
   const translations = {
     en: {
@@ -896,7 +890,7 @@ export default function App() {
   };
   
   // Phase 2: Standalone Paid App Architecture (Remove Guest Walls)
-  const [isConnected, setIsConnected] = useState(false);
+  const isConnected = false;
 
   // Monetization Guard State
   const [hasValidReceipt, setHasValidReceipt] = useState<boolean | null>(null);
@@ -1803,23 +1797,7 @@ export default function App() {
               </div>
               <span className="text-gray-500 group-hover:text-white text-xs pl-1 font-sans">❯</span>
             </button>
-            {/* Language Selector bento box */}
-            <div className="w-full p-2.5 bento-box bg-black/40 flex flex-col gap-2 font-mono">
-              <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">🌐 App Language</span>
-              <select
-                value={currentLanguage}
-                onChange={async (e) => {
-                  await triggerHaptic();
-                  setCurrentLanguage(e.target.value as any);
-                }}
-                className="w-full bg-black/60 border border-[var(--color-dark-tertiary,#3D3D3D)] rounded text-[11px] text-white py-1.5 px-2 font-mono focus:outline-none focus:border-[var(--color-accent,#DF5504)] transition-colors cursor-pointer"
-              >
-                <option value="en" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇺🇸 English (EN)</option>
-                <option value="es" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇪🇸 Español (ES)</option>
-                <option value="fr" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇫🇷 Français (FR)</option>
-                <option value="de" style={{ backgroundColor: '#282828', color: '#FFFFFF' }}>🇩🇪 Deutsch (DE)</option>
-              </select>
-            </div>
+
           </div>
 
           {/* Section 2: Interactive Quick Tools */}
@@ -2933,43 +2911,17 @@ export default function App() {
 
             <div>
               <h4 className="font-bold text-white uppercase text-xs mb-2 flex items-center gap-1.5 border-b border-[var(--color-dark-tertiary,#3D3D3D)] pb-2">
-                {isConnected ? '☁️ MTRAx Enterprise SQL Sync' : '🍏 Apple iCloud Backup & Sync'}
+                🍏 Apple iCloud Backup & Sync
               </h4>
-              {isConnected ? (
-                <div className="space-y-3 mt-3">
-                  <p className="text-gray-400 text-[10px] leading-relaxed">
-                    Connected to <strong className="text-white">MTRAx MySQL Database</strong>. You are viewing a simplified, action-focused board reference.
-                  </p>
-                  <div className="p-2 bg-green-950/30 border border-green-500/30 text-green-400 text-[9px] font-bold shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]">
-                    ✓ REAL-TIME ENTERPRISE SYNC ACTIVE
-                  </div>
+              <div className="space-y-3 mt-3">
+                <p className="text-gray-400 text-[10px] leading-relaxed">
+                  Your standalone boards, checklists, and focus habits are automatically backed up and synchronized across your Apple devices using <strong className="text-white">iCloud</strong>.
+                </p>
+                <div className="p-2 bg-blue-950/30 border border-blue-500/30 text-blue-400 text-[9px] font-bold shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]">
+                  ✓ APPLE CLOUD SYNC ACTIVE
                 </div>
-              ) : (
-                <div className="space-y-3 mt-3">
-                  <p className="text-gray-400 text-[10px] leading-relaxed">
-                    Your standalone boards, checklists, and focus habits are automatically backed up and synchronized across your Apple devices using <strong className="text-white">iCloud</strong>.
-                  </p>
-                  <div className="p-2 bg-blue-950/30 border border-blue-500/30 text-blue-400 text-[9px] font-bold shadow-[2px_2px_0px_0px_var(--color-shadow,#BCBCBC)]">
-                    ✓ APPLE CLOUD SYNC ACTIVE
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
-
-            <button 
-              onClick={async () => { 
-                await triggerHaptic(); 
-                if (isConnected) {
-                  setIsConnected(false);
-                } else {
-                  const connect = window.confirm('Link MTRAx Enterprise Account? (Mock action)');
-                  if (connect) setIsConnected(true);
-                }
-              }}
-              className={`w-full py-2.5 mt-2 rounded border border-[var(--color-dark-tertiary,#3D3D3D)] ${isConnected ? 'bg-[var(--color-dark-bg,#282828)] text-green-400 border-green-500/30' : 'bento-btn text-white'} text-[10px] font-bold uppercase tracking-wider transition-all`}
-            >
-              {isConnected ? '✓ Linked MTRAx Account' : 'Link MTRAx Account'}
-            </button>
           </div>
         </div>
       )}
